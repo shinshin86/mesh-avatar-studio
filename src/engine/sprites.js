@@ -131,7 +131,9 @@ export function createSpriteModule(engine, rig) {
           const st = eyeState[i];
           const want = eyeSprite(open, smile) ?? 'open';
           if (want !== st.cur) { st.prev = st.cur; st.cur = want; st.t = 0; }
-          st.t = Math.min(1, st.t + dt / EYE_FADE_SEC);
+          // A redraw without elapsed time (a paused preview moving a slider) shows the target
+          // frame at once; otherwise the fade would stay at its first frame.
+          st.t = dt > 0 ? Math.min(1, st.t + dt / EYE_FADE_SEC) : 1;
           const k = sstep(0, 1, st.t);
           const show = (name, alpha) => {
             if (name === 'open' || alpha <= 0.001) return;
