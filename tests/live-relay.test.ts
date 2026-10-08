@@ -27,8 +27,8 @@ test('stream isolates projects and smoothly returns to idle after one second wit
 test('server rebroadcasts validated numbers at most 60 times per second per socket', () => {
   const handlers = new Map<string, (data: unknown, client: WebSocketClient) => void>();
   const send = vi.fn();
-  const server = { ws: { on: (event: string, handler: (data: unknown, client: WebSocketClient) => void) => handlers.set(event, handler), send } } as unknown as ViteDevServer;
-  const plugin = liveRelay();
+  const server = { middlewares: { use: vi.fn() }, ws: { on: (event: string, handler: (data: unknown, client: WebSocketClient) => void) => handlers.set(event, handler), send } } as unknown as ViteDevServer;
+  const plugin = liveRelay('/unused');
   if (typeof plugin.configureServer !== 'function') throw new Error('Missing configureServer');
   plugin.configureServer.call({} as never, server);
   const receive = handlers.get(LIVE_EVENT)!, socket = {} as WebSocketClient['socket'];

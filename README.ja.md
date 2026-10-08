@@ -84,7 +84,7 @@ npm run dev
 
 ![緑の背景にした配信用の画面](docs/images/ja/08-stream.png)
 
-「表情」のボタンか、キー1〜8で、笑顔、驚き、ウインクなどに切り替えられます。切り替えている間も、まばたきや口の動きはカメラとマイクに合わせて動きます([詳しく](docs/reference.md#expressions)、英語)。
+「表情」のボタンか、キー1〜8で、笑顔、驚き、ウインクなどに切り替えられます。切り替えている間も、まばたきや口の動きはカメラとマイクに合わせて動きます。macOS の「ショートカット」アプリや Stream Deck のボタンを使えば、他のアプリを操作中でも切り替えられます([設定方法](docs/reference.md#switching-expressions-from-other-apps)、英語)。
 
 配信用画面の URL で指定できる項目、うまく動かないときの確認点、プライバシーについては[リファレンス](docs/reference.md#live-and-streaming)(英語)にまとめています。
 

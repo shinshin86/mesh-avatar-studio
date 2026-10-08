@@ -9,7 +9,8 @@ import { FacePose, type TrackingOptions } from './tracking';
 import { CameraCapture, MicrophoneCapture, type CameraState, type MicState, type BackgroundTracking } from './media';
 import { liveText } from './i18n';
 import { Icon } from '../editor/Icon';
-import { createLiveSender, sendLighting } from './relay';
+import { createLiveSender, receiveExpression, sendLighting } from './relay';
+import { EXPRESSION_TOKEN_PATH } from './expression-protocol';
 
 export function LiveApp() {
   const { language, setLanguage } = useI18n(), t = liveText[language];
@@ -17,6 +18,7 @@ export function LiveApp() {
   const [lightingOpen, setLightingOpen] = useState(false);
   const [expression, setExpression] = useState<LiveExpression>('neutral');
   const expressionRef = useRef(expression); expressionRef.current = expression;
+  const [remote, setRemote] = useState<{ url: string; token: string } | null>(null), [remoteCopied, setRemoteCopied] = useState<'url' | 'token' | null>(null);
   const [options, setOptions] = useState<TrackingOptions>({ mirror: true, sensitivity: 1, smoothing: 0.35 });
   const [cameraState, setCameraState] = useState<CameraState>('stopped');
   const [micState, setMicState] = useState<MicState>('micOff');
@@ -80,6 +82,13 @@ export function LiveApp() {
   }, [settings.project]);
   const changeLighting = (lighting: typeof settings.lighting) => setSettings(current => ({ ...current, lighting }));
   useEffect(() => { avatarRef.current?.setExpression(expression); }, [expression]);
+  useEffect(() => receiveExpression(settings.project, name => name === 'neutral' ? setExpression('neutral') : toggleExpression(name)), [settings.project]);
+  const loadRemote = (method: 'GET' | 'POST') => fetch(EXPRESSION_TOKEN_PATH, { method, headers: { 'x-studio-request': '1' } })
+    .then(response => response.ok ? response.json() : null)
+    .then((data: { token?: unknown; path?: unknown } | null) => setRemote(typeof data?.token === 'string' && typeof data.path === 'string' ? { url: `${location.origin}${data.path}`, token: data.token } : null))
+    .catch(() => setRemote(null));
+  useEffect(() => { void loadRemote('GET'); }, []);
+  const copyRemote = (kind: 'url' | 'token', value: string) => { void navigator.clipboard.writeText(value).then(() => { setRemoteCopied(kind); setTimeout(() => setRemoteCopied(null), 1500); }).catch(() => undefined); };
   const toggleExpression = (name: LiveExpression) => setExpression(current => current === name ? 'neutral' : name);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -123,9 +132,6 @@ export function LiveApp() {
         <select aria-label={t.microphone} value={micId} disabled={micActive} onChange={event => setMicId(event.target.value)}><option value="">{t.defaultDevice}</option>{devices.filter(device => device.kind === 'audioinput' && device.deviceId).map((device, i) => <option key={device.deviceId} value={device.deviceId}>{device.label || `${t.microphone} ${i + 1}`}</option>)}</select>
         <label>{t.gain}<input type="range" min="0.25" max="5" step="0.05" value={gain} onChange={event => setGain(Number(event.target.value))} /></label><small role="status">{t[micState]}</small>
       </section>
-      <section><h2>{t.expression}</h2><div className="expression-buttons" role="group" aria-label={t.expression}>
-        {LIVE_EXPRESSIONS.map((name, i) => <button key={name} type="button" aria-pressed={expression === name} aria-keyshortcuts={String(i + 1)} onClick={() => toggleExpression(name)}><kbd>{i + 1}</kbd>{t[name]}</button>)}
-      </div><small>{t.expressionHint}</small></section>
       <section><h2>{t.background}</h2><select aria-label={t.background} value={settings.background} onChange={event => setSettings(current => ({ ...current, background: backgroundColor(event.target.value) }))}>
         <option value="transparent">{t.transparent}</option><option value="#00ff00">{t.green}</option><option value="#0000ff">{t.blue}</option>{!['transparent', '#00ff00', '#0000ff'].includes(settings.background) && <option value={settings.background}>{t.custom}</option>}
       </select><label>{t.custom}<input type="color" value={settings.background === 'transparent' ? '#ffffff' : settings.background} onChange={event => setSettings(current => ({ ...current, background: event.target.value }))} /></label>
@@ -134,6 +140,20 @@ export function LiveApp() {
         <a className="live-open" href={url} target="_blank" rel="noreferrer">{t.openStream}</a></div>
         {copyState && <p role="status">{t[copyState]}</p>}<input className="obs-url" aria-label={t.obs} readOnly value={url} onFocus={event => event.target.select()} /><small>{t.obsHelp}</small>
       </section>
+      <details className="live-expression" data-testid="expression-section">
+        <summary><Icon name="face" />{t.expression}{expression !== 'neutral' && <span className="expression-on">{t[expression]}</span>}</summary>
+        <div className="live-expression-body"><div className="expression-buttons" role="group" aria-label={t.expression}>
+          {LIVE_EXPRESSIONS.map((name, i) => <button key={name} type="button" aria-pressed={expression === name} aria-keyshortcuts={String(i + 1)} onClick={() => toggleExpression(name)}><kbd>{i + 1}</kbd>{t[name]}</button>)}
+        </div><small>{t.expressionHint}</small>
+        <h3>{t.remoteTitle}</h3><p className="remote-help">{t.remoteHelp}</p>
+        {remote ? <>
+          <label>{t.remoteUrl}<span className="remote-field"><input readOnly value={remote.url} onFocus={event => event.target.select()} /><button type="button" onClick={() => copyRemote('url', remote.url)}>{remoteCopied === 'url' ? t.copiedShort : t.copy}</button></span></label>
+          <label>{t.remoteToken}<span className="remote-field"><input readOnly value={remote.token} onFocus={event => event.target.select()} /><button type="button" onClick={() => copyRemote('token', remote.token)}>{remoteCopied === 'token' ? t.copiedShort : t.copy}</button></span></label>
+          <small>{t.remoteNames}</small>
+          <div className="remote-actions"><button type="button" onClick={() => { void loadRemote('POST'); }}>{t.regenerate}</button><small>{t.regenerateHelp}</small></div>
+        </> : <small>{t.remoteUnavailable}</small>}
+        <a href="https://github.com/shinshin86/mesh-avatar-studio/blob/main/docs/reference.md#switching-expressions-from-other-apps" target="_blank" rel="noreferrer">{t.remoteDocs}</a></div>
+      </details>
       <details className="live-lighting" data-testid="lighting-section" onToggle={event => setLightingOpen(event.currentTarget.open)}>
         <summary><Icon name="light" />{lightingText[language].title}{settings.lighting.enabled && <span className="lighting-on">ON</span>}</summary>
         <LightingControls value={settings.lighting} onChange={changeLighting} language={language} />

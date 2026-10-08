@@ -120,7 +120,9 @@ stopped or slowed while hidden, bring its window to the front.
 ![The stream view with a green background](docs/images/en/08-stream.png)
 
 Switch expressions such as a smile, surprise or a wink with the **Expression** buttons or
-keys **1**–**8** while tracking continues ([details](docs/reference.md#expressions)).
+keys **1**–**8** while tracking continues. Keyboard shortcuts from macOS Shortcuts or a
+Stream Deck button can switch them while another app is in front
+([details](docs/reference.md#switching-expressions-from-other-apps)).
 
 Stream view options, troubleshooting and privacy details are in the
 [reference](docs/reference.md#live-and-streaming).
