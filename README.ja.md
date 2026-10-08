@@ -84,6 +84,8 @@ npm run dev
 
 ![緑の背景にした配信用の画面](docs/images/ja/08-stream.png)
 
+カメラは使わなくてもかまいません。マイクだけをオンにすると、アバターは待機動作を続けながら、声に合わせて口を動かします。Zoom や Google Meet などの Web 会議にアバターで参加するときは、OBS の仮想カメラを使います([手順](docs/reference.md#video-calls)、英語)。
+
 配信用画面の URL で指定できる項目、うまく動かないときの確認点、プライバシーについては[リファレンス](docs/reference.md#live-and-streaming)(英語)にまとめています。
 
 ## 詳しい資料

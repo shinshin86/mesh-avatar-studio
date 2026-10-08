@@ -200,6 +200,27 @@ for software without transparency support.
 - With the microphone on, the voice level drives how far the mouth opens and the camera keeps
   the mouth shape. Drawn mouth images are used automatically when the project has them.
 
+### Without a camera
+
+The camera is optional. Turn on only the microphone and the avatar keeps its idle motion
+(blinking, gaze, breathing, hair sway) while your voice opens and closes the mouth. Without
+the camera the mouth keeps one shape and changes only how far it opens; drawn mouth images
+are still used when the project has them.
+
+### Video calls
+
+To use the avatar in Zoom, Google Meet or other video-call apps, show the stream view in OBS
+and start OBS's **Virtual Camera**:
+
+1. Add the stream URL to an OBS scene as a **Browser Source**. A transparent background turns
+   black in the virtual camera, so choose a colour or add an image source behind the avatar.
+2. Choose **Start Virtual Camera** in OBS. On macOS, approve the camera extension the first time.
+3. In the video-call app, select **OBS Virtual Camera** as the camera. Select your microphone
+   directly for audio.
+
+Keep the Live page running during the call. Many video-call apps mirror your own preview only;
+the other participants see the avatar as it appears in OBS.
+
 ### Privacy
 
 Camera video and microphone audio are processed in the browser and never leave your machine.
