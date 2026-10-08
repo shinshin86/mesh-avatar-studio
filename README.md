@@ -120,9 +120,9 @@ stopped or slowed while hidden, bring its window to the front.
 ![The stream view with a green background](docs/images/en/08-stream.png)
 
 Switch expressions such as a smile, surprise or a wink with the **Expression** buttons or
-keys **1**–**8** while tracking continues. Keyboard shortcuts from macOS Shortcuts or a
-Stream Deck button can switch them while another app is in front
-([details](docs/reference.md#switching-expressions-from-other-apps)).
+keys **1**–**8** while tracking continues. A Stream Deck button or a keyboard shortcut can
+switch them while another app such as OBS is in front; macOS Shortcuts keys do not work in
+every app ([details](docs/reference.md#switching-expressions-from-other-apps)).
 
 The camera is optional: with only the microphone on, the avatar keeps its idle motion and
 your voice moves the mouth. To appear as the avatar in Zoom, Google Meet and similar apps, use

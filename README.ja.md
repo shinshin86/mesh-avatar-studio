@@ -84,7 +84,7 @@ npm run dev
 
 ![緑の背景にした配信用の画面](docs/images/ja/08-stream.png)
 
-「表情」のボタンか、キー1〜8で、笑顔、驚き、ウインクなどに切り替えられます。切り替えている間も、まばたきや口の動きはカメラとマイクに合わせて動きます。macOS の「ショートカット」アプリや Stream Deck のボタンを使えば、他のアプリを操作中でも切り替えられます([設定方法](docs/reference.md#switching-expressions-from-other-apps)、英語)。
+「表情」のボタンか、キー1〜8で、笑顔、驚き、ウインクなどに切り替えられます。切り替えている間も、まばたきや口の動きはカメラとマイクに合わせて動きます。Stream Deck のボタンやキーボードショートカットを使えば、OBS など他のアプリを操作中でも切り替えられます。macOS の「ショートカット」アプリで割り当てたキーは、前面のアプリによっては効かないことがあります([設定方法](docs/reference.md#switching-expressions-from-other-apps)、英語)。
 
 カメラは使わなくてもかまいません。マイクだけをオンにすると、アバターは待機動作を続けながら、声に合わせて口を動かします。Zoom や Google Meet などの Web 会議にアバターで参加するときは、OBS の仮想カメラを使います([手順](docs/reference.md#video-calls)、英語)。
 

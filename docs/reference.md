@@ -217,8 +217,8 @@ under bangs show less difference between Half-lidded, Angry and Sad.
 ### Switching expressions from other apps
 
 Keyboard-shortcut apps and button panels such as Stream Deck can switch expressions while
-another app is in front. They send a request to the development server, which forwards it to
-the Live page; keep the Live page open.
+another app, such as OBS, is in front. They send a request to the development server, which
+forwards it to the Live page; keep the Live page open.
 
 Open **Expression → Switch from other apps** on the Live page to copy the request URL and the
 token. Each request is:
@@ -233,12 +233,17 @@ Sending the expression already shown returns to Neutral, so one shortcut can tog
 
 **macOS Shortcuts**
 
-1. In the Shortcuts app, create a shortcut and add the **Get Contents of URL** action.
-2. Enter the request URL, then expand the action: set **Method** to **POST**, add the header
-   `X-Studio-Token` with the token, and set **Request Body** to **JSON** with the key
-   `expression` and the text value `smile`.
-3. In the shortcut's details, choose **Add Keyboard Shortcut** and press the keys to use.
-4. Repeat for each expression you want. Run the shortcut once from the app to check it.
+1. In the Shortcuts app, open **Settings → Advanced** and turn on **Allow Running Scripts**.
+2. Create a shortcut, add the **Run Shell Script** action, and replace its text with the command
+   below (see **Command line**), using your token. Name the shortcut, for example "Avatar Smile".
+3. Run it once with the ▶ button to check that the Live page changes.
+4. In the shortcut's details, choose **Add Keyboard Shortcut** and press the keys to use.
+5. Duplicate the shortcut for each expression and change `smile` in the command.
+
+macOS runs these keyboard shortcuts through the Services menu, so they do not fire in every
+app: in testing they worked with OBS in front but not with Finder. Turning on **Use as Quick
+Action → Services Menu** in the shortcut's details may help. For keys that work in any app,
+use a hotkey tool such as Raycast or Hammerspoon to run the same command, or a Stream Deck.
 
 **Stream Deck**: use a plugin action that sends web requests in the background, set it to
 POST with the same URL, header and JSON body, and assign one button per expression. The
