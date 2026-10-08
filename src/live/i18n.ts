@@ -17,6 +17,8 @@ export const liveEn = {
   micOff: 'Microphone off', micStarting: 'Starting microphone…', micOn: 'Microphone on',
   micBlocked: 'Microphone access was blocked. Allow access in your browser and try again.', micUnavailable: 'Microphone unavailable. Check the selected device.',
   liveUnavailable: 'Open this project from the local project list before using Live.',
+  expression: 'Expression', expressionHint: 'While this page is focused, keys 1–8 switch expressions. Press the same key again to return to neutral.',
+  neutral: 'Neutral', smile: 'Smile', shy: 'Shy', surprise: 'Surprised', halfLidded: 'Half-lidded', angry: 'Angry', sad: 'Sad', wink: 'Wink',
 };
 const liveJa: typeof liveEn = {
   title: '配信', back: 'エディタに戻る', camera: 'カメラ', device: 'デバイス', defaultDevice: '既定のデバイス',
@@ -37,6 +39,8 @@ const liveJa: typeof liveEn = {
   micOff: 'マイク停止中', micStarting: 'マイクを開始中…', micOn: 'マイク使用中',
   micBlocked: 'マイクへのアクセスが拒否されました。ブラウザで許可してから、もう一度お試しください。', micUnavailable: 'マイクを使用できません。選択したデバイスを確認してください。',
   liveUnavailable: '配信するには、エディタのローカルプロジェクト一覧からこのプロジェクトを開いてください。',
+  expression: '表情', expressionHint: 'この画面を操作している間は、キー1〜8で表情を切り替えられます。同じキーをもう一度押すと通常に戻ります。',
+  neutral: '通常', smile: '笑顔', shy: '照れ', surprise: '驚き', halfLidded: 'ジト目', angry: '怒り', sad: '悲しみ', wink: 'ウインク',
 };
 const liveZh: typeof liveEn = {
   title: '直播', back: '返回编辑器', camera: '摄像头', device: '设备', defaultDevice: '默认设备',
@@ -57,5 +61,7 @@ const liveZh: typeof liveEn = {
   micOff: '麦克风已关闭', micStarting: '正在启动麦克风…', micOn: '麦克风已开启',
   micBlocked: '麦克风访问被拒绝。请在浏览器中允许访问后重试。', micUnavailable: '麦克风不可用。请检查所选设备。',
   liveUnavailable: '请先从本地项目列表打开此项目，再使用直播功能。',
+  expression: '表情', expressionHint: '在此页面操作时，可用 1–8 键切换表情。再按一次同一键恢复普通表情。',
+  neutral: '普通', smile: '微笑', shy: '害羞', surprise: '惊讶', halfLidded: '半眯眼', angry: '生气', sad: '难过', wink: '眨眼',
 };
 export const liveText = { en: liveEn, ja: liveJa, zh: liveZh };

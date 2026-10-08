@@ -200,6 +200,19 @@ for software without transparency support.
 - With the microphone on, the voice level drives how far the mouth opens and the camera keeps
   the mouth shape. Drawn mouth images are used automatically when the project has them.
 
+### Expressions
+
+The Live page's **Expression** buttons switch the face to Neutral, Smile, Shy, Surprised,
+Half-lidded, Angry, Sad or Wink. Keys **1**–**8** do the same while the Live page is focused;
+press the same key or button again to return to Neutral. Keys typed into a form field are
+ignored. Because browsers receive keys only for the focused page, a key press from another app
+reaches the Live page only when its window is in front.
+
+An expression is layered over tracking: blinking, gaze and the mouth keep following the camera
+or microphone, while the eyes, brows and blush hold the expression. Switching fades smoothly.
+An expression also reaches the stream view without the camera or microphone. Brows hidden
+under bangs show less difference between Half-lidded, Angry and Sad.
+
 ### Without a camera
 
 The camera is optional. Turn on only the microphone and the avatar keeps its idle motion

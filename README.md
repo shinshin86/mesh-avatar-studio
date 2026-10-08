@@ -119,6 +119,9 @@ stopped or slowed while hidden, bring its window to the front.
 
 ![The stream view with a green background](docs/images/en/08-stream.png)
 
+Switch expressions such as a smile, surprise or a wink with the **Expression** buttons or
+keys **1**–**8** while tracking continues ([details](docs/reference.md#expressions)).
+
 The camera is optional: with only the microphone on, the avatar keeps its idle motion and
 your voice moves the mouth. To appear as the avatar in Zoom, Google Meet and similar apps, use
 OBS's Virtual Camera ([steps](docs/reference.md#video-calls)).

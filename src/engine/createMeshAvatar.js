@@ -6,6 +6,7 @@ import { createRenderer } from './renderer.js';
 import { createPhysics } from './physics.js';
 import { createSpriteModule } from './sprites.js';
 import { Motion } from './motion.js';
+import { ExpressionOverlay } from './expression-overlay.js';
 import { MOTIONS, IDLE_MOTIONS } from './motions.js';
 
 const EYE_PARTS = ['ball', 'low', 'crease', 'lash'];   // back to front
@@ -140,6 +141,7 @@ export async function createMeshAvatarImpl(canvas, options) {
   motion.onMotion = id => { for (const fn of listeners) fn(id); };
 
   let parameters = {}, parameterWeight = 1, lastParameters = {};
+  const expression = new ExpressionOverlay();
   const tmp = [0, 0];
   function updateParameters(dt) {
     const P = { ...motion.update(dt) };
@@ -149,8 +151,10 @@ export async function createMeshAvatarImpl(canvas, options) {
       P.mouthOpen = motion.P.mouthOpen;
       if (!options.preserveMouthForm || parameters.mouthForm === undefined) P.mouthForm = motion.P.mouthForm;
     }
-    lastParameters = P;
-    return P;
+    // Live expressions sit above tracking and lip sync; neutral leaves the parameters untouched.
+    const out = expression.apply(P, dt);
+    lastParameters = out;
+    return out;
   }
   function tick(dt) {
     const P = updateParameters(dt);
@@ -223,6 +227,9 @@ export async function createMeshAvatarImpl(canvas, options) {
     setSpeaking(on) { motion.setSpeaking(on); },
     /** AITuber OnAir emotion tag: happy / sad / angry / surprised / relaxed / neutral (or null). */
     setEmotion(tag, opts) { motion.setEmotion(tag, opts); },
+    /** Live expression layered over tracking (see OVERLAY_EXPRESSIONS); 'neutral' clears it. */
+    setExpression(name) { expression.set(name); },
+    getExpression() { return { name: expression.name, active: expression.active }; },
     /** How much the head moves with the voice while speaking (1 = default, calmer below). */
     setTalkGain(g) { motion.talkGain = Math.max(0, Number(g) || 0); },
     /** Play a motion or idle motion by id (see `motions`). */
