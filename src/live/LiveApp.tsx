@@ -9,13 +9,14 @@ import { FacePose, type TrackingOptions } from './tracking';
 import { CameraCapture, MicrophoneCapture, type CameraState, type MicState, type BackgroundTracking } from './media';
 import { liveText } from './i18n';
 import { Icon } from '../editor/Icon';
-import { createLiveSender, receiveExpression, sendLighting } from './relay';
+import { createLiveSender, receiveExpression, sendLighting, watchDuplicateLivePages } from './relay';
 import { EXPRESSION_TOKEN_PATH } from './expression-protocol';
 
 export function LiveApp() {
   const { language, setLanguage } = useI18n(), t = liveText[language];
   const [settings, setSettings] = useState(() => { const view = viewSettings(location.search); return { ...view, lighting: view.lighting ?? loadLighting(view.project) }; });
   const [lightingOpen, setLightingOpen] = useState(false);
+  const [duplicatePage, setDuplicatePage] = useState(false);
   const [expression, setExpression] = useState<LiveExpression>('neutral');
   const expressionRef = useRef(expression); expressionRef.current = expression;
   const [remote, setRemote] = useState<{ url: string; token: string } | null>(null), [remoteCopied, setRemoteCopied] = useState<'url' | 'token' | null>(null);
@@ -82,6 +83,7 @@ export function LiveApp() {
   }, [settings.project]);
   const changeLighting = (lighting: typeof settings.lighting) => setSettings(current => ({ ...current, lighting }));
   useEffect(() => { avatarRef.current?.setExpression(expression); }, [expression]);
+  useEffect(() => watchDuplicateLivePages(settings.project, setDuplicatePage), [settings.project]);
   useEffect(() => receiveExpression(settings.project, name => name === 'neutral' ? setExpression('neutral') : toggleExpression(name)), [settings.project]);
   const loadRemote = (method: 'GET' | 'POST') => fetch(EXPRESSION_TOKEN_PATH, { method, headers: { 'x-studio-request': '1' } })
     .then(response => response.ok ? response.json() : null)
@@ -114,6 +116,7 @@ export function LiveApp() {
       {lightingOpen && <LightHandle value={settings.lighting} onChange={changeLighting} language={language} />}
     </div><p role="status" className={viewState === 'projectError' ? 'live-error' : ''}>{t[viewState]} · {settings.project}</p></section>
     <aside className="live-controls">
+      {duplicatePage && <p role="alert" className="live-warning" data-testid="duplicate-live-page">{t.duplicatePage}</p>}
       <section><h2>{t.camera}</h2><label>{t.device}<select aria-label={t.camera} value={cameraId} disabled={cameraActive} onChange={event => setCameraId(event.target.value)}><option value="">{t.defaultDevice}</option>{devices.filter(device => device.kind === 'videoinput' && device.deviceId).map((device, i) => <option key={device.deviceId} value={device.deviceId}>{device.label || `${t.camera} ${i + 1}`}</option>)}</select></label>
         <div className="live-buttons"><button className="live-primary" disabled={!cameraActive && viewState !== 'ready'} onClick={() => {
           setCalibrated(false); pose.current.reset();

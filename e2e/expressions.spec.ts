@@ -76,3 +76,13 @@ test('other apps switch expressions with the token, and requests without it are 
   const tokenResponse = await request.get(new URL('/__live/expression-token', url).href);
   expect(tokenResponse.status()).toBe(403); expect(tokenResponse.headers()['access-control-allow-origin']).toBeUndefined();
 });
+
+test('a second Live tab for the same project shows a warning on both, and closing one clears it', async ({ context, page }) => {
+  await page.goto('/live.html'); await expect(page.locator('canvas')).toHaveAttribute('data-state', 'ready');
+  await expect(page.getByTestId('duplicate-live-page')).toHaveCount(0);
+  const second = await context.newPage(); await second.goto('/live.html'); await expect(second.locator('canvas')).toHaveAttribute('data-state', 'ready');
+  await expect(second.getByTestId('duplicate-live-page')).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId('duplicate-live-page')).toBeVisible({ timeout: 5000 });
+  await second.close();
+  await expect(page.getByTestId('duplicate-live-page')).toHaveCount(0, { timeout: 8000 });
+});

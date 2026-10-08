@@ -296,6 +296,9 @@ upgrading it.
 - **Movement is too small or jittery**: raise **Sensitivity**, or raise **Smoothing**.
   Calibrate again while facing the camera with a relaxed face.
 - **Left and right are swapped**: toggle **Mirror**.
+- **The avatar flickers or an expression keeps flipping**: the project is probably open in two
+  Live tabs; the Live page shows a warning when it is. The stream view follows one of them,
+  but switches from other apps reach both. Close the tab you are not using.
 - **The stream view stays idle**: keep the Live page open and running, and make sure both pages
   use the same `project`.
 
