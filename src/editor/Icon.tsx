@@ -11,6 +11,7 @@ const paths = {
   copy: 'M8 8h13v13H8V8Z M16 8V3H3v13h5',
   live: 'M3 7h12v10H3V7Z M15 10l6-3v10l-6-3',
   external: 'M14 4h6v6 M20 4l-9 9 M18 14v6H4V6h6',
+  face: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18Z M9 10h.01 M15 10h.01 M8.5 14.5a4 4 0 0 0 7 0',
   pose: 'M12 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z M5 9l7 1 7-1 M12 10v5 M8 21l4-6 4 6',
   mouth: 'M3 12c3-4 6-4 9-2 3-2 6-2 9 2-3 5-15 5-18 0Z M3 12h18',
   brush: 'M4 20h4L19 9l-4-4L4 16v4Z M13 7l4 4',

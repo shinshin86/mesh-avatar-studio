@@ -27,8 +27,8 @@ test('stream isolates projects and smoothly returns to idle after one second wit
 test('server rebroadcasts validated numbers at most 60 times per second per socket', () => {
   const handlers = new Map<string, (data: unknown, client: WebSocketClient) => void>();
   const send = vi.fn();
-  const server = { ws: { on: (event: string, handler: (data: unknown, client: WebSocketClient) => void) => handlers.set(event, handler), send } } as unknown as ViteDevServer;
-  const plugin = liveRelay();
+  const server = { middlewares: { use: vi.fn() }, ws: { on: (event: string, handler: (data: unknown, client: WebSocketClient) => void) => handlers.set(event, handler), send } } as unknown as ViteDevServer;
+  const plugin = liveRelay('/unused');
   if (typeof plugin.configureServer !== 'function') throw new Error('Missing configureServer');
   plugin.configureServer.call({} as never, server);
   const receive = handlers.get(LIVE_EVENT)!, socket = {} as WebSocketClient['socket'];
@@ -47,4 +47,18 @@ test('server rebroadcasts validated numbers at most 60 times per second per sock
     receive(message, { socket } as WebSocketClient);
     expect(send).toHaveBeenCalledTimes(count + 1);
   } finally { clock.mockRestore(); }
+});
+
+test('the stream follows one Live page until it goes quiet, so two open pages do not flicker', () => {
+  const pose = new LivePose('p');
+  const from = (sender: string, mouthOpen: number) => ({ project: 'p', params: { mouthOpen }, t: 1, sender });
+  expect(pose.receive(from('aaaaaaaa', 0.6), 0)).toBe(true);
+  expect(pose.receive(from('bbbbbbbb', 0), 16)).toBe(false);
+  expect(pose.sample(20, 0.016).params.mouthOpen).toBe(0.6);
+  expect(pose.receive(from('aaaaaaaa', 0.5), 33)).toBe(true);
+  // After the followed page has been silent for a second, the other page takes over.
+  expect(pose.receive(from('bbbbbbbb', 0), 1100)).toBe(true);
+  expect(pose.sample(1110, 0.016).params.mouthOpen).toBe(0);
+  for (const sender of ['UPPER123', 'short', 'x'.repeat(33), 5]) expect(liveMessage({ ...from('aaaaaaaa', 0), sender })).toBeNull();
+  expect(liveMessage({ project: 'p', params: { mouthOpen: 0 }, t: 1 })).toEqual({ project: 'p', params: { mouthOpen: 0 }, t: 1 });
 });

@@ -1,11 +1,12 @@
 import { parameterRanges } from './tracking';
 
 export const LIVE_EVENT = 'studio:live-params';
-export interface LiveMessage { project: string; params: Record<string, number>; t: number }
+export interface LiveMessage { project: string; params: Record<string, number>; t: number; sender?: string }
 export function liveMessage(input: unknown): LiveMessage | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
   const data = input as Record<string, unknown>;
-  if (Object.keys(data).some(key => !['project', 'params', 't'].includes(key)) ||
+  if (Object.keys(data).some(key => !['project', 'params', 't', 'sender'].includes(key)) ||
+      (data.sender !== undefined && (typeof data.sender !== 'string' || !/^[a-z0-9]{8,32}$/.test(data.sender))) ||
       typeof data.project !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(data.project) ||
       typeof data.t !== 'number' || !Number.isFinite(data.t) || data.t < 0 ||
       !data.params || typeof data.params !== 'object' || Array.isArray(data.params)) return null;
@@ -17,7 +18,7 @@ export function liveMessage(input: unknown): LiveMessage | null {
     if (!range || typeof value !== 'number' || !Number.isFinite(value)) return null;
     params[key] = Math.max(range[0], Math.min(range[1], value));
   }
-  return { project: data.project, params, t: data.t };
+  return { project: data.project, params, t: data.t, ...(typeof data.sender === 'string' ? { sender: data.sender } : {}) };
 }
 
 export class LivePose {
@@ -25,10 +26,14 @@ export class LivePose {
   private params: Record<string, number> = {};
   private weight = 0;
   constructor(private project: string) {}
+  private sender: string | undefined;
   receive(input: unknown, now: number) {
     const message = liveMessage(input);
     if (!message || message.project !== this.project) return false;
-    this.params = message.params; this.received = now; return true;
+    // With two Live pages open for one project, follow one of them until it goes quiet;
+    // alternating between their poses makes the avatar flicker.
+    if (message.sender !== this.sender && now - this.received <= 1000) return false;
+    this.sender = message.sender; this.params = message.params; this.received = now; return true;
   }
   sample(now: number, dt: number) {
     // Sender timestamps come from another browser clock. Use local receipt time.

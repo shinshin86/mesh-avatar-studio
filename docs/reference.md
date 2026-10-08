@@ -202,16 +202,65 @@ for software without transparency support.
 
 ### Expressions
 
-The Live page's **Expression** buttons switch the face to Neutral, Smile, Shy, Surprised,
-Half-lidded, Angry, Sad or Wink. Keys **1**–**8** do the same while the Live page is focused;
-press the same key or button again to return to Neutral. Keys typed into a form field are
-ignored. Because browsers receive keys only for the focused page, a key press from another app
-reaches the Live page only when its window is in front.
+The collapsed **Expression** section on the Live page switches the face to Neutral, Smile, Shy, Surprised,
+Half-lidded, Angry, Sad or Wink. Keys **1**–**8** do the same while the Live page is focused,
+even with the section closed; press the same key or button again to return to Neutral. Keys
+typed into a form field are ignored. The section title shows the current expression. Browsers
+receive keys only for the focused page; to switch while another app is in front, use
+[other apps](#switching-expressions-from-other-apps).
 
 An expression is layered over tracking: blinking, gaze and the mouth keep following the camera
 or microphone, while the eyes, brows and blush hold the expression. Switching fades smoothly.
 An expression also reaches the stream view without the camera or microphone. Brows hidden
 under bangs show less difference between Half-lidded, Angry and Sad.
+
+### Switching expressions from other apps
+
+Keyboard-shortcut apps and button panels such as Stream Deck can switch expressions while
+another app, such as OBS, is in front. They send a request to the development server, which
+forwards it to the Live page; keep the Live page open.
+
+Open **Expression → Switch from other apps** on the Live page to copy the request URL and the
+token. Each request is:
+
+- `POST` to the request URL, for example `http://127.0.0.1:5173/__live/expression`
+- the header `X-Studio-Token: <token>` (or `Authorization: Bearer <token>`)
+- a JSON body such as `{"expression": "smile"}`. Names: `neutral`, `smile`, `shy`, `surprise`,
+  `halfLidded`, `angry`, `sad`, `wink`. Add `"project": "<name>"` to reach only the Live page
+  for that project.
+
+Sending the expression already shown returns to Neutral, so one shortcut can toggle it.
+
+**macOS Shortcuts**
+
+1. In the Shortcuts app, open **Settings → Advanced** and turn on **Allow Running Scripts**.
+2. Create a shortcut, add the **Run Shell Script** action, and replace its text with the command
+   below (see **Command line**), using your token. Name the shortcut, for example "Avatar Smile".
+3. Run it once with the ▶ button to check that the Live page changes.
+4. In the shortcut's details, choose **Add Keyboard Shortcut** and press the keys to use.
+5. Duplicate the shortcut for each expression and change `smile` in the command.
+
+macOS runs these keyboard shortcuts through the Services menu, so they do not fire in every
+app: in testing they worked with OBS in front but not with Finder. Turning on **Use as Quick
+Action → Services Menu** in the shortcut's details may help. For keys that work in any app,
+use a hotkey tool such as Raycast or Hammerspoon to run the same command, or a Stream Deck.
+
+**Stream Deck**: use a plugin action that sends web requests in the background, set it to
+POST with the same URL, header and JSON body, and assign one button per expression. The
+built-in **Website** action opens a browser tab instead, so it does not work for this.
+
+**Command line** (also usable from AutoHotkey or other tools):
+
+```sh
+curl -X POST http://127.0.0.1:5173/__live/expression \
+  -H "X-Studio-Token: <token>" -H "Content-Type: application/json" \
+  -d '{"expression": "smile"}'
+```
+
+The token is stored in `projects/.expression-token`, which is excluded from version control.
+**Regenerate token** replaces it; shortcuts that use the old token then receive `401`. Only
+apps on this machine can reach the server. Websites open in the browser can neither read the
+token nor send the token header.
 
 ### Without a camera
 
@@ -252,6 +301,9 @@ upgrading it.
 - **Movement is too small or jittery**: raise **Sensitivity**, or raise **Smoothing**.
   Calibrate again while facing the camera with a relaxed face.
 - **Left and right are swapped**: toggle **Mirror**.
+- **The avatar flickers or an expression keeps flipping**: the project is probably open in two
+  Live tabs; the Live page shows a warning when it is. The stream view follows one of them,
+  but switches from other apps reach both. Close the tab you are not using.
 - **The stream view stays idle**: keep the Live page open and running, and make sure both pages
   use the same `project`.
 

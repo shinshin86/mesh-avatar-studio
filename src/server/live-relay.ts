@@ -1,11 +1,15 @@
 import { LIGHTING_EVENT, lightingMessage } from '../lighting/protocol';
 import type { Plugin, WebSocketClient } from 'vite';
 import { LIVE_EVENT, liveMessage } from '../live/protocol';
+import { resolve } from 'node:path';
+import { EXPRESSION_EVENT } from '../live/expression-protocol';
+import { expressionRemote } from './expression-remote';
 
-export function liveRelay(): Plugin {
+export function liveRelay(root: string): Plugin {
   return {
     name: 'local-live-relay',
     configureServer(server) {
+      server.middlewares.use(expressionRemote(resolve(root, 'projects', '.expression-token'), message => server.ws.send(EXPRESSION_EVENT, message)));
       const lastLighting = new WeakMap<WebSocketClient['socket'], number>();
       server.ws.on(LIGHTING_EVENT, (data, client) => {
         const message = lightingMessage(data), now = performance.now();

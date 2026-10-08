@@ -19,6 +19,11 @@ export const liveEn = {
   liveUnavailable: 'Open this project from the local project list before using Live.',
   expression: 'Expression', expressionHint: 'While this page is focused, keys 1–8 switch expressions. Press the same key again to return to neutral.',
   neutral: 'Neutral', smile: 'Smile', shy: 'Shy', surprise: 'Surprised', halfLidded: 'Half-lidded', angry: 'Angry', sad: 'Sad', wink: 'Wink',
+  duplicatePage: 'This project is also open in another Live tab. The stream view follows only one of them, and switches from other apps reach both. Close the tab you are not using.',
+  remoteTitle: 'Switch from other apps', remoteHelp: 'Keyboard-shortcut apps and button panels can switch expressions even when this page is not in front. Send a POST request with the token header and a JSON body such as {"expression": "smile"}.',
+  remoteUrl: 'Request URL', remoteToken: 'Token (X-Studio-Token header)', copy: 'Copy', copiedShort: 'Copied', regenerate: 'Regenerate token',
+  regenerateHelp: 'Regenerating stops shortcuts that use the old token.', remoteNames: 'Expression names: neutral, smile, shy, surprise, halfLidded, angry, sad, wink. Sending the expression already shown returns to neutral.',
+  remoteDocs: 'Setup for macOS Shortcuts and Stream Deck', remoteUnavailable: 'Available while the local development server is running.',
 };
 const liveJa: typeof liveEn = {
   title: '配信', back: 'エディタに戻る', camera: 'カメラ', device: 'デバイス', defaultDevice: '既定のデバイス',
@@ -41,6 +46,11 @@ const liveJa: typeof liveEn = {
   liveUnavailable: '配信するには、エディタのローカルプロジェクト一覧からこのプロジェクトを開いてください。',
   expression: '表情', expressionHint: 'この画面を操作している間は、キー1〜8で表情を切り替えられます。同じキーをもう一度押すと通常に戻ります。',
   neutral: '通常', smile: '笑顔', shy: '照れ', surprise: '驚き', halfLidded: 'ジト目', angry: '怒り', sad: '悲しみ', wink: 'ウインク',
+  duplicatePage: 'このプロジェクトの配信画面が別のタブでも開いています。配信用画面はどちらか一方の動きだけを表示し、他のアプリからの切り替えは両方に届きます。使わないタブは閉じてください。',
+  remoteTitle: '他のアプリから切り替える', remoteHelp: 'キーボードショートカットのアプリやボタン操作盤から、この画面が前面になくても表情を切り替えられます。トークンをヘッダーに付けて、{"expression": "smile"} のような JSON を POST で送ってください。',
+  remoteUrl: '送信先URL', remoteToken: 'トークン(X-Studio-Token ヘッダー)', copy: 'コピー', copiedShort: 'コピーしました', regenerate: 'トークンを作り直す',
+  regenerateHelp: '作り直すと、古いトークンを使っているショートカットは動かなくなります。', remoteNames: '表情の名前: neutral, smile, shy, surprise, halfLidded, angry, sad, wink。表示中の表情をもう一度送ると通常に戻ります。',
+  remoteDocs: 'macOSのショートカットとStream Deckでの設定方法', remoteUnavailable: 'ローカルの開発サーバーで起動しているときに使えます。',
 };
 const liveZh: typeof liveEn = {
   title: '直播', back: '返回编辑器', camera: '摄像头', device: '设备', defaultDevice: '默认设备',
@@ -63,5 +73,10 @@ const liveZh: typeof liveEn = {
   liveUnavailable: '请先从本地项目列表打开此项目，再使用直播功能。',
   expression: '表情', expressionHint: '在此页面操作时，可用 1–8 键切换表情。再按一次同一键恢复普通表情。',
   neutral: '普通', smile: '微笑', shy: '害羞', surprise: '惊讶', halfLidded: '半眯眼', angry: '生气', sad: '难过', wink: '眨眼',
+  duplicatePage: '此项目还在另一个直播标签页中打开。直播画面只跟随其中一个，其他应用发来的切换会同时到达两个页面。请关闭不用的标签页。',
+  remoteTitle: '从其他应用切换', remoteHelp: '即使此页面不在前台，也可以通过快捷键应用或按键面板切换表情。请在请求头中附上令牌，用 POST 发送 {"expression": "smile"} 这样的 JSON。',
+  remoteUrl: '请求 URL', remoteToken: '令牌（X-Studio-Token 请求头）', copy: '复制', copiedShort: '已复制', regenerate: '重新生成令牌',
+  regenerateHelp: '重新生成后，使用旧令牌的快捷方式将无法使用。', remoteNames: '表情名称：neutral, smile, shy, surprise, halfLidded, angry, sad, wink。再次发送当前表情会恢复普通。',
+  remoteDocs: 'macOS 快捷指令和 Stream Deck 的设置方法', remoteUnavailable: '在本地开发服务器运行时可用。',
 };
 export const liveText = { en: liveEn, ja: liveJa, zh: liveZh };
