@@ -124,6 +124,10 @@ keys **1**–**8** while tracking continues. Keyboard shortcuts from macOS Short
 Stream Deck button can switch them while another app is in front
 ([details](docs/reference.md#switching-expressions-from-other-apps)).
 
+The camera is optional: with only the microphone on, the avatar keeps its idle motion and
+your voice moves the mouth. To appear as the avatar in Zoom, Google Meet and similar apps, use
+OBS's Virtual Camera ([steps](docs/reference.md#video-calls)).
+
 Stream view options, troubleshooting and privacy details are in the
 [reference](docs/reference.md#live-and-streaming).
 
