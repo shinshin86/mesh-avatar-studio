@@ -41,3 +41,7 @@ input[type="color"] { width: 100%; height: 32px; border: 0; padding: 0; }
 .live-controls .live-lighting .lighting-slider { display: grid; }
 .live-controls .live-lighting select { width: auto; max-width: 60%; }
 .live-controls .live-lighting input[type="color"] { width: 58px; height: 28px; }
+.expression-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px; }
+.expression-buttons button { display: flex; align-items: center; gap: 8px; text-align: left; }
+.expression-buttons button[aria-pressed="true"] { border-color: #3977d8; background: #e8f0fd; color: #1d4f9c; font-weight: 600; }
+.expression-buttons kbd { min-width: 1.4em; padding: 0 4px; border: 1px solid #c8d3e2; border-radius: 4px; font: 11px/1.5 ui-monospace, monospace; text-align: center; color: #5a6a80; background: #f6f8fb; }

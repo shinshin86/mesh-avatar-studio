@@ -2,6 +2,10 @@ import type { LightingSettings } from '../lighting/settings';
 import type { Rig } from '../rig/types';
 import { parseRig } from '../rig/validate';
 import { createMeshAvatarImpl } from './createMeshAvatar.js';
+import { OVERLAY_EXPRESSIONS } from './expression-overlay.js';
+
+export type LiveExpression = keyof typeof OVERLAY_EXPRESSIONS;
+export const LIVE_EXPRESSIONS = Object.keys(OVERLAY_EXPRESSIONS) as LiveExpression[];
 
 export interface MeshAvatarOptions {
   rig: Rig;
@@ -22,6 +26,8 @@ export interface MeshAvatar {
   setVoiceLevel(value: number): void;
   setSpeaking(on: boolean): void;
   setEmotion(tag: string | null, options?: { playMotion?: boolean }): void;
+  setExpression(name: LiveExpression): void;
+  getExpression(): { name: LiveExpression; active: boolean };
   setTalkGain(gain: number): void;
   play(id: string): void;
   speakKana(text: string, options?: { speed?: number; loop?: boolean }): void;

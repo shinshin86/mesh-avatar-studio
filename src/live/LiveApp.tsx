@@ -1,6 +1,6 @@
 import { LightingControls, LightHandle, lightingText } from '../lighting/Controls';
 import { loadLighting, saveLighting } from '../lighting/settings';
-import type { MeshAvatar } from '../engine';
+import { LIVE_EXPRESSIONS, type LiveExpression, type MeshAvatar } from '../engine';
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../editor/i18n';
 import { createAvatarView } from './avatar-view';
@@ -15,6 +15,8 @@ export function LiveApp() {
   const { language, setLanguage } = useI18n(), t = liveText[language];
   const [settings, setSettings] = useState(() => { const view = viewSettings(location.search); return { ...view, lighting: view.lighting ?? loadLighting(view.project) }; });
   const [lightingOpen, setLightingOpen] = useState(false);
+  const [expression, setExpression] = useState<LiveExpression>('neutral');
+  const expressionRef = useRef(expression); expressionRef.current = expression;
   const [options, setOptions] = useState<TrackingOptions>({ mirror: true, sensitivity: 1, smoothing: 0.35 });
   const [cameraState, setCameraState] = useState<CameraState>('stopped');
   const [micState, setMicState] = useState<MicState>('micOff');
@@ -58,8 +60,9 @@ export function LiveApp() {
       const micOn = control.micState === 'micOn';
       avatar.setSpeaking(micOn); avatar.setVoiceLevel(micOn ? microphone.current?.level(control.gain) ?? 0 : 0);
     }, (avatar, now) => {
-      if (controls.current.cameraState === 'running' || controls.current.micState === 'micOn') send(avatar.getParameters(), now);
-    }).then(value => { if (cancelled) value.destroy(); else { view = value; avatarRef.current = value.avatar; value.avatar.setLighting(lightRef.current); setViewState('ready'); } }).catch(() => { if (!cancelled) setViewState('projectError'); });
+      // An expression alone also drives the stream view, including its fade back to neutral.
+      if (controls.current.cameraState === 'running' || controls.current.micState === 'micOn' || avatar.getExpression().active) send(avatar.getParameters(), now);
+    }).then(value => { if (cancelled) value.destroy(); else { view = value; avatarRef.current = value.avatar; value.avatar.setLighting(lightRef.current); value.avatar.setExpression(expressionRef.current); setViewState('ready'); } }).catch(() => { if (!cancelled) setViewState('projectError'); });
     return () => { cancelled = true; clock.terminate(); view?.destroy(); avatarRef.current = null; };
   }, [settings.project, settings.fit]);
   useEffect(() => {
@@ -76,6 +79,19 @@ export function LiveApp() {
     return () => clearInterval(timer);
   }, [settings.project]);
   const changeLighting = (lighting: typeof settings.lighting) => setSettings(current => ({ ...current, lighting }));
+  useEffect(() => { avatarRef.current?.setExpression(expression); }, [expression]);
+  const toggleExpression = (name: LiveExpression) => setExpression(current => current === name ? 'neutral' : name);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || target?.closest('input, select, textarea, [contenteditable="true"]')) return;
+      const name = LIVE_EXPRESSIONS[Number(event.key) - 1];
+      if (!/^[1-8]$/.test(event.key) || !name) return;
+      event.preventDefault(); toggleExpression(name);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const cameraActive = cameraState === 'starting' || cameraState === 'running';
   const micActive = micState === 'micStarting' || micState === 'micOn';
   const url = streamUrl(settings, location.origin);
@@ -107,6 +123,9 @@ export function LiveApp() {
         <select aria-label={t.microphone} value={micId} disabled={micActive} onChange={event => setMicId(event.target.value)}><option value="">{t.defaultDevice}</option>{devices.filter(device => device.kind === 'audioinput' && device.deviceId).map((device, i) => <option key={device.deviceId} value={device.deviceId}>{device.label || `${t.microphone} ${i + 1}`}</option>)}</select>
         <label>{t.gain}<input type="range" min="0.25" max="5" step="0.05" value={gain} onChange={event => setGain(Number(event.target.value))} /></label><small role="status">{t[micState]}</small>
       </section>
+      <section><h2>{t.expression}</h2><div className="expression-buttons" role="group" aria-label={t.expression}>
+        {LIVE_EXPRESSIONS.map((name, i) => <button key={name} type="button" aria-pressed={expression === name} aria-keyshortcuts={String(i + 1)} onClick={() => toggleExpression(name)}><kbd>{i + 1}</kbd>{t[name]}</button>)}
+      </div><small>{t.expressionHint}</small></section>
       <section><h2>{t.background}</h2><select aria-label={t.background} value={settings.background} onChange={event => setSettings(current => ({ ...current, background: backgroundColor(event.target.value) }))}>
         <option value="transparent">{t.transparent}</option><option value="#00ff00">{t.green}</option><option value="#0000ff">{t.blue}</option>{!['transparent', '#00ff00', '#0000ff'].includes(settings.background) && <option value={settings.background}>{t.custom}</option>}
       </select><label>{t.custom}<input type="color" value={settings.background === 'transparent' ? '#ffffff' : settings.background} onChange={event => setSettings(current => ({ ...current, background: event.target.value }))} /></label>
