@@ -84,21 +84,20 @@ export function LiveApp() {
   const changeLighting = (lighting: typeof settings.lighting) => setSettings(current => ({ ...current, lighting }));
   useEffect(() => { avatarRef.current?.setExpression(expression); }, [expression]);
   useEffect(() => watchDuplicateLivePages(settings.project, setDuplicatePage), [settings.project]);
-  useEffect(() => receiveExpression(settings.project, name => name === 'neutral' ? setExpression('neutral') : toggleExpression(name)), [settings.project]);
+  useEffect(() => receiveExpression(settings.project, setExpression), [settings.project]);
   const loadRemote = (method: 'GET' | 'POST') => fetch(EXPRESSION_TOKEN_PATH, { method, headers: { 'x-studio-request': '1' } })
     .then(response => response.ok ? response.json() : null)
     .then((data: { token?: unknown; path?: unknown } | null) => setRemote(typeof data?.token === 'string' && typeof data.path === 'string' ? { url: `${location.origin}${data.path}`, token: data.token } : null))
     .catch(() => setRemote(null));
   useEffect(() => { void loadRemote('GET'); }, []);
   const copyRemote = (kind: 'url' | 'token', value: string) => { void navigator.clipboard.writeText(value).then(() => { setRemoteCopied(kind); setTimeout(() => setRemoteCopied(null), 1500); }).catch(() => undefined); };
-  const toggleExpression = (name: LiveExpression) => setExpression(current => current === name ? 'neutral' : name);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || target?.closest('input, select, textarea, [contenteditable="true"]')) return;
       const name = LIVE_EXPRESSIONS[Number(event.key) - 1];
       if (!/^[1-8]$/.test(event.key) || !name) return;
-      event.preventDefault(); toggleExpression(name);
+      event.preventDefault(); setExpression(name);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -146,7 +145,7 @@ export function LiveApp() {
       <details className="live-expression" data-testid="expression-section">
         <summary><Icon name="face" />{t.expression}{expression !== 'neutral' && <span className="expression-on">{t[expression]}</span>}</summary>
         <div className="live-expression-body"><div className="expression-buttons" role="group" aria-label={t.expression}>
-          {LIVE_EXPRESSIONS.map((name, i) => <button key={name} type="button" aria-pressed={expression === name} aria-keyshortcuts={String(i + 1)} onClick={() => toggleExpression(name)}><kbd>{i + 1}</kbd>{t[name]}</button>)}
+          {LIVE_EXPRESSIONS.map((name, i) => <button key={name} type="button" aria-pressed={expression === name} aria-keyshortcuts={String(i + 1)} onClick={() => setExpression(name)}><kbd>{i + 1}</kbd>{t[name]}</button>)}
         </div><small>{t.expressionHint}</small>
         <h3>{t.remoteTitle}</h3><p className="remote-help">{t.remoteHelp}</p>
         {remote ? <>

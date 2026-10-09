@@ -204,7 +204,8 @@ for software without transparency support.
 
 The collapsed **Expression** section on the Live page switches the face to Neutral, Smile, Shy, Surprised,
 Half-lidded, Angry, Sad or Wink. Keys **1**–**8** do the same while the Live page is focused,
-even with the section closed; press the same key or button again to return to Neutral. Keys
+even with the section closed; press **1** or the Neutral button to return to Neutral. Pressing
+the key of the expression already shown keeps it. Keys
 typed into a form field are ignored. The section title shows the current expression. Browsers
 receive keys only for the focused page; to switch while another app is in front, use
 [other apps](#switching-expressions-from-other-apps).
@@ -229,7 +230,7 @@ token. Each request is:
   `halfLidded`, `angry`, `sad`, `wink`. Add `"project": "<name>"` to reach only the Live page
   for that project.
 
-Sending the expression already shown returns to Neutral, so one shortcut can toggle it.
+Sending the expression already shown keeps it; send `neutral` to return to the normal face.
 
 **macOS Shortcuts**
 

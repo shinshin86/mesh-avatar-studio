@@ -20,7 +20,7 @@ test('expression keys and buttons drive the stream view without camera or microp
   await expect(section).not.toHaveAttribute('open', '');
   await page.locator('body').press('8');
   await expect(section.locator('.expression-on')).toHaveText('Wink');
-  await page.locator('body').press('8');
+  await page.locator('body').press('1');
   await expect(section.locator('.expression-on')).toHaveCount(0);
   await section.locator('summary').click();
   await expect(group.getByRole('button')).toHaveCount(8);
@@ -30,9 +30,12 @@ test('expression keys and buttons drive the stream view without camera or microp
   await expect(group.getByRole('button', { name: /Smile/ })).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(async () => (await seen()).some(p => p.eyeSmile > 0.9 && p.blush > 0.3)).toBe(true);
 
-  // The same key returns to neutral. (Whether updates stop after the fade is covered by unit
-  // tests: another Live page on the shared development server may be relaying at the same time.)
+  // Pressing the shown expression's key keeps it; key 1 returns to neutral. (Whether updates stop
+  // after the fade is covered by unit tests: another Live page on the shared development server
+  // may be relaying at the same time.)
   await page.locator('body').press('2');
+  await expect(group.getByRole('button', { name: /Smile/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('body').press('1');
   await expect(group.getByRole('button', { name: /Neutral/ })).toHaveAttribute('aria-pressed', 'true');
 
   // Keys typed into form fields do not switch expressions.
@@ -57,9 +60,12 @@ test('other apps switch expressions with the token, and requests without it are 
   expect((await send({ expression: 'surprise' })).status()).toBe(200);
   await expect(section.locator('.expression-on')).toHaveText('Surprised');
   await page.waitForTimeout(60);
-  // Sending the shown expression again returns to neutral, like pressing its key twice.
+  // Sending the shown expression again keeps it; neutral returns to the normal face.
   expect((await send({ expression: 'surprise' })).status()).toBe(200);
+  await page.waitForTimeout(200); await expect(section.locator('.expression-on')).toHaveText('Surprised');
+  expect((await send({ expression: 'neutral' })).status()).toBe(200);
   await expect(section.locator('.expression-on')).toHaveCount(0);
+  await page.waitForTimeout(60);
   await page.waitForTimeout(60);
   expect((await send({ expression: 'smile', project: 'sample-miko-qipao' }, { Authorization: `Bearer ${token}` })).status()).toBe(200);
   await expect(section.locator('.expression-on')).toHaveText('Smile');
