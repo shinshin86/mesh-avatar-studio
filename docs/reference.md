@@ -149,6 +149,30 @@ are kept; the light deepens colours on the far side and keeps the painted colour
 in `rig.json`, but each project remembers them in this browser. With lighting off, the avatar
 renders exactly as without the feature.
 
+### Lighting presets
+
+The Live page's **Lighting** section has eight preset slots, for example a normal light, a
+red light from below for a horror game, and a sunset colour. **Save** stores every current
+lighting setting (position, colours, shading and on or off) in that slot; saving again
+overwrites it. Click a saved slot, or press **Shift**+**1**–**8** while the Live page is
+focused, to switch to it at once. The swatch shows the light colour and the ambient colour.
+Presets are kept per project in this browser, like the current lighting.
+
+A preset does not change the expression, and an expression does not change the lighting, so
+both can be switched independently. To return to normal lighting, save it in a slot (for
+example 1) and switch to that slot. Switching to an empty slot changes nothing.
+
+Other apps switch presets the same way as
+[expressions](#switching-expressions-from-other-apps), with the same token: `POST` to
+`/__live/lighting` (shown as **Preset request URL** under the presets) with a JSON body
+such as `{"preset": 2}`. Numbers are 1–8, and `"project"` works as for expressions.
+
+```sh
+curl -X POST http://127.0.0.1:5173/__live/lighting \
+  -H "X-Studio-Token: <token>" -H "Content-Type: application/json" \
+  -d '{"preset": 2}'
+```
+
 ## Live and streaming
 
 Two pages served by the development server (`npm run dev`):
