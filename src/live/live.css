@@ -59,3 +59,16 @@ input[type="color"] { width: 100%; height: 32px; border: 0; padding: 0; }
 .remote-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 10px 0; }
 .live-expression-body small { display: block; color: #5a6a80; }
 .live-warning { margin: 0; padding: 12px 14px; border: 1px solid #e3b341; border-radius: 12px; background: #fff8e1; color: #6b4e00; font-size: 13px; line-height: 1.5; }
+.lighting-presets { padding: 0 16px 4px; }
+.lighting-presets h3 { margin: 4px 0 8px; font-size: 13px; }
+.preset-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 8px; }
+.preset-slot { display: flex; gap: 4px; min-width: 0; }
+.preset-slot button { font-size: 12px; }
+.preset-slot button:first-child { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; text-align: left; white-space: nowrap; overflow: hidden; }
+.preset-slot button[aria-pressed="true"] { border-color: #3977d8; background: #e8f0fd; color: #1d4f9c; font-weight: 600; }
+.preset-slot kbd { padding: 0 4px; border: 1px solid #c8d3e2; border-radius: 4px; font: 11px/1.5 ui-monospace, monospace; color: #5a6a80; background: #f6f8fb; }
+.preset-swatch { flex: 1; height: 16px; border-radius: 4px; border: 1px solid #0003; }
+.preset-swatch.off { border-style: dashed; background: transparent; }
+.preset-save { flex: none; padding-inline: 8px; }
+.lighting-presets small { display: block; color: #5a6a80; line-height: 1.5; }
+.live-controls .live-lighting .lighting-presets label { flex-direction: column; align-items: stretch; gap: 4px; }

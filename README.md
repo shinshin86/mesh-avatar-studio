@@ -124,6 +124,10 @@ keys **1**–**8** while tracking continues. A Stream Deck button or a keyboard 
 switch them while another app such as OBS is in front; macOS Shortcuts keys do not work in
 every app ([details](docs/reference.md#switching-expressions-from-other-apps)).
 
+Save up to eight lighting setups, such as a red light from below for a horror game, as
+presets, and switch them with **Shift**+**1**–**8** or the same kind of shortcut
+([details](docs/reference.md#lighting-presets)).
+
 The camera is optional: with only the microphone on, the avatar keeps its idle motion and
 your voice moves the mouth. To appear as the avatar in Zoom, Google Meet and similar apps, use
 OBS's Virtual Camera ([steps](docs/reference.md#video-calls)).

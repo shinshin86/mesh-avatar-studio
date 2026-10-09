@@ -1,5 +1,6 @@
 import { LightingControls, LightHandle, lightingText } from '../lighting/Controls';
-import { loadLighting, saveLighting } from '../lighting/settings';
+import { colorHex, loadLighting, saveLighting } from '../lighting/settings';
+import { loadLightingPresets, sameLighting, saveLightingPresets } from '../lighting/presets';
 import { LIVE_EXPRESSIONS, type LiveExpression, type MeshAvatar } from '../engine';
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../editor/i18n';
@@ -9,13 +10,15 @@ import { FacePose, type TrackingOptions } from './tracking';
 import { CameraCapture, MicrophoneCapture, type CameraState, type MicState, type BackgroundTracking } from './media';
 import { liveText } from './i18n';
 import { Icon } from '../editor/Icon';
-import { createLiveSender, receiveExpression, sendLighting, watchDuplicateLivePages } from './relay';
-import { EXPRESSION_TOKEN_PATH } from './expression-protocol';
+import { createLiveSender, receiveExpression, receiveLightingPreset, sendLighting, watchDuplicateLivePages } from './relay';
+import { EXPRESSION_TOKEN_PATH, LIGHTING_PRESET_PATH } from './expression-protocol';
 
 export function LiveApp() {
   const { language, setLanguage } = useI18n(), t = liveText[language];
   const [settings, setSettings] = useState(() => { const view = viewSettings(location.search); return { ...view, lighting: view.lighting ?? loadLighting(view.project) }; });
   const [lightingOpen, setLightingOpen] = useState(false);
+  const [presets, setPresets] = useState(() => loadLightingPresets(settings.project));
+  const presetsRef = useRef(presets); presetsRef.current = presets;
   const [duplicatePage, setDuplicatePage] = useState(false);
   const [expression, setExpression] = useState<LiveExpression>('neutral');
   const expressionRef = useRef(expression); expressionRef.current = expression;
@@ -85,6 +88,14 @@ export function LiveApp() {
   useEffect(() => { avatarRef.current?.setExpression(expression); }, [expression]);
   useEffect(() => watchDuplicateLivePages(settings.project, setDuplicatePage), [settings.project]);
   useEffect(() => receiveExpression(settings.project, setExpression), [settings.project]);
+  // Empty slots are ignored, so a shortcut for an unsaved preset changes nothing.
+  const applyPreset = (preset: number) => { const value = presetsRef.current[preset - 1]; if (value) changeLighting({ ...value }); };
+  const savePreset = (index: number) => {
+    const next = presets.map((value, i) => i === index ? { ...settings.lighting } : value);
+    setPresets(next); saveLightingPresets(settings.project, next);
+  };
+  const applyPresetRef = useRef(applyPreset); applyPresetRef.current = applyPreset;
+  useEffect(() => receiveLightingPreset(settings.project, preset => applyPresetRef.current(preset)), [settings.project]);
   const loadRemote = (method: 'GET' | 'POST') => fetch(EXPRESSION_TOKEN_PATH, { method, headers: { 'x-studio-request': '1' } })
     .then(response => response.ok ? response.json() : null)
     .then((data: { token?: unknown; path?: unknown } | null) => setRemote(typeof data?.token === 'string' && typeof data.path === 'string' ? { url: `${location.origin}${data.path}`, token: data.token } : null))
@@ -95,6 +106,13 @@ export function LiveApp() {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || target?.closest('input, select, textarea, [contenteditable="true"]')) return;
+      // Shift with a digit applies a lighting preset. The physical key is used because Shift
+      // changes the typed character (Shift+1 is "!" on common layouts).
+      if (event.shiftKey) {
+        const preset = /^Digit([1-8])$/.exec(event.code);
+        if (preset) { event.preventDefault(); applyPresetRef.current(Number(preset[1])); }
+        return;
+      }
       const name = LIVE_EXPRESSIONS[Number(event.key) - 1];
       if (!/^[1-8]$/.test(event.key) || !name) return;
       event.preventDefault(); setExpression(name);
@@ -158,6 +176,17 @@ export function LiveApp() {
       </details>
       <details className="live-lighting" data-testid="lighting-section" onToggle={event => setLightingOpen(event.currentTarget.open)}>
         <summary><Icon name="light" />{lightingText[language].title}{settings.lighting.enabled && <span className="lighting-on">ON</span>}</summary>
+        <div className="lighting-presets"><h3>{t.presets}</h3>
+          <div className="preset-slots" role="group" aria-label={t.presets}>
+            {presets.map((value, i) => <div className="preset-slot" key={i}>
+              {/* The swatch shows the light and ambient colours; the slot number is in the key hint. */}
+              <button type="button" disabled={!value} aria-label={`${t.preset} ${i + 1}${value ? '' : ` (${t.presetEmpty})`}`} aria-pressed={!!value && sameLighting(value, settings.lighting)} aria-keyshortcuts={`Shift+${i + 1}`} onClick={() => applyPreset(i + 1)}>
+                <kbd>⇧{i + 1}</kbd>{value ? <span className={`preset-swatch${value.enabled ? '' : ' off'}`} style={value.enabled ? { background: `linear-gradient(135deg, ${colorHex(value.color)} 50%, ${colorHex(value.ambientColor)} 50%)` } : undefined} /> : t.presetEmpty}</button>
+              <button type="button" className="preset-save" aria-label={`${t.presetSave}: ${t.preset} ${i + 1}`} onClick={() => savePreset(i)}>{t.presetSave}</button>
+            </div>)}
+          </div><small>{t.presetHint}</small>
+          {remote && <label>{t.presetUrl}<span className="remote-field"><input readOnly value={`${location.origin}${LIGHTING_PRESET_PATH}`} onFocus={event => event.target.select()} /></span></label>}
+        </div>
         <LightingControls value={settings.lighting} onChange={changeLighting} language={language} />
       </details>
       <p className="live-privacy">{t.privacy}</p>

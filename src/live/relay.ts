@@ -1,7 +1,7 @@
 import { LIGHTING_EVENT, lightingWire, lightingMessage, lightingValue } from '../lighting/protocol';
 import type { LightingSettings } from '../lighting/settings';
 import { LIVE_EVENT, liveMessage } from './protocol';
-import { EXPRESSION_EVENT, expressionMessage, type RemoteExpression } from './expression-protocol';
+import { EXPRESSION_EVENT, LIGHTING_PRESET_EVENT, expressionMessage, lightingPresetMessage, type RemoteExpression } from './expression-protocol';
 
 export function createLiveSender(project: string, sender = randomSender()) {
   let sent = -Infinity;
@@ -31,6 +31,12 @@ export function receiveExpression(project: string, callback: (expression: Remote
   const receive = (data: unknown) => { const message = expressionMessage(data); if (message && (message.project === null || message.project === project)) callback(message.expression); };
   import.meta.hot?.on(EXPRESSION_EVENT, receive);
   return () => import.meta.hot?.off(EXPRESSION_EVENT, receive);
+}
+/** Lighting preset numbers (1–8) sent from other apps, addressed like expressions. */
+export function receiveLightingPreset(project: string, callback: (preset: number) => void) {
+  const receive = (data: unknown) => { const message = lightingPresetMessage(data); if (message && (message.project === null || message.project === project)) callback(message.preset); };
+  import.meta.hot?.on(LIGHTING_PRESET_EVENT, receive);
+  return () => import.meta.hot?.off(LIGHTING_PRESET_EVENT, receive);
 }
 
 export function randomSender() {

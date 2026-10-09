@@ -24,6 +24,8 @@ export const liveEn = {
   remoteUrl: 'Request URL', remoteToken: 'Token (X-Studio-Token header)', copy: 'Copy', copiedShort: 'Copied', regenerate: 'Regenerate token',
   regenerateHelp: 'Regenerating stops shortcuts that use the old token.', remoteNames: 'Expression names: neutral, smile, shy, surprise, halfLidded, angry, sad, wink. Send neutral to return to the normal face.',
   remoteDocs: 'Setup for macOS Shortcuts and Stream Deck', remoteUnavailable: 'Available while the local development server is running.',
+  presets: 'Presets', preset: 'Preset', presetEmpty: 'Empty', presetSave: 'Save', presetUrl: 'Preset request URL',
+  presetHint: 'Save stores the current lighting in that slot. While this page is focused, Shift+1–8 apply presets. Other apps can send {"preset": 1} to the URL below with the same token as expressions.',
 };
 const liveJa: typeof liveEn = {
   title: '配信', back: 'エディタに戻る', camera: 'カメラ', device: 'デバイス', defaultDevice: '既定のデバイス',
@@ -51,6 +53,8 @@ const liveJa: typeof liveEn = {
   remoteUrl: '送信先URL', remoteToken: 'トークン(X-Studio-Token ヘッダー)', copy: 'コピー', copiedShort: 'コピーしました', regenerate: 'トークンを作り直す',
   regenerateHelp: '作り直すと、古いトークンを使っているショートカットは動かなくなります。', remoteNames: '表情の名前: neutral, smile, shy, surprise, halfLidded, angry, sad, wink。通常に戻すときは neutral を送ります。',
   remoteDocs: 'macOSのショートカットとStream Deckでの設定方法', remoteUnavailable: 'ローカルの開発サーバーで起動しているときに使えます。',
+  presets: 'プリセット', preset: 'プリセット', presetEmpty: '未保存', presetSave: '保存', presetUrl: 'プリセットの送信先URL',
+  presetHint: '「保存」で今のライティングをその枠に保存します。この画面を操作している間は、Shift+1〜8でプリセットを呼び出せます。他のアプリからは、表情と同じトークンを付けて下のURLに {"preset": 1} を送ります。',
 };
 const liveZh: typeof liveEn = {
   title: '直播', back: '返回编辑器', camera: '摄像头', device: '设备', defaultDevice: '默认设备',
@@ -78,5 +82,7 @@ const liveZh: typeof liveEn = {
   remoteUrl: '请求 URL', remoteToken: '令牌（X-Studio-Token 请求头）', copy: '复制', copiedShort: '已复制', regenerate: '重新生成令牌',
   regenerateHelp: '重新生成后，使用旧令牌的快捷方式将无法使用。', remoteNames: '表情名称：neutral, smile, shy, surprise, halfLidded, angry, sad, wink。发送 neutral 恢复普通表情。',
   remoteDocs: 'macOS 快捷指令和 Stream Deck 的设置方法', remoteUnavailable: '在本地开发服务器运行时可用。',
+  presets: '预设', preset: '预设', presetEmpty: '未保存', presetSave: '保存', presetUrl: '预设请求 URL',
+  presetHint: '“保存”会把当前光照存入该栏位。在此页面操作时，可用 Shift+1–8 应用预设。其他应用可附上与表情相同的令牌，向下方 URL 发送 {"preset": 1}。',
 };
 export const liveText = { en: liveEn, ja: liveJa, zh: liveZh };
