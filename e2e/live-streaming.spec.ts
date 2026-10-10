@@ -114,7 +114,10 @@ test('live controls calibrate, mirror, compose mic mouth, localize and relay wit
   await expect.poll(async () => Math.abs((await nextParams()).angleX)).toBeLessThan(0.5);
   await page.getByRole('checkbox', { name: 'Show camera preview' }).uncheck();
   await expect(page.locator('video')).toHaveClass(/camera-hidden/);
+  await expect(page.getByTestId('background-hint')).toContainText('Browser Source');
+  await expect(page.getByTestId('background-hint')).toContainText('Window Capture does not keep transparency');
   await page.getByLabel('Background', { exact: true }).selectOption('#00ff00');
+  await expect(page.getByTestId('background-hint')).toContainText('Chroma Key');
   expect(await page.getByRole('textbox', { name: 'Copy OBS URL' }).inputValue()).toContain('bg=%2300ff00');
   await page.getByRole('button', { name: '日本語', exact: true }).click();
   await expect(page.getByRole('button', { name: '正面の姿勢を登録', exact: true })).toBeVisible();
