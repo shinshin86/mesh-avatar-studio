@@ -1,6 +1,5 @@
-import { createMeshAvatar, type MeshAvatar, PARAMS } from 'mesh-avatar';
-import { localProjects, openLocalProject } from '../editor/project';
-import fixture from 'virtual:sample-rig';
+import { createMeshAvatar, loadMeshAvatar, type MeshAvatar, PARAMS } from 'mesh-avatar';
+import { localProjects, openLocalProject, openSampleAvatar } from '../editor/project';
 import { SAMPLE_PROJECT, type ViewSettings } from './settings';
 
 export const neutralParameters: Record<string, number> = Object.fromEntries(PARAMS.map(param => [param.id, param.def]));
@@ -9,10 +8,15 @@ export async function createAvatarView(canvas: HTMLCanvasElement, settings: View
   beforeFrame?: (avatar: MeshAvatar, now: number, dt: number) => void,
   afterFrame?: (avatar: MeshAvatar, now: number) => void) {
   canvas.dataset.state = 'loading';
-  const projects = await localProjects(), project = projects?.find(entry => entry.name === settings.project);
-  if (project?.error || (!project && settings.project !== SAMPLE_PROJECT)) throw new Error('Project unavailable');
-  const loaded = project ? await openLocalProject(project) : { rig: fixture, assets: undefined };
-  const avatar = await createMeshAvatar(canvas, { rig: loaded.rig!, assets: loaded.assets, assetsBase: '/miko-qipao/built/', manual: true, fit: settings.fit, preserveMouthForm: true });
+  const options = { manual: true, fit: settings.fit, preserveMouthForm: true };
+  let avatar: MeshAvatar;
+  if (settings.avatar) avatar = await loadMeshAvatar(canvas, settings.avatar, options);
+  else {
+    const projects = await localProjects(), project = projects?.find(entry => entry.name === settings.project);
+    if (project?.error || (!project && settings.project !== SAMPLE_PROJECT)) throw new Error('Project unavailable');
+    const loaded = project ? await openLocalProject(project) : await openSampleAvatar();
+    avatar = await createMeshAvatar(canvas, { ...options, rig: loaded.rig!, assets: loaded.assets });
+  }
   if (settings.lighting) avatar.setLighting(settings.lighting);
   avatar.setAutoIdle(settings.idle); avatar.setAutoMotion(settings.idle);
   if (!settings.idle) avatar.setParameters(neutralParameters);

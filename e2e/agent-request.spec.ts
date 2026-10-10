@@ -8,9 +8,9 @@ test('paths stay hidden while copies keep full paths, folder buttons work and re
   await page.goto('/'); await dismissGuide(page);
   let finishLoading!: () => void;
   const loading = new Promise<void>(resolve => { finishLoading = resolve; });
-  const layersUrl = '**/__studio/projects/sample-miko-qipao/built/layers.json';
+  const layersUrl = (url: URL) => url.pathname === '/__studio/projects/sample-miko-qipao/built/layers.json';
   await page.route(layersUrl, async route => { await loading; await route.continue(); }, { times: 1 });
-  const opening = page.waitForRequest(layersUrl);
+  const opening = page.waitForRequest(request => layersUrl(new URL(request.url())));
   await page.locator('.open-menu > summary').click(); await page.getByTestId('project-sample-miko-qipao').click();
   await opening;
   // Checking Mouth before the project finishes loading must survive the load.

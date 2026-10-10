@@ -8,3 +8,6 @@ export { DEFAULT_LIGHTING, parseLighting, colorHex } from './lighting/settings';
 export type { AvatarManifest } from './format/manifest';
 export { parseManifest } from './format/manifest';
 export { validateAvatarFiles } from './format/validate';
+export { packAvatar, unpackAvatar } from './format/zip';
+export { openAvatar, loadMeshAvatar } from './format/open';
+export type { AvatarPackage, AvatarSource, OpenAvatarOptions } from './format/open';

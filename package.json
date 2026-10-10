@@ -13,6 +13,7 @@
     "e2e": "playwright test",
     "validate-rig": "node --experimental-strip-types tools/validate-rig.mjs",
     "validate-avatar": "node --experimental-strip-types tools/validate-avatar.mjs",
+    "pack-avatar": "node --experimental-strip-types tools/pack-avatar.mjs",
     "render-poses": "node --experimental-strip-types tools/render-poses.mjs"
   },
   "dependencies": {

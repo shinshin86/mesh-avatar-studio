@@ -5,7 +5,7 @@ import { setAt } from './model';
 import { type Rig, parseRig, validateRig } from 'mesh-avatar';
 import { Preview } from './Preview';
 import { RigHistory, downloadRig } from './history';
-import { openProjectFolder, openLocalProject, copySample, localProjects, projectAction, sampleImagesAvailable, repositoryContext, runProjectJob, ProjectJobError, type ProjectJob, type LocalProject, type LocalProjectEntry } from './project';
+import { openProjectFolder, openLocalProject, copySample, localProjects, projectAction, sampleImagesAvailable, sampleSourceUrl, repositoryContext, runProjectJob, ProjectJobError, type ProjectJob, type LocalProject, type LocalProjectEntry } from './project';
 import { folderOpenError } from './folder-errors';
 import { layerSignature } from './stale';
 import { RigFields } from './RigFields';
@@ -103,7 +103,7 @@ function Workspace() {
     let cancelled = false;
     sampleImagesAvailable().then(available => {
       if (cancelled) return;
-      if (available && !projectOpened.current) setSourceUrl('/miko-qipao/source.png');
+      if (available && !projectOpened.current) setSourceUrl(sampleSourceUrl);
       setChecking(false);
     });
     return () => { cancelled = true; objectUrls.current.forEach(url => URL.revokeObjectURL(url)); };

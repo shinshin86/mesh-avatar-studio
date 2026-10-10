@@ -157,6 +157,15 @@ export function localProjectMiddleware(root: string, reveal = revealFolder, runn
         list.sort((a, b) => (b.error ? '' : b.updatedAt).localeCompare(a.error ? '' : a.updatedAt));
         json(200, list); return;
       }
+      if (parts.length === 2 && parts[0] === 'projects' && parts[1].endsWith('.mavatar') && req.method === 'GET') {
+        errorPath = `projects/${parts[1]}`;
+        if (await realpath(base) !== base) throw new HttpError(400, 'Project root cannot redirect elsewhere.');
+        const file = await checked(base, resolve(base, parts[1]));
+        if (!(await stat(file)).isFile()) throw new HttpError(404, 'Archive not found.');
+        const bytes = await readFile(file);
+        res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+        res.end(bytes); return;
+      }
       if (parts.length < 3) throw new HttpError(404, 'Not found.');
       errorPath = parts[1] === SAMPLE ? 'samples/miko-qipao' : `projects/${parts[1]}`;
       const name = parts[1], path = await folder(name), tail = parts.slice(2);
@@ -186,7 +195,7 @@ export function localProjectMiddleware(root: string, reveal = revealFolder, runn
       }
       if (req.method !== 'GET') throw new HttpError(405, 'Method not allowed.');
       const fileName = tail.join('/');
-      if (!(fileName === 'rig.json' || fileName === 'rig.draft.json' || fileName === 'source.png' || ['built', 'variants'].includes(tail[0]) || (tail.length === 3 && tail[0] === 'variant-requests' && VARIANTS.includes(tail[1] as typeof VARIANTS[number]) && tail[2] === 'mask.png'))) throw new HttpError(404, 'File not available.');
+      if (!(['avatar.json', 'rig.json', 'rig.draft.json', 'source.png'].includes(fileName) || ['built', 'variants'].includes(tail[0]) || (tail.length === 3 && tail[0] === 'variant-requests' && VARIANTS.includes(tail[1] as typeof VARIANTS[number]) && tail[2] === 'mask.png'))) throw new HttpError(404, 'File not available.');
       const mime: Record<string, string> = { '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
       const contentType = mime[extname(fileName)];
       if (!contentType) throw new HttpError(404, 'File not available.');

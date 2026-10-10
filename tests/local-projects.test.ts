@@ -78,6 +78,20 @@ test('rejects raw and encoded traversal, absolute paths, malformed encoding and 
   expect((await call('/__studio/projects/redirect/rig', 'POST', fixture)).status).toBe(400);
 });
 
+test('serves local archive files and manifests but refuses redirected archives', async () => {
+  await writeFile(resolve(root, 'projects/avatar.mavatar'), 'stored zip bytes');
+  const result = await call('/__studio/projects/avatar.mavatar');
+  expect(result.status).toBe(200);
+  expect(result.headers['Content-Type']).toBe('application/octet-stream');
+  expect(result.body).toBe('stored zip bytes');
+  await writeFile(resolve(root, 'projects/nova/avatar.json'), '{"name":"Nova"}');
+  expect((await call('/__studio/projects/nova/avatar.json')).status).toBe(200);
+  await writeFile(resolve(root, 'outside.mavatar'), 'private');
+  await symlink(resolve(root, 'outside.mavatar'), resolve(root, 'projects/redirect.mavatar'));
+  expect((await call('/__studio/projects/redirect.mavatar')).status).toBe(400);
+  expect((await call('/__studio/projects/avatar.mavatar', 'POST')).status).toBe(404);
+});
+
 test('validates before writing and keeps exactly the preceding rig in a one-generation backup', async () => {
   const original = await readFile(resolve(root, 'projects/nova/rig.json'), 'utf8');
   const first = structuredClone(fixture); first.head.cx += 10;

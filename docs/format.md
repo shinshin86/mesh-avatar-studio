@@ -144,25 +144,33 @@ error identifying the file and version, such as
 `built/layers.json.version: unsupported version 2 (expected 1)`.
 Unknown entries and unknown object keys do not change the interpretation of known
 fields. A listed layer or sprite still requires its PNG, even if its name is unfamiliar.
+When loading a folder, `openAvatar` fills missing `eyes[*].x0`, `x1`, `top` and `bot`
+fields from `layers.json.eyes` before validating the rig; existing values are preserved.
 
 Include `source.png` by default when preparing an archive for re-editing. It can be
 omitted for playback, but `built/base.png` already contains most of the illustration:
 omitting the source offers little protection for the artwork. Check the artwork's
 terms before sharing any of these files.
 
-## Validate a folder
+## Pack and validate
 
 From the repository root, after installing Node dependencies:
 
 ```sh
 npm run validate-avatar -- samples/miko-qipao
 npm run validate-avatar -- projects/my-avatar
+npm run pack-avatar -- projects/my-avatar
+npm run validate-avatar -- projects/my-avatar.mavatar
+npm run pack-avatar -- projects/my-avatar --no-source -o projects/playback.mavatar
 ```
 
-The command currently accepts folders. It reads regular files without following
-symlinks, returns exit status 0 for valid folders and 1 for invalid input, and prints
-errors with the affected relative filename. Archive reading and writing are separate
-from folder validation.
+Validation accepts folders and `.mavatar` files. It reads regular files without
+following symlinks, returns exit status 0 for valid input and 1 for invalid input,
+and prints errors with the affected relative filename. Archives require `avatar.json`.
+Packing writes a sibling `.mavatar` by default and refuses to overwrite an existing
+output. It includes the manifest, rig, built assets and optional thumbnail and source;
+drafts, variants and work files are excluded. `--no-source` omits the original image.
+Folders without a manifest get one whose name is the folder name.
 
 `validateAvatarFiles(files)` performs the same checks without filesystem or network
 access. Pass a map from root-relative, forward-slash paths to `Uint8Array` bytes.
@@ -172,3 +180,33 @@ bounds, matching image-size metadata and matching eye curves. It ignores unknown
 files and JSON fields and leaves the input unchanged. It does not decode PNGs or
 verify that their actual dimensions match the rectangles, and it does not judge
 artwork or animation quality. Review the rendered avatar after validation.
+
+## Runtime loading
+
+`openAvatar(source, { version?, rigFile? })` accepts a folder URL, a `.mavatar` URL,
+`Blob`, `ArrayBuffer`, `Uint8Array`, or an already-open `AvatarPackage`. Binary inputs
+are archives; URL paths ending in `.mavatar` are fetched as archives. Other URLs are
+folders. Relative URLs resolve against the current page. An existing package is
+returned unchanged. For folders, `rigFile` selects the rig filename (default
+`rig.json`), and `version` adds a `v` query parameter to metadata and image URLs.
+Optional manifest or sprite metadata may be absent; other HTTP errors are reported.
+Folder images remain URLs and are read by the renderer.
+
+The returned package contains `manifest`, validated `rig`, an `assets` URL map and
+`release()`. Archive assets use object URLs; call `release()` when finished with an
+`openAvatar` package. Repeated calls are safe. Folder packages allocate no object URLs.
+
+`loadMeshAvatar(canvas, source, options)` opens the source and creates an avatar with
+the existing motion and expression API. The returned avatar also exposes `package`.
+Destroying it releases a package that the loader opened, including on creation
+failure. If the caller supplied an existing package, the caller retains ownership
+and must release it after all avatars using it are finished.
+
+`packAvatar(files, { manifest? })` validates and packs a byte map with `avatar.json`
+first. Existing files, including manifest bytes, are retained unless a manifest
+override is supplied. Without an existing manifest, the default name is `Avatar`.
+`unpackAvatar(bytes)` checks archive paths and limits and returns the byte map;
+use `validateAvatarFiles` or `openAvatar` to validate the avatar contents.
+
+The stream view accepts `?avatar=<folder-or-.mavatar-URL>`. An explicit `project`
+query parameter takes precedence when both are present.

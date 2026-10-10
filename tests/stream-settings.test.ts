@@ -11,3 +11,11 @@ test('background and query parsing accept colors but reject CSS and project path
   const url = new URL(streamUrl(settings, 'http://127.0.0.1:5173'));
   expect(url.pathname).toBe('/stream.html'); expect(viewSettings(url.search)).toEqual(settings);
 });
+
+test('archive URLs round-trip while an explicit project takes precedence', () => {
+  const settings = viewSettings('?avatar=%2F__studio%2Fprojects%2Favatar.mavatar&idle=0');
+  expect(settings.avatar).toBe('/__studio/projects/avatar.mavatar');
+  expect(viewSettings(new URL(streamUrl(settings, 'https://example.test')).search)).toEqual(settings);
+  expect(viewSettings('?project=nova&avatar=ignored.mavatar').avatar).toBeUndefined();
+  expect(viewSettings('?project=../bad&avatar=ignored.mavatar').avatar).toBeUndefined();
+});

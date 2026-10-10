@@ -5,6 +5,7 @@ import { createMeshAvatar, type MeshAvatar, PARAMS, type Rig } from 'mesh-avatar
 import { VOWELS, skippedKanaCharacters } from '../../packages/runtime/src/engine/kana.js';
 import { useI18n } from './i18n';
 import { Icon } from './Icon';
+import { openSampleAvatar } from './project';
 
 const defaults: Record<string, number> = Object.fromEntries(PARAMS.map(p => [p.id, p.def]));
 const sliders = [
@@ -43,7 +44,8 @@ export function Preview({ projectKey, rig, assets, hasMouthSprites, onDrawMouth 
     let instance: MeshAvatar | undefined;
     setStatus('updating');
     const timer = setTimeout(() => {
-      createMeshAvatar(canvas.current!, { rig, assets, assetsBase: '/miko-qipao/built/', manual: true }).then(value => {
+      Promise.resolve(assets ?? openSampleAvatar().then(value => value.assets))
+        .then(loadedAssets => createMeshAvatar(canvas.current!, { rig, assets: loadedAssets, manual: true })).then(value => {
         if (cancelled) { value.destroy(); return; }
         instance = value;
         avatar.current = value;
