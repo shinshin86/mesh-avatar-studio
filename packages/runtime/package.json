@@ -1,0 +1,16 @@
+{
+  "name": "mesh-avatar",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "files": ["dist", "README.md", "LICENSE"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "fflate": "^0.8.3"
+  }
+}

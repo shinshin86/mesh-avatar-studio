@@ -1,4 +1,4 @@
-import type { Rig } from '../rig/types';
+import type { Rig } from 'mesh-avatar';
 
 export function layerSignature(rig: Rig) {
   return JSON.stringify({

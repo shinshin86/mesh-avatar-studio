@@ -1,5 +1,4 @@
-import { parseRig } from '../rig/validate';
-import type { Rig } from '../rig/types';
+import { parseRig, type Rig } from 'mesh-avatar';
 import type { LocalProject, LocalProjectEntry } from '../project-types';
 import { FolderOpenError } from './folder-errors';
 export type { LocalProject, LocalProjectEntry } from '../project-types';

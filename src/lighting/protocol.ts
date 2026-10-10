@@ -1,4 +1,5 @@
-import { parseLighting, type LightingSettings } from './settings';
+// Vite bundles its config before applying aliases, so use the public source entry here.
+import { parseLighting, type LightingSettings } from '../../packages/runtime/src/index';
 export const LIGHTING_EVENT = 'studio:lighting';
 export interface LightingMessage { project: string; lighting: Omit<LightingSettings, 'enabled' | 'shadow'> & { enabled: 0 | 1; shadow: 0 | 1 } }
 export function lightingMessage(input: unknown): LightingMessage | null {

@@ -1,10 +1,8 @@
 import { LightingControls, LightHandle, lightingText } from '../lighting/Controls';
-import { loadLighting, saveLighting } from '../lighting/settings';
+import { loadLighting, saveLighting } from '../lighting/storage';
 import { useEffect, useRef, useState } from 'react';
-import { createMeshAvatar, type MeshAvatar } from '../engine';
-import { PARAMS } from '../engine/rig.js';
-import { VOWELS, skippedKanaCharacters } from '../engine/kana.js';
-import type { Rig } from '../rig/types';
+import { createMeshAvatar, type MeshAvatar, PARAMS, type Rig } from 'mesh-avatar';
+import { VOWELS, skippedKanaCharacters } from '../../packages/runtime/src/engine/kana.js';
 import { useI18n } from './i18n';
 import { Icon } from './Icon';
 

@@ -1,5 +1,5 @@
-import { editorNumber, isIntegerField } from '../rig/numeric';
-import type { Point, Rig } from '../rig/types';
+import { editorNumber, isIntegerField } from '../../packages/runtime/src/rig/numeric';
+import type { Point, Rig } from 'mesh-avatar';
 
 export interface Viewport { scale: number; x: number; y: number }
 export interface Handle {

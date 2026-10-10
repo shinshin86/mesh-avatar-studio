@@ -1,4 +1,4 @@
-import type { Rig } from '../rig/types';
+import type { Rig } from 'mesh-avatar';
 import type { PartGroup } from './i18n';
 export const GROUPS: PartGroup[] = ['head', 'eyes', 'mouth', 'face', 'cheeks', 'strands', 'buns', 'accessories', 'body', 'hand', 'mesh', 'view'];
 export const PART_COLORS: Record<PartGroup, string> = {

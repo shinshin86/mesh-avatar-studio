@@ -3,7 +3,7 @@ import { resolve, relative, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { chromium } from '@playwright/test';
-import { validateRig } from '../src/rig/validate.ts';
+import { validateRig } from '../packages/runtime/src/rig/validate.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const poses = [
@@ -70,8 +70,7 @@ async function main() {
     await page.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     await page.goto(`${origin}/__pose_review__`);
     const result = await page.evaluate(async ({ rig, assets, poses }) => {
-      const { createMeshAvatar } = await import('/src/engine/index.ts');
-      const { PARAMS } = await import('/src/engine/rig.js');
+      const { createMeshAvatar, PARAMS } = await import('/packages/runtime/src/index.ts');
       const canvas = document.getElementById('avatar');
       const width = Math.ceil(rig.image.width * 1.2), height = Math.ceil(rig.image.height * 1.1);
       canvas.style.width = `${width}px`; canvas.style.height = `${height}px`;

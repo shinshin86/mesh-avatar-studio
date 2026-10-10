@@ -5,7 +5,8 @@ import { readFile, readdir, realpath, stat, writeFile, rename, unlink, mkdir, cp
 import { resolve, relative, extname, sep, isAbsolute } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Plugin } from 'vite';
-import { validateRig } from '../rig/validate';
+// Vite bundles its config before applying aliases, so use the public source entry here.
+import { validateRig } from '../../packages/runtime/src/index';
 import type { LocalProject, LocalProjectEntry } from '../project-types';
 import { decodeVariants, JobError, projectJob, runTool, variantState, VARIANTS, type Runner } from './project-jobs';
 

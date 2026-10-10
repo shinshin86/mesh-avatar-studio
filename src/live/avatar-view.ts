@@ -1,5 +1,4 @@
-import { createMeshAvatar, type MeshAvatar } from '../engine';
-import { PARAMS } from '../engine/rig.js';
+import { createMeshAvatar, type MeshAvatar, PARAMS } from 'mesh-avatar';
 import { localProjects, openLocalProject } from '../editor/project';
 import fixture from 'virtual:sample-rig';
 import { SAMPLE_PROJECT, type ViewSettings } from './settings';
@@ -13,7 +12,7 @@ export async function createAvatarView(canvas: HTMLCanvasElement, settings: View
   const projects = await localProjects(), project = projects?.find(entry => entry.name === settings.project);
   if (project?.error || (!project && settings.project !== SAMPLE_PROJECT)) throw new Error('Project unavailable');
   const loaded = project ? await openLocalProject(project) : { rig: fixture, assets: undefined };
-  const avatar = await createMeshAvatar(canvas, { rig: loaded.rig!, assets: loaded.assets, manual: true, fit: settings.fit, preserveMouthForm: true });
+  const avatar = await createMeshAvatar(canvas, { rig: loaded.rig!, assets: loaded.assets, assetsBase: '/miko-qipao/built/', manual: true, fit: settings.fit, preserveMouthForm: true });
   if (settings.lighting) avatar.setLighting(settings.lighting);
   avatar.setAutoIdle(settings.idle); avatar.setAutoMotion(settings.idle);
   if (!settings.idle) avatar.setParameters(neutralParameters);

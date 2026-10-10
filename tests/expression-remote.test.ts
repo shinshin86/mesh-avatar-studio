@@ -6,9 +6,9 @@ import { Readable } from 'node:stream';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { expressionRemote } from '../src/server/expression-remote';
 import { REMOTE_EXPRESSIONS, expressionMessage, lightingPresetMessage } from '../src/live/expression-protocol';
-import { DEFAULT_LIGHTING } from '../src/lighting/settings';
+import { DEFAULT_LIGHTING } from 'mesh-avatar';
 import { parseLightingPresets, sameLighting } from '../src/lighting/presets';
-import { OVERLAY_EXPRESSIONS } from '../src/engine/expression-overlay.js';
+import { OVERLAY_EXPRESSIONS } from '../packages/runtime/src/engine/expression-overlay.js';
 
 async function call(handler: ReturnType<typeof expressionRemote>, method: string, url: string, headers: Record<string, string> = {}, body = '') {
   const req = Object.assign(Readable.from(body ? [Buffer.from(body)] : []), { method, url, headers }) as unknown as IncomingMessage;

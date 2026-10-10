@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "workspaces": ["packages/*"],
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "screenshots": "node tools/capture-readme-screenshots.mjs",
     "test": "vitest run",
-    "lint": "eslint src tests e2e tools/*.mjs",
+    "lint": "eslint src tests e2e tools/*.mjs packages/runtime/src packages/runtime/tests",
     "build": "tsc --noEmit && vite build",
     "e2e": "playwright test",
     "validate-rig": "node --experimental-strip-types tools/validate-rig.mjs",
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.21",
+    "mesh-avatar": "*",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import { Motion } from '../src/engine/motion.js';
-import { kanaToMoras, sampleMoras, skippedKanaCharacters } from '../src/engine/kana.js';
+import { Motion } from '../packages/runtime/src/engine/motion.js';
+import { kanaToMoras, sampleMoras, skippedKanaCharacters } from '../packages/runtime/src/engine/kana.js';
 
 test('held vowels share speech smoothing, preserve the preceding form for ん, and release', () => {
   const motion = new Motion([0, 0]); motion.mode = 'manual';

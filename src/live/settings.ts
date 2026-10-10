@@ -1,4 +1,5 @@
-import { lightingFromQuery, writeLightingQuery, type LightingSettings } from '../lighting/settings';
+import type { LightingSettings } from 'mesh-avatar';
+import { lightingFromQuery, writeLightingQuery } from '../lighting/storage';
 export const SAMPLE_PROJECT = 'sample-miko-qipao';
 export interface ViewSettings {
   project: string;

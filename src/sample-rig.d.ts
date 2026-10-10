@@ -1,4 +1,4 @@
 declare module 'virtual:sample-rig' {
-  const rig: import('./rig/types').Rig;
+  const rig: import('mesh-avatar').Rig;
   export default rig;
 }

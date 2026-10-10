@@ -1,4 +1,5 @@
-import { DEFAULT_LIGHTING, parseLighting, type LightingSettings } from './settings';
+// Vite bundles its config before applying aliases, so use the public source entry here.
+import { DEFAULT_LIGHTING, parseLighting, type LightingSettings } from '../../packages/runtime/src/index';
 
 export const LIGHTING_PRESET_COUNT = 8;
 /** Slot i holds preset number i + 1; empty slots are null. */

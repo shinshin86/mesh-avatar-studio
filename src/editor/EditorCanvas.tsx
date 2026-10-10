@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Point, Rig } from '../rig/types';
+import type { Point, Rig } from 'mesh-avatar';
 import { buildOverlay, changeVertex, imagePoint, moveHandle, nearestEdge, nearestHandle, screen, type Handle, type Viewport } from './model';
 import { useI18n, type PartGroup } from './i18n';
 import { PART_COLORS } from './parts';

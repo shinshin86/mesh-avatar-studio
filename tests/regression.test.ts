@@ -8,12 +8,11 @@ import * as reference from '../reference/engine/rig.js';
 import { buildGrid as rawReferenceGrid } from '../reference/engine/renderer.js';
 import { createSprites as rawReferenceSprites } from '../reference/engine/sprites.js';
 import { Physics as ReferencePhysics } from '../reference/engine/physics.js';
-import type { Rig } from '../src/rig/types';
-import { parseRig } from '../src/rig/validate';
-import { createRig, PARAMS } from '../src/engine/rig.js';
-import { createRenderer } from '../src/engine/renderer.js';
-import { createSpriteModule } from '../src/engine/sprites.js';
-import { createPhysics } from '../src/engine/physics.js';
+import { type Rig, parseRig, PARAMS } from 'mesh-avatar';
+import { createRig } from '../packages/runtime/src/engine/rig.js';
+import { createRenderer } from '../packages/runtime/src/engine/renderer.js';
+import { createSpriteModule } from '../packages/runtime/src/engine/sprites.js';
+import { createPhysics } from '../packages/runtime/src/engine/physics.js';
 
 const rig = parseRig(fixture);
 const engine = createRig(rig);

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import fixture from '../samples/miko-qipao/rig.json';
-import { parseRig, validateRig } from '../src/rig/validate';
+import { parseRig, validateRig } from 'mesh-avatar';
 import { buildOverlay, changeVertex, moveHandle, nearestHandle, getAt, setAt } from '../src/editor/model';
 
 const view = { scale: 0.5, x: 20, y: 10 };

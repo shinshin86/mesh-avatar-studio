@@ -1,4 +1,4 @@
-import type { Rig } from '../rig/types';
+import type { Rig } from 'mesh-avatar';
 import { jobReason } from './job-reason';
 import { useI18n } from './i18n';
 import { ProjectJobError } from './project';

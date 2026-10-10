@@ -8,7 +8,7 @@ const settings = viewSettings(location.search);
 document.documentElement.style.background = settings.background;
 const canvas = document.querySelector<HTMLCanvasElement>('#avatar')!;
 const pose = new LivePose(settings.project);
-let avatarInstance: import('../engine').MeshAvatar | undefined;
+let avatarInstance: import('mesh-avatar').MeshAvatar | undefined;
 const unsubscribeLighting = receiveLighting(settings.project, value => { settings.lighting = value; avatarInstance?.setLighting(value); });
 const unsubscribe = receiveLiveParameters(data => pose.receive(data, performance.now()));
 void createAvatarView(canvas, settings, (avatar, now, dt) => {

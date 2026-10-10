@@ -1,8 +1,8 @@
 import { expect, test } from 'vitest';
 import fixture from '../samples/miko-qipao/rig.json';
-import { parseRig } from '../src/rig/validate';
-import { createRig, PARAMS } from '../src/engine/rig.js';
-import { createPhysics } from '../src/engine/physics.js';
+import { parseRig, PARAMS } from 'mesh-avatar';
+import { createRig } from '../packages/runtime/src/engine/rig.js';
+import { createPhysics } from '../packages/runtime/src/engine/physics.js';
 
 test('rig instances have isolated coordinates and physics state', () => {
   const a = parseRig(fixture);

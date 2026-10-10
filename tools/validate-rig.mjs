@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { validateRig } from '../src/rig/validate.ts';
+import { validateRig } from '../packages/runtime/src/rig/validate.ts';
 
 const args = process.argv.slice(2);
 const files = args.filter(arg => arg !== '--draft');
