@@ -18,20 +18,8 @@ the project menu. Supported browsers retain a directory handle for picked folder
 ask for permission again; other browsers show **Browse again**. Image data is never stored
 in this history.
 
-```text
-project/
-  rig.json
-  source.png
-  built/
-    layers.json
-    base.png
-    hairmask.png
-    eye0_ball.png
-    ...other cut-out layers named in layers.json
-    sprites/                 # optional drawn eye/mouth variants
-      sprites.json
-      ...sprite images
-```
+See the [avatar file and folder format](format.md) for the file layout, manifest,
+layer and sprite metadata, compatibility rules, and whole-folder validation.
 
 ## Build a project by hand
 

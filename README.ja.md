@@ -97,6 +97,7 @@ npm run dev
 - [エージェント向けの手順書](docs/agent-guide.md): エージェントが作業するときの手順
 - [リファレンス](docs/reference.md): プロジェクトの扱い、レイヤーを手作業で作る方法、エディタの全操作、テスト
 - [リグの項目](docs/rig-fields.md): `rig.json` の各値の意味
+- [アバターの形式](docs/format.md): フォルダと `.mavatar` の構成、メタデータ、検証方法
 
 いずれも英語です。
 

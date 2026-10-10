@@ -99,9 +99,17 @@ class AgentToolsTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("no alpha", result.stderr)
         self.assertIn("800", result.stderr)
+        manifest = created / "avatar.json"
+        self.assertEqual(json.loads(manifest.read_text()), {
+            "format": "mesh-avatar", "version": 1, "name": name,
+        })
         before = (created / "rig.draft.json").read_bytes()
         self.assertEqual(self.cli("new-project", rgb, name).returncode, 1)
         self.assertEqual((created / "rig.draft.json").read_bytes(), before)
+        manifest.write_text(json.dumps({"format": "mesh-avatar", "version": 1, "name": "Custom name", "author": "Artist"}))
+        manifest_before = manifest.read_bytes()
+        self.assertEqual(self.cli("new-project", rgb, name, "--force").returncode, 0)
+        self.assertEqual(manifest.read_bytes(), manifest_before)
         with self.assertRaises(ValueError):
             new.create(rgb, "../escape")
         wrong = self.project / "source.jpg"
@@ -137,6 +145,8 @@ class AgentToolsTest(unittest.TestCase):
         sprites.build(self.project)
         metadata = self.project / "built/sprites/sprites.json"
         before = metadata.read_bytes()
+        self.assertEqual(json.loads(before)["version"], 1)
+        self.assertEqual(list(json.loads(before)), ["build", "layers", "version"])
         self.assertEqual(json.loads(before)["layers"]["mouth_a"][2] > 0, True)
         invalid = valid.copy()
         invalid.putpixel((0, 0), (0, 0, 0, 255))

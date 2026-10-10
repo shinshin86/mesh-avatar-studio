@@ -575,6 +575,7 @@ def build(project, rig_path):
     meta["eyes"] = [
         {k: eye[k] for k in ("x0", "x1", "top", "bot")} for eye in rig["eyes"]
     ]
+    meta["version"] = 1
 
     prefill, painted = (
         hand_prefill(rgba, remove, hand) if hand else (rgba, np.zeros_like(remove))

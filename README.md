@@ -140,6 +140,7 @@ Stream view options, troubleshooting and privacy details are in the
 - [Agent guide](docs/agent-guide.md): the step-by-step procedure agents follow
 - [Reference](docs/reference.md): projects, building layers by hand, all editor controls, tests
 - [Rig fields](docs/rig-fields.md): what every value in `rig.json` means
+- [Avatar format](docs/format.md): folder and `.mavatar` layouts, metadata and validation
 
 ## License
 

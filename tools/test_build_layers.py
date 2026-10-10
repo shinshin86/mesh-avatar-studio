@@ -59,6 +59,8 @@ class BuildLayersTest(unittest.TestCase):
         self.assertEqual(self.draft.read_bytes(), before)
         self.assertEqual((sprites / "keep.txt").read_text(), "keep")
         meta = json.loads((self.project / "built/layers.json").read_text())
+        self.assertEqual(meta["version"], 1)
+        self.assertEqual(list(meta), ["size", "build", "layers", "eyes", "version"])
         rig = json.loads((self.project / "rig.json").read_text())
         self.assertEqual(len(meta["layers"]), 8)
         self.assertNotIn("hand", meta["layers"])
