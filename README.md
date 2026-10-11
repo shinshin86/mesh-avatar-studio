@@ -148,6 +148,17 @@ OBS's Virtual Camera ([steps](docs/reference.md#video-calls)).
 Stream view options, troubleshooting and privacy details are in the
 [reference](docs/reference.md#live-and-streaming).
 
+## Releases
+
+For changes to `mesh-avatar`, run `npm run changeset` and include the generated file in your
+PR. On `main`, GitHub Actions opens or updates a `chore: version packages` PR with the next
+version and changelog; merging it publishes `mesh-avatar` to npm with provenance. The Studio
+root package stays private. Before the first release, add an npm granular access token with
+permission to publish new packages as the repository secret `NPM_TOKEN`. In repository
+Settings → Actions → General, enable **Allow GitHub Actions to create and approve pull requests**
+so the workflow can open version PRs. Run `npm run e2e`
+locally before opening a PR; CI runs the other checks and does not install Playwright browsers.
+
 ## More
 
 - [Agent guide](docs/agent-guide.md): the step-by-step procedure agents follow

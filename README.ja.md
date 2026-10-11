@@ -98,6 +98,10 @@ npm run dev
 
 配信用画面の URL で指定できる項目、うまく動かないときの確認点、プライバシーについては[リファレンス](docs/reference.md#live-and-streaming)(英語)にまとめています。
 
+## リリース
+
+`mesh-avatar` を変更するときは `npm run changeset` を実行し、生成されたファイルをPRに含めてください。`main` に変更が入ると、GitHub Actionsが次のバージョンと変更履歴を含む `chore: version packages` PRを作成・更新します。そのPRをマージすると、`mesh-avatar` がprovenance付きでnpmに公開されます。Studioのルートパッケージは非公開のままです。初回リリース前に、新規パッケージの公開権限を持つnpmのgranular access tokenを、リポジトリのシークレット `NPM_TOKEN` に登録してください。ワークフローがバージョン更新のPRを作成できるよう、リポジトリの Settings → Actions → General で **Allow GitHub Actions to create and approve pull requests** を有効にしてください。PRを作る前に、手元で `npm run e2e` を実行してください。CIはその他の検証を実行し、Playwrightのブラウザはインストールしません。
+
 ## 詳しい資料
 
 - [エージェント向けの手順書](docs/agent-guide.md): エージェントが作業するときの手順

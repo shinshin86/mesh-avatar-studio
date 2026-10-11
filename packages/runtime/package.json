@@ -1,6 +1,6 @@
 {
   "name": "mesh-avatar",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "type": "module",
   "license": "MIT",
   "description": "A browser WebGL runtime for 2D mesh avatars, with .mavatar archive and folder loading.",
@@ -14,6 +14,10 @@
   "sideEffects": false,
   "types": "./dist/index.d.ts",
   "files": ["dist", "README.md", "LICENSE"],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "vite build && tsc -p tsconfig.build.json && node fix-declarations.mjs",
     "prepack": "npm run build"
