@@ -174,6 +174,7 @@ Two pages served by the development server (`npm run dev`):
 | Parameter | Values | Default |
 |---|---|---|
 | `project` | A project name from the local list, or `sample-miko-qipao` | the sample |
+| `avatar` | A folder or `.mavatar` URL on the same origin as the local development server; an explicit `project` takes precedence | unset |
 | `bg` | `transparent`, `green`, `blue` or a hex colour such as `#336699` | `transparent` |
 | `fit` | `contain` (whole avatar) or `cover` (fill the frame) | `contain` |
 | `idle` | `1` (idle motion, blinking, breathing, hair sway) or `0` | `1` |
@@ -193,6 +194,10 @@ and invalid ones use the default. **Copy OBS URL** and **Open stream view** incl
 Live page's current lighting settings. In OBS, add the URL as a **Browser Source**
 (for example 1080 × 1080); the transparent background needs no chroma key. Use green or blue
 for software without transparency support.
+
+`avatar` accepts relative URLs or HTTP(S) URLs with the same origin (scheme, host and port)
+as Studio. External or invalid URLs are ignored and the sample loads instead; they do not
+trigger external requests. If `project` is present, `avatar` is ignored.
 
 ### How motion reaches the stream view
 

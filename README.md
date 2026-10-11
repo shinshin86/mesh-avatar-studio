@@ -94,6 +94,19 @@ the masks and prompts for you to hand to an image generator.)
 
 ![Requesting drawn mouths](docs/images/en/05-variants.png)
 
+## Share your avatar
+
+Choose **Export .mavatar** in the editor to download one file containing the saved rig,
+built layers, drawn expressions and avatar metadata. **Include source image** is on by
+default so the recipient can edit it in Studio. If you have unsaved edits, use **Save and
+export**; changed outlines need a layer rebuild first. Read-only views export the original files.
+
+In **Open project**, choose **Import .mavatar** or drop the file there. Studio creates a new
+folder under `projects/`, using a new name if one already exists. Import requires `npm run dev`
+and accepts archives up to 128 MiB. Without the source image, the imported avatar can play but
+cannot be edited or rebuilt. Omitting the source does not remove the built images.
+See the [avatar format](docs/format.md) for the file contents.
+
 ## Live and streaming
 
 ![The Live page](docs/images/en/07-live.png)

@@ -1,6 +1,7 @@
 import { openAvatar, parseRig, type Rig, type AvatarPackage } from 'mesh-avatar';
 import type { LocalProject, LocalProjectEntry } from '../project-types';
 import { FolderOpenError } from './folder-errors';
+import { packProjectAvatar } from '../../packages/runtime/src/format/project-archive';
 export type { LocalProject, LocalProjectEntry } from '../project-types';
 
 const sampleBase = '/miko-qipao/';
@@ -72,6 +73,30 @@ export async function copySample(rig: Rig): Promise<LocalProject> {
   if (!response.ok) throw new Error('Could not copy the sample.');
   return response.json();
 }
+export async function importAvatar(file: File): Promise<LocalProject> {
+  if (file.size > 128 * 1024 * 1024) throw new Error('Archive exceeds 128 MiB.');
+  const response = await fetch('/__studio/import', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error);
+  return result;
+}
+export async function exportAvatar(name: string, includeSource: boolean, pickedFiles?: File[]): Promise<Blob> {
+  if (pickedFiles) {
+    const entries = new Map(pickedFiles.map(file => [file.webkitRelativePath.replace(/^[^/]+\//, '') || file.name, file]));
+    const bytes = await packProjectAvatar(async paths => {
+      const files: Record<string, Uint8Array> = Object.create(null);
+      for (const path of paths) {
+        const file = entries.get(path);
+        if (file) files[path] = new Uint8Array(await file.arrayBuffer());
+      }
+      return files;
+    }, { name, includeSource });
+    return new Blob([new Uint8Array(bytes)], { type: 'application/octet-stream' });
+  }
+  const response = await fetch('/__studio/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project: name, includeSource }) });
+  if (!response.ok) throw new Error((await response.json()).error);
+  return response.blob();
+}
 export async function revealRepository() {
   const response = await fetch('/__studio/reveal', { method: 'POST' });
   if (!response.ok) throw new Error('Could not open repository.');
@@ -108,9 +133,9 @@ async function jsonFile(url: string) {
 export async function openLocalProject(project: LocalProject): Promise<ProjectAssets> {
   const base = baseUrl(project), version = Date.now();
   const { rig, assets } = await openAvatar(base, { version, rigFile: project.rigFile });
-  const sourceUrl = `${base}source.png?v=${version}`;
+  const sourceUrl = project.hasSource === false ? '' : `${base}source.png?v=${version}`;
   // Check images before replacing the editor's current project.
-  const urls = [sourceUrl, ...Object.entries(assets).filter(([name]) => name.endsWith('.png')).map(([, url]) => url)];
+  const urls = [sourceUrl, ...Object.entries(assets).filter(([name]) => name.endsWith('.png')).map(([, url]) => url)].filter(Boolean);
   await Promise.all(urls.map(url => new Promise<void>((done, reject) => {
     const image = new Image(); image.onload = () => done(); image.onerror = () => reject(new Error('Missing project image.')); image.src = url;
   })));

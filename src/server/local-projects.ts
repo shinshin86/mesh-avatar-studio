@@ -2,11 +2,13 @@ import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { readFile, readdir, realpath, stat, writeFile, rename, unlink, mkdir, cp, lstat, rm } from 'node:fs/promises';
-import { resolve, relative, extname, sep, isAbsolute } from 'node:path';
+import { resolve, relative, extname, sep, isAbsolute, dirname } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Plugin } from 'vite';
 // Vite bundles its config before applying aliases, so use the public source entry here.
-import { validateRig } from '../../packages/runtime/src/index';
+import { validateRig, unpackAvatar, validateAvatarFiles, parseManifest } from '../../packages/runtime/src/index';
+import { packProjectAvatar } from '../../packages/runtime/src/format/project-archive';
+import { checkEntryName } from '../../packages/runtime/src/format/zip';
 import type { LocalProject, LocalProjectEntry } from '../project-types';
 import { decodeVariants, JobError, projectJob, runTool, variantState, VARIANTS, type Runner } from './project-jobs';
 
@@ -38,11 +40,102 @@ export function localProjectMiddleware(root: string, reveal = revealFolder, runn
   root = resolve(root);
   const base = resolve(root, 'projects'), sample = resolve(root, 'samples/miko-qipao');
   const saving = new Set<string>();
-  async function readBody(req: IncomingMessage, limit = 1024 * 1024) {
-    if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw new HttpError(400, 'Send application/json.');
+  async function readBytes(req: IncomingMessage, limit: number) {
+    if (Number(req.headers['content-length']) > limit) throw new HttpError(413, 'Request is too large.');
     const chunks: Buffer[] = []; let size = 0;
     for await (const chunk of req) { size += chunk.length; if (size > limit) throw new HttpError(413, 'Request is too large.'); chunks.push(chunk); }
-    try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new HttpError(400, 'Invalid JSON.'); }
+    return Buffer.concat(chunks);
+  }
+  async function readBody(req: IncomingMessage, limit = 1024 * 1024) {
+    if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw new HttpError(400, 'Send application/json.');
+    const bytes = await readBytes(req, limit);
+    try { return JSON.parse(bytes.toString('utf8')); } catch { throw new HttpError(400, 'Invalid JSON.'); }
+  }
+  async function readSelected(path: string, names: Set<string>) {
+    const files: Record<string, Uint8Array> = Object.create(null);
+    for (const name of names) {
+      checkEntryName(name);
+      const file = resolve(path, name);
+      if (!inside(path, file)) throw new HttpError(400, 'Path must stay inside the project.');
+      try {
+        await checked(path, file);
+        if (!(await stat(file)).isFile()) throw new HttpError(400, `${name}: expected a regular file`);
+        files[name] = await readFile(file);
+      } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    }
+    return files;
+  }
+  async function sourceFile(path: string) {
+    const metadata = await readSelected(path, new Set(['avatar.json']));
+    let name = 'source.png';
+    if (metadata['avatar.json']) {
+      try { name = parseManifest(JSON.parse(new TextDecoder().decode(metadata['avatar.json']))).source ?? name; checkEntryName(name); }
+      catch (error) { throw new HttpError(400, (error as Error).message); }
+    }
+    const file = resolve(path, name);
+    if (!inside(path, file)) throw new HttpError(400, 'Path must stay inside the project.');
+    if (!await exists(file)) return null;
+    await checked(path, file);
+    return (await stat(file)).isFile() ? file : null;
+  }
+  async function importArchive(bytes: Uint8Array) {
+    let files: Record<string, Uint8Array>, title: string;
+    try {
+      files = unpackAvatar(bytes);
+      const errors = validateAvatarFiles(files);
+      if (!files['avatar.json']) errors.unshift('avatar.json: required in a .mavatar archive');
+      if (errors.length) throw new Error(errors.join('\n'));
+      const metadata = JSON.parse(new TextDecoder().decode(files['avatar.json']));
+      const manifest = parseManifest(metadata);
+      title = manifest.name;
+      const paths = new Map<string, boolean>();
+      for (const name of Object.keys(files)) {
+        const parts = name.replace(/\/$/, '').split('/');
+        if (parts.some(part => !part || part === '.' || /[:<>"|?*]/.test(part) || [...part].some(char => char.charCodeAt(0) < 32) || /[. ]$/.test(part) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part))) throw new Error(`ZIP entry ${JSON.stringify(name)}: invalid filesystem path`);
+        const normalized = parts.join('/').normalize('NFC').toLowerCase();
+        if (paths.has(normalized)) throw new Error(`ZIP entry ${JSON.stringify(name)}: conflicting filesystem path`);
+        paths.set(normalized, name.endsWith('/'));
+      }
+      for (const name of paths.keys()) {
+        const parts = name.split('/');
+        for (let i = 1; i < parts.length; i++) if (paths.get(parts.slice(0, i).join('/')) === false) throw new Error(`ZIP entry ${JSON.stringify(name)}: parent is a file`);
+      }
+      if (manifest.source) {
+        checkEntryName(manifest.source);
+        const source = manifest.source.split('/').filter(part => part && part !== '.').join('/');
+        if (files[source] && manifest.source !== 'source.png') {
+          files['source.png'] = files[source];
+          // Built images may also be used as the original; retain their playback paths.
+          if (source !== 'source.png' && !source.startsWith('built/')) delete files[source];
+          metadata.source = 'source.png';
+          if (metadata.thumbnail === manifest.source) metadata.thumbnail = 'source.png';
+          files['avatar.json'] = new TextEncoder().encode(JSON.stringify(metadata, null, 2) + '\n');
+          const normalizedErrors = validateAvatarFiles(files);
+          if (normalizedErrors.length) throw new Error(normalizedErrors.join('\n'));
+        }
+      }
+    } catch (error) { throw new HttpError(400, (error as Error).message); }
+    await mkdir(base, { recursive: true });
+    if (await realpath(base) !== base) throw new HttpError(400, 'Project root cannot redirect elsewhere.');
+    let stem = title.normalize('NFKD').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[^A-Za-z0-9]+|[. -]+$/g, '').slice(0, 80) || 'avatar';
+    if (stem === SAMPLE || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(stem)) stem = `avatar-${stem}`;
+    let name = stem, path = resolve(base, name);
+    for (let index = 1; ; index++) {
+      try { await mkdir(path); break; }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; name = `${stem}-${index}`; path = resolve(base, name); }
+    }
+    try {
+      // Write the rig last so an in-progress import cannot appear as an openable project.
+      const names = Object.keys(files).filter(name => !name.endsWith('/')).sort((a, b) => Number(a === 'rig.json') - Number(b === 'rig.json'));
+      for (const name of names) {
+        const file = resolve(path, name);
+        if (!inside(path, file)) throw new HttpError(400, 'Path must stay inside the project.');
+        await mkdir(dirname(file), { recursive: true });
+        await checked(base, path); await checked(path, dirname(file));
+        await writeFile(file, files[name], { flag: 'wx' });
+      }
+      return await info(name);
+    } catch (error) { await checked(base, path); await rm(path, { recursive: true, force: true }); throw error; }
   }
   async function saveRig(path: string, rig: unknown) {
     const errors = validateRig(rig);
@@ -86,7 +179,7 @@ export function localProjectMiddleware(root: string, reveal = revealFolder, runn
     return { name, relativePath: relative(root, path).split(sep).join('/'), absolutePath: path, displayPath: displayPath(path),
       rigFile: await exists(rigPath) ? 'rig.json' : 'rig.draft.json',
       updatedAt: (await stat(file)).mtime.toISOString(), hasSprites: await exists(resolve(path, 'built/sprites/sprites.json')),
-      hasVariants: await exists(resolve(path, 'variants')), readOnly: name === SAMPLE };
+      hasVariants: await exists(resolve(path, 'variants')), hasSource: !!await sourceFile(path), readOnly: name === SAMPLE };
   }
   return async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
     if (!req.url?.startsWith('/__studio/')) { next(); return; }
@@ -105,6 +198,25 @@ export function localProjectMiddleware(root: string, reveal = revealFolder, runn
       });
       if (parts.length === 1 && parts[0] === 'context' && req.method === 'GET') { json(200, { rootPath: root, displayRootPath: displayPath(root) }); return; }
       if (parts.length === 1 && parts[0] === 'reveal' && req.method === 'POST') { await reveal(root); json(200, { path: root }); return; }
+      if (parts.length === 1 && parts[0] === 'export' && req.method === 'POST') {
+        const body = await readBody(req);
+        if (!body || typeof body.project !== 'string' || (body.includeSource !== undefined && typeof body.includeSource !== 'boolean')) throw new HttpError(400, 'Expected project and includeSource.');
+        const path = await folder(body.project);
+        if (saving.has(path)) throw new HttpError(409, 'A project operation is already in progress.');
+        saving.add(path);
+        try {
+          let bytes: Uint8Array;
+          try { bytes = await packProjectAvatar(names => readSelected(path, names), { name: body.project, includeSource: body.includeSource ?? true }); }
+          catch (error) { if (error instanceof HttpError || (error as NodeJS.ErrnoException).code) throw error; throw new HttpError(400, (error as Error).message); }
+          res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="${body.project}.mavatar"`, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+          res.end(Buffer.from(bytes));
+        } finally { saving.delete(path); }
+        return;
+      }
+      if (parts.length === 1 && parts[0] === 'import' && req.method === 'POST') {
+        if (req.headers['content-type']?.split(';')[0] !== 'application/octet-stream') throw new HttpError(400, 'Send application/octet-stream.');
+        json(200, await importArchive(await readBytes(req, 128 * 1024 * 1024))); return;
+      }
       if (parts.length === 1 && parts[0] === 'copy-sample' && req.method === 'POST') {
         const rig = await readBody(req), errors = validateRig(rig);
         if (errors.length) throw new HttpError(400, `Invalid rig: ${errors.join(', ')}`);
@@ -178,6 +290,7 @@ export function localProjectMiddleware(root: string, reveal = revealFolder, runn
       }
       if (req.method === 'POST' && tail.length === 1 && ['rig', 'rebuild', 'variant-requests', 'import-variants'].includes(tail[0])) {
         if (name === SAMPLE) throw new HttpError(403, 'The sample is read-only.');
+        if (!await sourceFile(path)) throw new HttpError(403, 'Source image is missing. This avatar is playback-only.');
         const action = tail[0], body = await readBody(req, action === 'import-variants' ? 36 * 1024 * 1024 : 1024 * 1024);
         let files: ReturnType<typeof decodeVariants> = [];
         if (action === 'import-variants') { try { files = decodeVariants(body); } catch (error) { throw new HttpError(400, (error as Error).message); } }
@@ -199,7 +312,8 @@ export function localProjectMiddleware(root: string, reveal = revealFolder, runn
       const mime: Record<string, string> = { '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
       const contentType = mime[extname(fileName)];
       if (!contentType) throw new HttpError(404, 'File not available.');
-      const file = await checked(path, resolve(path, ...tail));
+      const file = fileName === 'source.png' ? await sourceFile(path) : await checked(path, resolve(path, ...tail));
+      if (!file) throw new HttpError(404, 'Source image is missing.');
       const bytes = await readFile(file);
       res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
       res.end(bytes);

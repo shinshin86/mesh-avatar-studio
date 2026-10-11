@@ -1,0 +1,43 @@
+const en = {
+  exportTitle: 'Export .mavatar', exportButton: 'Download .mavatar', saveExport: 'Save and export',
+  includeSource: 'Include source image', sourceHelp: 'Include the original illustration to edit this avatar in Studio later.',
+  savedHelp: 'Exports the saved rig, built layers and drawn expressions.',
+  originalHelp: 'Exports the original files. Edits in this read-only view are not included.',
+  saveHelp: 'Your current edits will be saved before exporting.',
+  rebuildHelp: 'Outlines changed. Rebuild the layers before exporting your edits.',
+  exportUnavailable: 'Export requires the local development server or a folder opened in the browser.',
+  importTitle: 'Import .mavatar', importHelp: 'Choose a file or drop it here. A new local project will be created.',
+  importUnavailable: 'Import requires the local development server (npm run dev).',
+  archiveFile: 'Avatar archive file', busy: 'Working…', failed: 'Could not transfer the avatar.', dismiss: 'Dismiss',
+  playbackOnly: 'Source image missing: playback only. Editing and rebuilding are unavailable.',
+  playbackBadge: 'Playback only', imported: 'Imported:', noSourceHelp: 'Built images remain in the file even when the source image is omitted.',
+};
+const ja: typeof en = {
+  exportTitle: '.mavatar を書き出す', exportButton: '.mavatar をダウンロード', saveExport: '保存して書き出す',
+  includeSource: '元画像を含める', sourceHelp: 'あとでStudioで編集する場合は、元のイラストを含めてください。',
+  savedHelp: '保存済みの設定・レイヤー画像・目と口の差分画像を書き出します。',
+  originalHelp: '元のファイルを書き出します。読み取り専用の画面で加えた編集は含まれません。',
+  saveHelp: '現在の編集内容を保存してから書き出します。',
+  rebuildHelp: '輪郭が変更されています。編集内容を書き出す前にレイヤーを作り直してください。',
+  exportUnavailable: '書き出すには、ローカルの開発サーバーか、ブラウザで開いたフォルダが必要です。',
+  importTitle: '.mavatar を取り込む', importHelp: 'ファイルを選ぶか、ここにドロップしてください。新しいプロジェクトを作成します。',
+  importUnavailable: '取り込むには、ローカルの開発サーバー (npm run dev) が必要です。',
+  archiveFile: 'アバターのアーカイブファイル', busy: '処理中…', failed: 'アバターを転送できませんでした。', dismiss: '閉じる',
+  playbackOnly: '元画像がないため再生専用です。編集・レイヤーの作り直しはできません。',
+  playbackBadge: '再生専用', imported: '取り込みました:', noSourceHelp: '元画像を含めなくても、レイヤー画像はファイルに残ります。',
+};
+const zh: typeof en = {
+  exportTitle: '导出 .mavatar', exportButton: '下载 .mavatar', saveExport: '保存并导出',
+  includeSource: '包含原图', sourceHelp: '如需日后在 Studio 中编辑，请包含原始插画。',
+  savedHelp: '导出已保存的设置、图层和眼睛、嘴部的差分图像。',
+  originalHelp: '导出原始文件，不包含在只读视图中的修改。',
+  saveHelp: '先保存当前修改，再导出。',
+  rebuildHelp: '轮廓已更改。导出修改前，请重新生成图层。',
+  exportUnavailable: '导出需要本地开发服务器或在浏览器中打开的文件夹。',
+  importTitle: '导入 .mavatar', importHelp: '选择文件或拖放到此处，将创建一个新的本地项目。',
+  importUnavailable: '导入需要本地开发服务器 (npm run dev)。',
+  archiveFile: '虚拟形象归档文件', busy: '处理中…', failed: '无法传输虚拟形象。', dismiss: '关闭',
+  playbackOnly: '缺少原图：仅支持播放，无法编辑或重新生成图层。',
+  playbackBadge: '仅播放', imported: '已导入：', noSourceHelp: '即使不包含原图，文件仍保留图层图像。',
+};
+export const archiveText = { en, ja, zh };

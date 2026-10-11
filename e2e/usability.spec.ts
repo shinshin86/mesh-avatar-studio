@@ -172,7 +172,8 @@ for (const [width, height] of [[1440, 900], [1280, 800]]) for (const language of
           const parent = node.parentElement!;
           if (!parent.checkVisibility() || parent.closest('select, .field-path, .point-field > small')) continue;
           const text = node.textContent!.trim();
-          if (/[a-z]{2}/i.test(text) && text !== 'Mesh Avatar Studio') found.push(text);
+          // The archive filename extension is identical in every language.
+          if (/[a-z]{2}/i.test(text.replace(/\.mavatar\b/g, '')) && text !== 'Mesh Avatar Studio') found.push(text);
         }
         return found;
       });

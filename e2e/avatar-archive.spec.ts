@@ -36,7 +36,7 @@ test('stored archive renders the same stream as its folder, with local requests 
     } });
   });
   const hashes: string[] = [];
-  for (const query of ['', `&avatar=${encodeURIComponent(`/__studio/projects/${name}`)}`, '&project=sample-miko-qipao&avatar=/must-not-load.mavatar']) {
+  for (const query of ['', `&avatar=${encodeURIComponent(`/__studio/projects/${name}`)}`, '&project=sample-miko-qipao&avatar=/must-not-load.mavatar', '&avatar=https%3A%2F%2Fexample.com%2Fexternal.mavatar']) {
     await page.goto(`/stream.html?idle=0${query}`);
     await expect(page.locator('canvas')).toHaveAttribute('data-state', 'ready');
     await page.evaluate(() => (window as unknown as { stepFrames: (count: number) => void }).stepFrames(120));

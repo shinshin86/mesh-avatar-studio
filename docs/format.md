@@ -55,6 +55,8 @@ source variants, masks and review images; these are not required for playback.
 | `thumbnail` | Optional preview-image filename relative to the root, normally `thumbnail.png`. |
 | `studio.version` | Optional version string identifying the Studio that prepared the avatar. |
 
+On import, Studio saves the original image as `source.png` and updates `avatar.json.source` when its filename differs.
+
 An existing folder without `avatar.json` has the effective manifest
 `{ "format": "mesh-avatar", "version": 1, "name": "<folder name>" }`.
 Archives must contain an explicit manifest. `parseManifest` validates known fields,

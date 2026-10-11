@@ -18,7 +18,7 @@ const sliders = [
 ] as const;
 type Vowel = 'a' | 'i' | 'u' | 'e' | 'o' | 'n';
 type Lip = { kind: 'hold'; vowel: Vowel } | { kind: 'text'; text: string; speed: number; loop: boolean } | null;
-export function Preview({ projectKey, rig, assets, hasMouthSprites, onDrawMouth }: { projectKey: string; rig: Rig; assets?: Record<string, string>; hasMouthSprites: boolean; onDrawMouth: () => void }) {
+export function Preview({ projectKey, rig, assets, hasMouthSprites, onDrawMouth }: { projectKey: string; rig: Rig; assets?: Record<string, string>; hasMouthSprites: boolean; onDrawMouth?: () => void }) {
   const { t, language } = useI18n();
   const [lighting, setLighting] = useState(() => loadLighting(projectKey));
   const lightRef = useRef(lighting); lightRef.current = lighting;
@@ -156,7 +156,7 @@ export function Preview({ projectKey, rig, assets, hasMouthSprites, onDrawMouth 
           onChange={event => { const value = Number(event.target.value); setSpeed(value); setLip(current => current?.kind === 'text' ? { ...current, speed: value } : current); }} /><output>{speed}</output></label>
           <label><input type="checkbox" checked={loop} onChange={event => { const value = event.target.checked; setLoop(value); setLip(current => current?.kind === 'text' ? { ...current, loop: value } : current); }} />{t.lipLoop}</label>
         </div>
-        {!hasMouthSprites && <p className="mouth-fallback">{t.mouthFallback} <button type="button" onClick={onDrawMouth}>{t.drawMouth}</button></p>}
+        {!hasMouthSprites && <p className="mouth-fallback">{t.mouthFallback} {onDrawMouth && <button type="button" onClick={onDrawMouth}>{t.drawMouth}</button>}</p>}
         <p className="lip-help">{t.lipHelp}</p>{skipped && <p className="lip-skipped">{t.skippedKana} {skipped}</p>}
         <div className="sliders lip-live"><label>{t.mouthOpen}<input type="range" aria-label={t.mouthOpen} min="0" max="1" step="0.01" disabled={lip !== null}
           value={lip ? liveMouth : parameters.mouthOpen ?? 0} onChange={event => setParameters(current => ({ ...current, mouthOpen: Number(event.target.value) }))} /><output>{(lip ? liveMouth : parameters.mouthOpen ?? 0).toFixed(2)}</output></label></div>

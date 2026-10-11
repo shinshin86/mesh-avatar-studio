@@ -19,3 +19,13 @@ test('archive URLs round-trip while an explicit project takes precedence', () =>
   expect(viewSettings('?project=nova&avatar=ignored.mavatar').avatar).toBeUndefined();
   expect(viewSettings('?project=../bad&avatar=ignored.mavatar').avatar).toBeUndefined();
 });
+
+test('stream avatar sources stay on the current server origin', () => {
+  const origin = 'http://127.0.0.1:5173';
+  for (const value of ['https://example.com/a.mavatar', '//example.com/a.mavatar', 'http://127.0.0.1:5174/a.mavatar', 'data:application/zip,abc', 'blob:http://127.0.0.1:5173/id', 'http://user@127.0.0.1:5173/a.mavatar', 'http://[invalid']) {
+    expect(viewSettings(`?avatar=${encodeURIComponent(value)}`, origin).avatar, value).toBeUndefined();
+  }
+  for (const value of ['/a.mavatar', 'a.mavatar', `${origin}/a.mavatar`]) {
+    expect(viewSettings(`?avatar=${encodeURIComponent(value)}`, origin).avatar).toBe(value);
+  }
+});

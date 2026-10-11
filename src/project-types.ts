@@ -13,6 +13,7 @@ export interface LocalProject extends ProjectIdentity {
   updatedAt: string;
   hasSprites: boolean;
   hasVariants: boolean;
+  hasSource?: boolean;
   rigFile?: 'rig.json' | 'rig.draft.json';
 }
 

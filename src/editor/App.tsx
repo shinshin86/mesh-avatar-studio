@@ -5,7 +5,9 @@ import { setAt } from './model';
 import { type Rig, parseRig, validateRig } from 'mesh-avatar';
 import { Preview } from './Preview';
 import { RigHistory, downloadRig } from './history';
-import { openProjectFolder, openLocalProject, copySample, localProjects, projectAction, sampleImagesAvailable, sampleSourceUrl, repositoryContext, runProjectJob, ProjectJobError, type ProjectJob, type LocalProject, type LocalProjectEntry } from './project';
+import { openProjectFolder, openLocalProject, copySample, localProjects, projectAction, sampleImagesAvailable, sampleSourceUrl, repositoryContext, runProjectJob, ProjectJobError, importAvatar, exportAvatar, type ProjectJob, type LocalProject, type LocalProjectEntry } from './project';
+import { ExportAvatar, ImportAvatar } from './AvatarTransfer';
+import { archiveText } from './archive-i18n';
 import { folderOpenError } from './folder-errors';
 import { layerSignature } from './stale';
 import { RigFields } from './RigFields';
@@ -35,6 +37,11 @@ function Workspace() {
   const [help, setHelp] = useState(false);
   const [history] = useState(() => new RigHistory(parseRig(fixture)));
   const [rig, setRig] = useState(history.present);
+  const [savedRig, setSavedRig] = useState(() => JSON.stringify(history.present));
+  const pickedFiles = useRef<File[] | undefined>(undefined);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveFeedback, setArchiveFeedback] = useState<{ error?: string; name?: string } | null>(null);
+  const sharing = archiveText[language];
   const [builtSignature, setBuiltSignature] = useState(() => layerSignature(history.present));
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
@@ -121,7 +128,7 @@ function Workspace() {
     setRig(history.present);
   };
   const openFile = async (file?: File) => {
-    if (!file || jobRef.current) return;
+    if (!file || jobRef.current || localProject?.hasSource === false) return;
     try {
       update(parseRig(JSON.parse(await file.text())));
       setSelected(null);
@@ -130,11 +137,13 @@ function Workspace() {
   };
   const openFolder = async (files: File[], handle?: ProjectDirectory) => {
     if (jobRef.current) return false;
+    setOpening(true);
     try {
       const project = await openProjectFolder(files);
       projectOpened.current = true;
       if (project.rig) {
         history.load(project.rig); setRig(history.present); setDragStale(null);
+        setSavedRig(JSON.stringify(project.rig));
         setBuiltSignature(layerSignature(project.rig));
       }
       setSelected(null);
@@ -143,6 +152,7 @@ function Workspace() {
       setSourceUrl(project.sourceUrl);
       setAssets(project.assets);
       setLocalProject(null);
+      pickedFiles.current = files;
       setPickedName(files[0]?.webkitRelativePath.split('/')[0] || t.openProject);
       setChecking(false);
       setError(null);
@@ -162,6 +172,7 @@ function Workspace() {
       if (openMenu.current) openMenu.current.open = false;
       return true;
     } catch (error) { setError(folderOpenError(error)); return false; }
+    finally { setOpening(false); }
   };
   const openLocal = async (entry: LocalProjectEntry, automatic = false) => {
     if (jobRef.current) return;
@@ -171,6 +182,7 @@ function Workspace() {
       const project = await openLocalProject(entry);
       projectOpened.current = true;
       history.load(project.rig!); setRig(history.present); setDragStale(null); setBuiltSignature(layerSignature(project.rig!));
+      setSavedRig(JSON.stringify(project.rig)); pickedFiles.current = undefined;
       setSelected(null); setLocalProject(entry); setPickedName('');
       objectUrls.current.forEach(url => URL.revokeObjectURL(url)); objectUrls.current = [];
       setSourceUrl(project.sourceUrl); setAssets(project.assets); setChecking(false); setError(null);
@@ -188,10 +200,12 @@ function Workspace() {
   const saveRef = useRef<() => void>(() => undefined);
   const save = async () => {
     if (jobRef.current) return;
+    if (localProject?.hasSource === false) return;
     if (!localProject || localProject.readOnly) { downloadRig(history.present); return; }
     if (saving) return;
     setSaving(true);
-    try { const result = await projectAction(localProject, 'rig', history.present); setNotice({ key: 'savedTo', path: result.path }); setError(null); }
+    const snapshot = JSON.stringify(history.present);
+    try { const result = await projectAction(localProject, 'rig', history.present); setSavedRig(snapshot); setNotice({ key: 'savedTo', path: result.path }); setError(null); }
     catch { setError({ kind: 'saveError', paths: [] }); }
     finally { setSaving(false); }
   };
@@ -264,6 +278,7 @@ function Workspace() {
     const loaded = await openLocalProject(fresh);
     // Keep the canvas mounted, its view, selection and the existing undo/redo stack.
     history.replacePresent(loaded.rig!); setRig(history.present); setDragStale(null);
+    setSavedRig(JSON.stringify(loaded.rig));
     setBuiltSignature(layerSignature(loaded.rig!)); setAssets(loaded.assets); setLocalProject(fresh); setProjects(list); setRebuildError(null);
   };
   useEffect(() => {
@@ -324,12 +339,48 @@ function Workspace() {
       objectUrls.current.forEach(url => URL.revokeObjectURL(url)); objectUrls.current = [];
       projectOpened.current = true; setSourceUrl(loaded.sourceUrl); setAssets(loaded.assets);
       setLocalProject(entry); setPickedName(''); setChecking(false); setRebuildError(null);
+      setSavedRig(JSON.stringify(loaded.rig)); pickedFiles.current = undefined;
       setProjects(await localProjects());
       remember({ id: `server:${entry.name}`, kind: 'server', name: entry.name, serverName: entry.name, relativePath: entry.relativePath, lastOpened: new Date().toISOString() });
     } catch { setError({ kind: 'continueError', paths: [] }); }
     finally { jobRef.current = null; setOpening(false); }
   };
-  return <main onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void openFile(event.dataTransfer.files[0]); }}>
+  const playbackOnly = localProject?.hasSource === false;
+  const busy = job !== null || opening || archiveBusy;
+  const dirty = JSON.stringify(rig) !== savedRig;
+  const writable = !!localProject && !localProject.readOnly && !playbackOnly;
+  const importFile = async (file: File) => {
+    if (jobRef.current || saving || opening) return;
+    if (!rootPath) { setArchiveFeedback({ error: sharing.importUnavailable }); return; }
+    if (openMenu.current) openMenu.current.open = false;
+    jobRef.current = 'transfer'; setArchiveBusy(true); setArchiveFeedback(null);
+    try {
+      const entry = await importAvatar(file);
+      setProjects(await localProjects());
+      jobRef.current = null;
+      await openLocal(entry);
+      setArchiveFeedback({ name: entry.name });
+    } catch (error) { setArchiveFeedback({ error: error instanceof Error ? error.message : sharing.failed }); }
+    finally { jobRef.current = null; setArchiveBusy(false); }
+  };
+  const exportFile = async (includeSource: boolean) => {
+    if (jobRef.current || saving || opening) return;
+    jobRef.current = 'transfer'; setArchiveBusy(true); setArchiveFeedback(null);
+    try {
+      if (writable && dirty) {
+        const snapshot = JSON.stringify(history.present);
+        await projectAction(localProject!, 'rig', history.present); setSavedRig(snapshot);
+      }
+      const name = localProject?.name ?? (pickedName || 'sample-miko-qipao');
+      const blob = await exportAvatar(name, includeSource, pickedFiles.current);
+      const url = URL.createObjectURL(blob), link = document.createElement('a');
+      link.href = url; link.download = `${name}.mavatar`; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { setArchiveFeedback({ error: error instanceof Error ? error.message : sharing.failed }); throw error; }
+    finally { jobRef.current = null; setArchiveBusy(false); }
+  };
+  const importControl = <ImportAvatar busy={busy || saving} available={!!rootPath} onImport={file => { void importFile(file); }} />;
+  return <main onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); const file = event.dataTransfer.files[0]; if (file?.name.toLowerCase().endsWith('.mavatar')) void importFile(file); else void openFile(file); }}>
     <header className="toolbar">
       <div className="brand"><h1>{t.product}</h1><p>{t.subtitle}</p></div>
       <nav aria-label={t.tools}>
@@ -337,25 +388,26 @@ function Workspace() {
           onChange={event => { void openFile(event.target.files?.[0]); event.target.value = ''; }} />
         <input ref={folderInput} type="file" multiple hidden aria-label={t.folderFiles} {...{ webkitdirectory: '' }}
           onChange={event => { void openFolder(Array.from(event.target.files ?? [])); event.target.value = ''; }} />
-        <details ref={openMenu} className="open-menu" inert={job !== null || opening} onToggle={event => {
+        <details ref={openMenu} className="open-menu" inert={busy} onToggle={event => {
           if (event.currentTarget.open) void localProjects().then(setProjects);
         }}><summary>{t.openProject}<Icon name="chevron" /></summary>
-          <div className="project-menu">{recentControl}<p className="project-help">{t.projectHelp}</p>
+          <div className="project-menu">{importControl}{recentControl}<p className="project-help">{t.projectHelp}</p>
             {projects && <div className="project-list" aria-label={t.localProjects}>
               {projects.length === 0 && <p>{t.noProjects}</p>}
               {projects.map(project => <button key={project.name} className={project.error ? 'unreadable-project' : undefined} disabled={opening || !!project.error} data-testid={`project-${project.name}`} onClick={() => { void openLocal(project); }}>
                 <strong>{project.readOnly ? t.sampleProject : project.name}</strong><small>{project.relativePath}</small>
                 <small>{project.error ? <>{t.unreadableProject} ({project.error.code}) · {project.error.path}</> : <>{t.updated}: {new Date(project.updatedAt).toLocaleString(locale)}
-                  {project.hasSprites && <span className="badge">{t.drawnVariants}</span>}{project.readOnly && <span className="badge">{t.readOnly}</span>}</>}</small>
+                  {project.hasSprites && <span className="badge">{t.drawnVariants}</span>}{project.readOnly && <span className="badge">{t.readOnly}</span>}{project.hasSource === false && <span className="badge">{sharing.playbackBadge}</span>}</>}</small>
               </button>)}
             </div>}
-            <button onClick={() => { void chooseFile(true); }}>{t.openFolder}</button><button onClick={() => { void chooseFile(false); }}>{t.openRig}</button>
+            <button onClick={() => { void chooseFile(true); }}>{t.openFolder}</button><button disabled={playbackOnly} onClick={() => { void chooseFile(false); }}>{t.openRig}</button>
           </div>
         </details>
-        <button className="icon-button" aria-label={t.save} disabled={saving || job !== null || opening} title={`${t.save} · ⌘S`} onClick={() => { void save(); }}><Icon name="save" /></button>
+        <ExportAvatar busy={busy || saving} available={!!rootPath || !!pickedFiles.current} writable={writable} dirty={dirty} stale={changed.length > 0} onExport={exportFile} />
+        <button className="icon-button" aria-label={t.save} disabled={saving || busy || playbackOnly} title={`${t.save} · ⌘S`} onClick={() => { void save(); }}><Icon name="save" /></button>
         <span className="toolbar-divider" />
-        <button className="icon-button" aria-label={t.undo} title={`${t.undo} · ⌘Z`} disabled={!history.canUndo || job !== null || opening} onClick={() => setRig(history.undo())}><Icon name="undo" /></button>
-        <button className="icon-button" aria-label={t.redo} title={`${t.redo} · ⇧⌘Z`} disabled={!history.canRedo || job !== null || opening} onClick={() => setRig(history.redo())}><Icon name="redo" /></button>
+        <button className="icon-button" aria-label={t.undo} title={`${t.undo} · ⌘Z`} disabled={!history.canUndo || busy || playbackOnly} onClick={() => setRig(history.undo())}><Icon name="undo" /></button>
+        <button className="icon-button" aria-label={t.redo} title={`${t.redo} · ⇧⌘Z`} disabled={!history.canRedo || busy || playbackOnly} onClick={() => setRig(history.redo())}><Icon name="redo" /></button>
         <span className="toolbar-divider" />
         <a className="live-link" href={localProject || listedProject || !pickedName ? `/live.html?project=${encodeURIComponent(localProject?.name ?? listedProject?.name ?? 'sample-miko-qipao')}` : undefined}
           target="_blank" rel="noreferrer" aria-disabled={!!pickedName && !localProject && !listedProject}
@@ -375,16 +427,20 @@ function Workspace() {
       {localProject.readOnly && <span className="badge">{t.readOnly}</span>}</>}
     </div>}
     {notice && <div role="status" className="save-notice">{t[notice.key]}{notice.path && ` ${notice.path}`}</div>}
+    {archiveFeedback && <div className={`archive-feedback${archiveFeedback.error ? ' error' : ''}`} role={archiveFeedback.error ? 'alert' : 'status'}>
+      <span>{archiveFeedback.error ?? `${sharing.imported} ${archiveFeedback.name}`}</span><button onClick={() => setArchiveFeedback(null)}>{sharing.dismiss}</button>
+    </div>}
+    {playbackOnly && <p className="playback-notice" role="status">{sharing.playbackOnly}</p>}
     {help && <Help onClose={() => setHelp(false)} onGuide={() => { setGuide(true); setHelp(false); }} />}
     {(dragStale ?? changed.length > 0) && <div className="stale" data-testid="stale-banner"><p role="status">{localProject && !localProject.readOnly ? t.staleLocal : sampleEditing ? t.staleSample : listedProject ? t.staleListed : t.stale}</p><small>{t.changedParts}: {changed.map(key => parts[key as PartGroup]?.[0] ?? title(key)).join(' · ')}</small>
       {localProject && !localProject.readOnly ? <button className="primary" disabled={job !== null || saving} onClick={() => { setRebuildError(null); void runJob('rebuild').catch(error => setRebuildError(error instanceof ProjectJobError ? error : new ProjectJobError('toolFailed'))); }}>{job === 'rebuild' ? t.rebuilding : t.rebuild}</button> : <><small>{sampleEditing ? t.sampleRebuildReason : t.folderRebuildReason}</small>{sampleEditing || listedProject ? <button className="primary" disabled={opening || saving || job !== null || (sampleEditing && !rootPath)} onClick={() => { void continueEditing(); }}>{opening ? t.operationBusy : sampleEditing ? t.copyContinue : t.reopenListed}</button> : <p>{t.rebuildUnavailable}</p>}</>}
       {rebuildError && <JobFeedback error={rebuildError} rig={rig} />}
       {error?.kind === 'continueError' && errorNotice}
     </div>}
-    {!sourceUrl && <section className="panel empty-project"><h2>{checking ? t.checking : t.emptyTitle}</h2><p>{t.projectHelp}</p><p>{t.emptyHelp}</p>{recentControl}<AskAgent newProject rootPath={rootPath} />{errorNotice}</section>}
-    {sourceUrl && <div className="workspace">
-      <div className="parts-container" inert={job !== null || opening}><PartList rig={rig} visible={visible} selected={selected} onSelect={selectPart} onFocus={group => { selectPart(group); setFocusRequest(current => ({ group, id: (current?.id ?? 0) + 1 })); }} onVisible={setVisible} /></div>
-      <section className="panel editor-panel" inert={job !== null || opening}>
+    {!sourceUrl && !assets && <section className="panel empty-project"><h2>{checking ? t.checking : t.emptyTitle}</h2><p>{t.projectHelp}</p><p>{t.emptyHelp}</p>{recentControl}<AskAgent newProject rootPath={rootPath} />{errorNotice}</section>}
+    {(sourceUrl || assets) && <div className={`workspace${playbackOnly ? ' playback-only' : ''}`}>
+      {!playbackOnly && <div className="parts-container" inert={busy}><PartList rig={rig} visible={visible} selected={selected} onSelect={selectPart} onFocus={group => { selectPart(group); setFocusRequest(current => ({ group, id: (current?.id ?? 0) + 1 })); }} onVisible={setVisible} /></div>}
+      {!playbackOnly && <section className="panel editor-panel" inert={busy}>
         <div className="panel-title"><h2>{t.source}</h2><span>{rig.image.width} × {rig.image.height} {t.px}</span></div>
         <div className="canvas-stage">
           <EditorCanvas sourceUrl={sourceUrl} rig={rig} visible={visible} selected={selected} onSelect={setSelected} onChange={update} focusRequest={focusRequest}
@@ -392,18 +448,18 @@ function Workspace() {
             onEnd={() => { history.end(); setRig(structuredClone(history.present)); setDragStale(null); }} />
           {guide && <FirstGuide onDismiss={dismissGuide} />}
         </div>
-      </section>
+      </section>}
       <div className="right-column">
-        <Preview key={localProject?.name ?? (pickedName || 'sample-miko-qipao')} projectKey={localProject?.name ?? (pickedName || 'sample-miko-qipao')} rig={rig} assets={assets} hasMouthSprites={mouthSprites} onDrawMouth={() => setMouthRequest(value => value + 1)} />
-        <VariantsPanel project={localProject} projectPath={localProject?.relativePath ?? (pickedName ? `<${pickedName}>` : 'samples/miko-qipao')} assets={assets} rootPath={rootPath} busy={job !== null || saving} stale={changed.length > 0} onRun={runJob} mouthRequest={mouthRequest} onMouthPresence={setMouthSprites} />
+        <Preview key={localProject?.name ?? (pickedName || 'sample-miko-qipao')} projectKey={localProject?.name ?? (pickedName || 'sample-miko-qipao')} rig={rig} assets={assets} hasMouthSprites={mouthSprites} onDrawMouth={playbackOnly ? undefined : () => setMouthRequest(value => value + 1)} />
+        {!playbackOnly && <VariantsPanel project={localProject} projectPath={localProject?.relativePath ?? (pickedName ? `<${pickedName}>` : 'samples/miko-qipao')} assets={assets} rootPath={rootPath} busy={busy || saving} stale={changed.length > 0} onRun={runJob} mouthRequest={mouthRequest} onMouthPresence={setMouthSprites} />}
         {!localProject && !pickedName && <details className="panel new-illustration"><summary>{t.newIllustration}</summary><AskAgent newProject rootPath={rootPath} /></details>}
-        <aside className="panel inspector" inert={job !== null || opening}>
+        {!playbackOnly && <aside className="panel inspector" inert={busy}>
           <div className="selection-heading"><h2>{selectedPart?.[0] ?? t.selection}</h2></div>
           {errorNotice}
           {selectedPart ? <><p className="part-description">{selectedPart[1]}</p><p className="part-tip"><strong>{t.tip}</strong> {selectedPart[2]}</p>
             <div className="fields">{selected && <RigFields rig={rig} path={selected} onChange={(path, value) => update(setAt(rig, path, value))} />}</div></>
             : <div className="selection-empty"><p>{t.selectPart}</p><GuideSteps /></div>}
-        </aside>
+        </aside>}
       </div>
     </div>}
   </main>;
