@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { colorHex, DEFAULT_LIGHTING, type LightingSettings } from './settings';
+import { colorHex, DEFAULT_LIGHTING, type LightingSettings } from 'mesh-avatar';
 import './lighting.css';
 
 export const lightingText = {

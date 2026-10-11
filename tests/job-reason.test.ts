@@ -3,7 +3,7 @@ import fixture from '../samples/miko-qipao/rig.json';
 import { jobReason } from '../src/editor/job-reason';
 import { workflowEn, workflowJa } from '../src/editor/workflow-i18n';
 import { runProjectJob, type LocalProject } from '../src/editor/project';
-import { parseRig } from '../src/rig/validate';
+import { parseRig } from 'mesh-avatar';
 
 test('tool geometry failures name the part and correction in each language, ignoring successful rounding logs', () => {
   const rig = parseRig(fixture), en = { ...workflowEn, accessory: 'Accessory' }, ja = { ...workflowJa, accessory: '飾り' };

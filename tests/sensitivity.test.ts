@@ -1,9 +1,8 @@
 import { expect, test } from 'vitest';
 import fixture from '../samples/miko-qipao/rig.json';
-import { parseRig } from '../src/rig/validate';
-import type { Rig } from '../src/rig/types';
-import { createRig, PARAMS } from '../src/engine/rig.js';
-import { Motion } from '../src/engine/motion.js';
+import { parseRig, type Rig, PARAMS } from 'mesh-avatar';
+import { createRig } from '../packages/runtime/src/engine/rig.js';
+import { Motion } from '../packages/runtime/src/engine/motion.js';
 
 const parameters: Record<string, number> = Object.fromEntries(PARAMS.map(p => [p.id, p.def]));
 const physics = {

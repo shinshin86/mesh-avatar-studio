@@ -94,6 +94,19 @@ the masks and prompts for you to hand to an image generator.)
 
 ![Requesting drawn mouths](docs/images/en/05-variants.png)
 
+## Share your avatar
+
+Choose **Export .mavatar** in the editor to download one file containing the saved rig,
+built layers, drawn expressions and avatar metadata. **Include source image** is on by
+default so the recipient can edit it in Studio. If you have unsaved edits, use **Save and
+export**; changed outlines need a layer rebuild first. Read-only views export the original files.
+
+In **Open project**, choose **Import .mavatar** or drop the file there. Studio creates a new
+folder under `projects/`, using a new name if one already exists. Import requires `npm run dev`
+and accepts archives up to 128 MiB. Without the source image, the imported avatar can play but
+cannot be edited or rebuilt. Omitting the source does not remove the built images.
+See the [avatar format](docs/format.md) for the file contents.
+
 ## Live and streaming
 
 ![The Live page](docs/images/en/07-live.png)
@@ -135,11 +148,23 @@ OBS's Virtual Camera ([steps](docs/reference.md#video-calls)).
 Stream view options, troubleshooting and privacy details are in the
 [reference](docs/reference.md#live-and-streaming).
 
+## Releases
+
+For changes to `mesh-avatar`, run `npm run changeset` and include the generated file in your
+PR. On `main`, GitHub Actions opens or updates a `chore: version packages` PR with the next
+version and changelog; merging it publishes `mesh-avatar` to npm with provenance. The Studio
+root package stays private. Before the first release, add an npm granular access token with
+permission to publish new packages as the repository secret `NPM_TOKEN`. In repository
+Settings → Actions → General, enable **Allow GitHub Actions to create and approve pull requests**
+so the workflow can open version PRs. Run `npm run e2e`
+locally before opening a PR; CI runs the other checks and does not install Playwright browsers.
+
 ## More
 
 - [Agent guide](docs/agent-guide.md): the step-by-step procedure agents follow
 - [Reference](docs/reference.md): projects, building layers by hand, all editor controls, tests
 - [Rig fields](docs/rig-fields.md): what every value in `rig.json` means
+- [Avatar format](docs/format.md): folder and `.mavatar` layouts, metadata and validation
 
 ## License
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { editorNumber, isIntegerField } from '../rig/numeric';
+import { editorNumber, isIntegerField } from '../../packages/runtime/src/rig/numeric';
 
 export function NumericField({ path, value, label, onChange }: {
   path: string; label?: string; value: number; onChange: (value: number) => void;

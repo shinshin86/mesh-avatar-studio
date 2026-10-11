@@ -1,4 +1,5 @@
-import { PARAMS } from '../engine/rig.js';
+// Vite bundles its config before applying aliases, so use the public source entry here.
+import { PARAMS } from '../../packages/runtime/src/index';
 
 export interface FaceResult {
   faceLandmarks: unknown[][];

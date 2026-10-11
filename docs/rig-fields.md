@@ -1,5 +1,8 @@
 # Rig fields
 
+See the [avatar file and folder format](format.md) for the manifest, built images and
+metadata that accompany `rig.json`.
+
 Version 1 uses the original `source.png` coordinate system: origin at the top left, x right,
 y down. Coordinates, radii, lengths, grid spacing and bands are **source pixels**; angles are
 **radians**, not the degrees used by the pose sliders. All numbers must be finite. Ellipse

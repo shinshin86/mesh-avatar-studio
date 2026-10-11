@@ -1,4 +1,4 @@
-import type { Rig } from '../rig/types';
+import type { Rig } from 'mesh-avatar';
 
 type Messages = Record<'accessory' | 'jobBoxOutside' | 'jobBoxEmpty' | 'jobBoxInvalid' | 'jobAccessoryPixels' | 'jobEyeRegion' | 'jobHandRegion' | 'jobFaceRegion' | 'jobImageSize' | 'jobMeshRegion', string>;
 export function jobReason(log: string, t: Messages, rig?: Rig, fieldTitle: (field: string) => string = field => field): string | undefined {

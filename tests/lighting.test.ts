@@ -1,7 +1,8 @@
 import { expect, test } from 'vitest';
-import { DEFAULT_LIGHTING, lightingFromQuery, loadLighting, parseLighting, writeLightingQuery } from '../src/lighting/settings';
-import { detailGradient, generateNormals, silhouetteDistance } from '../src/lighting/normals';
-import { attenuation, diffuseTerm, shadedColor, headRotation, rimTerm, shadowOffset } from '../src/lighting/shading';
+import { DEFAULT_LIGHTING, parseLighting } from 'mesh-avatar';
+import { lightingFromQuery, loadLighting, writeLightingQuery } from '../src/lighting/storage';
+import { detailGradient, generateNormals, silhouetteDistance } from '../packages/runtime/src/lighting/normals';
+import { attenuation, diffuseTerm, shadedColor, headRotation, rimTerm, shadowOffset } from '../packages/runtime/src/lighting/shading';
 import { lightingMessage, lightingValue, lightingWire } from '../src/lighting/protocol';
 import { viewSettings, streamUrl } from '../src/live/settings';
 

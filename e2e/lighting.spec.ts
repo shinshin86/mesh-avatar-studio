@@ -52,14 +52,14 @@ test('lighting is lazy, changes brightness with position, preserves alpha, shado
   await page.goto('/stream.html?idle=0'); await expect(page.locator('canvas')).toHaveAttribute('data-state', 'ready');
   await page.evaluate(async () => {
     const path = '/src/live/avatar-view.ts', { createAvatarView, neutralParameters } = await import(path);
-    const settingsPath = '/src/lighting/settings.ts', { DEFAULT_LIGHTING } = await import(settingsPath);
+    const settingsPath = '/packages/runtime/src/index.ts', { DEFAULT_LIGHTING } = await import(settingsPath);
     const canvas = document.createElement('canvas'); canvas.id = 'test-avatar'; canvas.style.cssText = 'width:640px;height:640px'; document.body.append(canvas);
     const view = await createAvatarView(canvas, { project: 'sample-miko-qipao', fit: 'contain', idle: false });
     view.avatar.setParameters(neutralParameters); view.avatar.advance(1);
     Object.assign(window, { testAvatar: view.avatar, defaultLight: DEFAULT_LIGHTING });
   });
   const light = (settings: Record<string, unknown>) => page.evaluate(settings => {
-    const w = window as unknown as { testAvatar: import('../src/engine').MeshAvatar; defaultLight: import('../src/lighting/settings').LightingSettings };
+    const w = window as unknown as { testAvatar: import('mesh-avatar').MeshAvatar; defaultLight: import('mesh-avatar').LightingSettings };
     w.testAvatar.setLighting({ ...w.defaultLight, ...settings }); w.testAvatar.advance(0); return w.testAvatar.getLightingStats();
   }, settings);
   const off = await image(page, '#test-avatar');

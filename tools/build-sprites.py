@@ -128,7 +128,7 @@ def build(project, output=None, tolerance=8):
             b"".join((stage / f"{name}.png").read_bytes() for name in sorted(meta))
         ).hexdigest()[:10]
         (stage / "sprites.json").write_text(
-            json.dumps({"build": build_id, "layers": meta}, indent=2) + "\n",
+            json.dumps({"build": build_id, "layers": meta, "version": 1}, indent=2) + "\n",
             encoding="utf-8",
         )
         output.mkdir(exist_ok=True)

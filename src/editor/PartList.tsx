@@ -1,4 +1,4 @@
-import type { Rig } from '../rig/types';
+import type { Rig } from 'mesh-avatar';
 import { useI18n, type PartGroup } from './i18n';
 import { PART_COLORS, partPresent, SECTIONS } from './parts';
 import { Icon } from './Icon';

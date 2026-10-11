@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import fixture from '../samples/miko-qipao/rig.json';
-import { parseRig } from '../src/rig/validate';
+import { parseRig } from 'mesh-avatar';
 import { layerSignature } from '../src/editor/stale';
 
 test('cut-out changes mark layers stale without altering precut eye curves', () => {

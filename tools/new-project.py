@@ -97,6 +97,8 @@ def create(source, name, force=False):
     (project / "work").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, project / "source.png")
     save_json(rig, project / "rig.draft.json")
+    if not (project / "avatar.json").exists():
+        save_json({"format": "mesh-avatar", "version": 1, "name": name}, project / "avatar.json")
     print(
         f"Created projects/{name}/ ({w} x {h}). Trace the empty eyes and place every required region before building."
     )

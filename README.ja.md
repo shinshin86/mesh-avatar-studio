@@ -68,6 +68,12 @@ npm run dev
 
 ![口の描き分けの依頼](docs/images/ja/05-variants.png)
 
+## アバターを共有する
+
+エディタの「.mavatar を書き出す」で、保存済みの設定・レイヤー画像・目と口の差分画像・アバターの情報を1つのファイルにまとめてダウンロードできます。「元画像を含める」は初期状態でオンです。受け取った人がStudioで編集する場合は、そのまま書き出してください。未保存の編集は「保存して書き出す」で反映できます。輪郭を変更した場合は、先にレイヤーを作り直してください。読み取り専用の画面では元のファイルを書き出します。
+
+受け取ったファイルは「プロジェクトを開く」の「.mavatar を取り込む」から選ぶか、その欄にドロップします。`projects/` の中に新しいフォルダが作られ、同名のフォルダがある場合は別の名前になります。取り込みには `npm run dev` が必要で、上限は128 MiBです。元画像を含めなかった場合は再生専用となり、編集やレイヤーの作り直しはできません。元画像を除いても、レイヤー画像はファイルに残ります。詳しくは[アバターの形式](docs/format.md)(英語)を参照してください。
+
 ## カメラで動かして配信する
 
 ![配信の操作画面](docs/images/ja/07-live.png)
@@ -92,11 +98,16 @@ npm run dev
 
 配信用画面の URL で指定できる項目、うまく動かないときの確認点、プライバシーについては[リファレンス](docs/reference.md#live-and-streaming)(英語)にまとめています。
 
+## リリース
+
+`mesh-avatar` を変更するときは `npm run changeset` を実行し、生成されたファイルをPRに含めてください。`main` に変更が入ると、GitHub Actionsが次のバージョンと変更履歴を含む `chore: version packages` PRを作成・更新します。そのPRをマージすると、`mesh-avatar` がprovenance付きでnpmに公開されます。Studioのルートパッケージは非公開のままです。初回リリース前に、新規パッケージの公開権限を持つnpmのgranular access tokenを、リポジトリのシークレット `NPM_TOKEN` に登録してください。ワークフローがバージョン更新のPRを作成できるよう、リポジトリの Settings → Actions → General で **Allow GitHub Actions to create and approve pull requests** を有効にしてください。PRを作る前に、手元で `npm run e2e` を実行してください。CIはその他の検証を実行し、Playwrightのブラウザはインストールしません。
+
 ## 詳しい資料
 
 - [エージェント向けの手順書](docs/agent-guide.md): エージェントが作業するときの手順
 - [リファレンス](docs/reference.md): プロジェクトの扱い、レイヤーを手作業で作る方法、エディタの全操作、テスト
 - [リグの項目](docs/rig-fields.md): `rig.json` の各値の意味
+- [アバターの形式](docs/format.md): フォルダと `.mavatar` の構成、メタデータ、検証方法
 
 いずれも英語です。
 

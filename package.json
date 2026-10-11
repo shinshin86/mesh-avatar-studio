@@ -3,22 +3,31 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "workspaces": ["packages/*"],
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "screenshots": "node tools/capture-readme-screenshots.mjs",
     "test": "vitest run",
-    "lint": "eslint src tests e2e tools/*.mjs",
+    "lint": "eslint src tests e2e tools/*.mjs packages/runtime/src packages/runtime/tests packages/runtime/vite.config.ts packages/runtime/*.mjs",
     "build": "tsc --noEmit && vite build",
+    "build:runtime": "npm run build -w mesh-avatar",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "changeset:publish": "changeset publish",
     "e2e": "playwright test",
     "validate-rig": "node --experimental-strip-types tools/validate-rig.mjs",
+    "validate-avatar": "node --experimental-strip-types tools/validate-avatar.mjs",
+    "pack-avatar": "node --experimental-strip-types tools/pack-avatar.mjs",
     "render-poses": "node --experimental-strip-types tools/render-poses.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.21",
+    "mesh-avatar": "*",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@changesets/cli": "^3.0.3",
     "@eslint/js": "^9.0.0",
     "@playwright/test": "^1.55.0",
     "@types/node": "^24.0.0",

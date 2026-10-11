@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest';
 import fixture from '../samples/miko-qipao/rig.json';
 import { buildOverlay, imagePoint, nearestHandle, screen } from '../src/editor/model';
-import { parseRig } from '../src/rig/validate';
+import { parseRig } from 'mesh-avatar';
 import { zoomAt, fitBounds, partBounds } from '../src/editor/viewport';
 
 test('zoom keeps the image coordinate under the cursor even at both scale limits', () => {

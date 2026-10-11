@@ -1,4 +1,4 @@
-import type { Rig } from '../rig/types';
+import type { Rig } from 'mesh-avatar';
 import { getAt } from './model';
 import { NumericField } from './NumericField';
 import { useI18n } from './i18n';

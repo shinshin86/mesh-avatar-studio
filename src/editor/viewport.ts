@@ -1,4 +1,4 @@
-import type { Point } from '../rig/types';
+import type { Point } from 'mesh-avatar';
 import type { Viewport, Shape, Handle } from './model';
 
 export const MIN_SCALE = 0.1, MAX_SCALE = 16;

@@ -1,4 +1,4 @@
-// Mesh avatar engine: turns a pre-split single illustration (see public/avatar/miko-qipao/) into a
+// Mesh avatar engine: turns a pre-split single illustration into a
 // 2D mesh avatar animated on a WebGL2 canvas. No UI and no framework: the app drives it
 // through the small API returned by createMeshAvatar().
 import { createRig } from './rig.js';
@@ -62,6 +62,9 @@ function deformTassel(ch, mesh) {
 /** @param {HTMLCanvasElement} canvas
  * @param {import('./index').MeshAvatarOptions} options */
 export async function createMeshAvatarImpl(canvas, options) {
+  if (!options.assets && options.assetsBase === undefined) {
+    throw new Error('createMeshAvatar requires assets or assetsBase.');
+  }
   const rig = options.rig;
   const engine = createRig(rig);
   const { IMG, EYES, baseWeights, deformBase, eyePartY, eyePartAlpha,
@@ -69,7 +72,7 @@ export async function createMeshAvatarImpl(canvas, options) {
   const { Renderer, buildGrid } = createRenderer(engine, rig);
   const { Physics } = createPhysics(engine, rig);
   const { createSprites } = createSpriteModule(engine, rig);
-  const base = (options.assetsBase ?? '/miko-qipao/built/').replace(/\/?$/, '/');
+  const base = (options.assetsBase ?? '').replace(/\/?$/, '/');
   const asset = (name, build) => {
     if (options.assets) {
       if (!options.assets[name]) throw new Error(`Missing project asset: ${name}`);

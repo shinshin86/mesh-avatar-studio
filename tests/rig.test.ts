@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import fixture from '../samples/miko-qipao/rig.json';
-import { parseRig, validateRig } from '../src/rig/validate';
+import { parseRig, validateRig } from 'mesh-avatar';
 
 test('accepts the reference fixture and optional groups', () => {
   expect(validateRig(fixture)).toEqual([]);

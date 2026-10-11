@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { ExpressionOverlay, OVERLAY_EXPRESSIONS, applyOverlay, overlayTarget } from '../src/engine/expression-overlay.js';
+import { ExpressionOverlay, OVERLAY_EXPRESSIONS, applyOverlay, overlayTarget } from '../packages/runtime/src/engine/expression-overlay.js';
 
 const tracked = { angleY: 0, eyeLOpen: 1, eyeROpen: 1, eyeSmile: 0, eyeSmileL: 0, mouthOpen: 0.7, mouthForm: 0.4, browY: 0.1, browAngle: 0, blush: 0, gazeX: 0.2, gazeY: 0 };
 

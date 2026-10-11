@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from './i18n';
-import { variantNames, projectVariantRequests, ProjectJobError, type LocalProject, type ProjectJob, type JobResult, type VariantRequest } from './project';
+import { variantNames, projectVariantRequests, openSampleAvatar, ProjectJobError, type LocalProject, type ProjectJob, type JobResult, type VariantRequest } from './project';
 import { AskAgent } from './AskAgent';
 import { JobFeedback } from './JobFeedback';
 import { CopyButton } from './CopyButton';
@@ -32,13 +32,14 @@ export function VariantsPanel({ project, projectPath, assets, rootPath, busy, st
   useEffect(() => {
     const revision = ++current.current;
     setPresent([]); setRequests([]);
-    const url = assets?.['sprites/sprites.json'] ?? (!assets ? '/miko-qipao/built/sprites/sprites.json' : undefined);
-    if (url) void fetch(url).then(response => response.ok ? response.json() : null).then(data => {
+    void Promise.resolve(assets ?? openSampleAvatar().then(value => value.assets)).then(loaded => {
+      const url = loaded['sprites/sprites.json'];
+      return url ? fetch(url).then(response => response.ok ? response.json() : null) : null;
+    }).then(data => {
       if (revision !== current.current) return;
       const ready = data?.layers ? variantNames.filter(name => name.startsWith('eyes_') ? `${name}_0` in data.layers && `${name}_1` in data.layers : name in data.layers) : [];
       setPresent(ready); onMouthPresence(ready.some(name => name.startsWith('mouth_')));
     }).catch(() => { if (revision === current.current) onMouthPresence(false); });
-    else onMouthPresence(false);
     if (project) void projectVariantRequests(project).then(value => { if (revision === current.current) setRequests(value); });
   }, [project?.name, assets, onMouthPresence]);
   const run = async (action: ProjectJob, files?: File[]) => {

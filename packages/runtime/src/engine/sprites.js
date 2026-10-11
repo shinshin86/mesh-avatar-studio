@@ -2,7 +2,7 @@
  * @param {import('../rig/types').Rig} rig */
 export function createSpriteModule(engine, rig) {
   const { baseWeights, deformBase, MOUTH } = engine;
-  // Drawn eye / mouth variants (public/avatar/miko-qipao/sprites/, cut from full-size drawings) laid over the
+  // Drawn eye / mouth variants (built/sprites/, cut from full-size drawings) laid over the
   // face. Closed eyes and open mouths are what the single image does not contain, so instead of
   // faking them with shaders these are swapped in like the frames of an anime blink / lip flap.
   // The sprite meshes follow the same head / body deformation as the face.

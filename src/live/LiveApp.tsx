@@ -1,7 +1,7 @@
 import { LightingControls, LightHandle, lightingText } from '../lighting/Controls';
-import { colorHex, loadLighting, saveLighting } from '../lighting/settings';
+import { colorHex, LIVE_EXPRESSIONS, type LiveExpression, type MeshAvatar } from 'mesh-avatar';
+import { loadLighting, saveLighting } from '../lighting/storage';
 import { loadLightingPresets, sameLighting, saveLightingPresets } from '../lighting/presets';
-import { LIVE_EXPRESSIONS, type LiveExpression, type MeshAvatar } from '../engine';
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../editor/i18n';
 import { createAvatarView } from './avatar-view';
