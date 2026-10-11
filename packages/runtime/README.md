@@ -10,6 +10,13 @@ npm install mesh-avatar
 
 The package is ESM and includes TypeScript declarations. Rendering requires a browser with WebGL. It has no React dependency; the animation loop starts automatically after loading.
 
+## Get a `.mavatar` file
+
+Open your project in Mesh Avatar Studio and choose **Export .mavatar** in the editor header.
+The file holds the rig, the built layers, any drawn eye and mouth variants and a manifest,
+so it is all the runtime needs. You can also pack a project folder from the command line
+with `npm run pack-avatar -- projects/<name>` in the Studio repository.
+
 ## Load an avatar
 
 Place an exported `.mavatar` file in your app's public assets and provide a canvas:
