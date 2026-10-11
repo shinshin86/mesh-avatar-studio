@@ -1,6 +1,6 @@
 {
   "name": "mesh-avatar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "license": "MIT",
   "description": "A browser WebGL runtime for 2D mesh avatars, with .mavatar archive and folder loading.",
@@ -10,10 +10,21 @@
     "directory": "packages/runtime"
   },
   "homepage": "https://github.com/shinshin86/mesh-avatar-studio/tree/main/packages/runtime",
-  "keywords": ["avatar", "2d", "webgl", "animation", "vtuber", "mesh-avatar"],
+  "keywords": [
+    "avatar",
+    "2d",
+    "webgl",
+    "animation",
+    "vtuber",
+    "mesh-avatar"
+  ],
   "sideEffects": false,
   "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public",
     "provenance": true
