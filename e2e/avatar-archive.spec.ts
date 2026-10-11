@@ -45,9 +45,9 @@ test('stored archive renders the same stream as its folder, with local requests 
     expect(png.data.some((value, i) => i % 4 === 3 && value > 0)).toBe(true);
     hashes.push(createHash('sha256').update(png.data).digest('hex'));
     if (query.includes(name)) {
-      await mkdir('work/runtime-r3', { recursive: true });
-      await writeFile('work/runtime-r3/archive-canvas.png', bytes);
-      await page.screenshot({ path: 'work/runtime-r3/archive-stream.png' });
+      await mkdir('work/avatar-archive', { recursive: true });
+      await writeFile('work/avatar-archive/archive-canvas.png', bytes);
+      await page.screenshot({ path: 'work/avatar-archive/archive-stream.png' });
     }
   }
   expect(new Set(hashes).size).toBe(1);
