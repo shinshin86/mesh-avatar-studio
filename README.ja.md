@@ -100,7 +100,7 @@ npm run dev
 
 ## リリース
 
-`mesh-avatar` を変更するときは `npm run changeset` を実行し、生成されたファイルをPRに含めてください。`main` に変更が入ると、GitHub Actionsが次のバージョンと変更履歴を含む `chore: version packages` PRを作成・更新します。そのPRをマージすると、`mesh-avatar` がprovenance付きでnpmに公開されます。Studioのルートパッケージは非公開のままです。初回リリース前に、新規パッケージの公開権限を持つnpmのgranular access tokenを、リポジトリのシークレット `NPM_TOKEN` に登録してください。ワークフローがバージョン更新のPRを作成できるよう、リポジトリの Settings → Actions → General で **Allow GitHub Actions to create and approve pull requests** を有効にしてください。PRを作る前に、手元で `npm run e2e` を実行してください。CIはその他の検証を実行し、Playwrightのブラウザはインストールしません。
+`mesh-avatar` を変更するときは `npm run changeset` を実行し、生成されたファイルをPRに含めてください。`main` に変更が入ると、GitHub Actionsが次のバージョンと変更履歴を含む `chore: version packages` PRを作成・更新します。そのPRをマージすると、`mesh-avatar` がprovenance付きでnpmに公開されます。Studioのルートパッケージは非公開のままです。公開にはnpmのtrusted publishingを使います。npmjs.comの `mesh-avatar` の設定で、このリポジトリと `release.yml` ワークフローをtrusted publisherとして登録してください。npmのトークンをリポジトリに保存する必要はありません。trusted publisherに一致しない公開は、メンテナーが2FAで承認するまでStaged Packagesタブで待機します。ワークフローがバージョン更新のPRを作成できるよう、リポジトリの Settings → Actions → General で **Allow GitHub Actions to create and approve pull requests** を有効にしてください。PRを作る前に、手元で `npm run e2e` を実行してください。CIはその他の検証を実行し、Playwrightのブラウザはインストールしません。
 
 ## 詳しい資料
 

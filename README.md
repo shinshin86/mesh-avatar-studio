@@ -153,8 +153,10 @@ Stream view options, troubleshooting and privacy details are in the
 For changes to `mesh-avatar`, run `npm run changeset` and include the generated file in your
 PR. On `main`, GitHub Actions opens or updates a `chore: version packages` PR with the next
 version and changelog; merging it publishes `mesh-avatar` to npm with provenance. The Studio
-root package stays private. Before the first release, add an npm granular access token with
-permission to publish new packages as the repository secret `NPM_TOKEN`. In repository
+root package stays private. Publishing uses npm trusted publishing: on npmjs.com, add a trusted publisher for
+`mesh-avatar` that names this repository and the `release.yml` workflow; no npm token is stored
+in the repository. A publish that npm cannot match to a trusted publisher waits in the
+Staged Packages tab until a maintainer approves it with 2FA. In repository
 Settings → Actions → General, enable **Allow GitHub Actions to create and approve pull requests**
 so the workflow can open version PRs. Run `npm run e2e`
 locally before opening a PR; CI runs the other checks and does not install Playwright browsers.
