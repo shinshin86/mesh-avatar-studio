@@ -1,6 +1,6 @@
 # Mesh Avatar Studio
 
-[日本語](README.ja.md)
+[日本語](README.ja.md) · [简体中文](README.zh.md)
 
 Turn a single illustration into an animated 2D mesh avatar: it blinks, talks, turns its head,
 breathes and sways its hair. A coding agent prepares the avatar from your image; you fine-tune

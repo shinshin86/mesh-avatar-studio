@@ -1,5 +1,7 @@
 # Agent guide: turn one illustration into a mesh avatar
 
+[简体中文](agent-guide.zh.md)
+
 This guide is for a coding agent (Claude Code, Codex, Cursor CLI or similar) working in this
 repository. A person gives you one illustration and asks for an avatar. You build a project
 that the editor can open and that animates cleanly; the person then fine-tunes it in the editor.
