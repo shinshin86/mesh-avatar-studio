@@ -39,7 +39,7 @@ async function main() {
   }
   await asset('layers.json');
   const layers = JSON.parse(await readFile(resolve(built, 'layers.json'), 'utf8'));
-  await Promise.all(['base', 'hairmask', ...Object.keys(layers.layers)].map(name => asset(`${name}.png`)));
+  await Promise.all(['base', 'hairmask', ...(rig.cloth?.length ? ['base_cloth'] : []), ...Object.keys(layers.layers)].map(name => asset(`${name}.png`)));
   try {
     await asset('sprites/sprites.json');
   } catch (error) {
@@ -97,6 +97,14 @@ async function main() {
         av.advance(seconds, 60); pictures.push([`hair-sway-${i}`, canvas.toDataURL()]);
       }
       av.destroy();
+      if (rig.cloth?.length) {
+        // garments: lean and shift the body, let go, and follow the swing as it settles
+        const cl = await avatar();
+        cl.setParameters({ ...defaults, bodyAngleZ: -8, bodyAngleX: -8 }); cl.advance(0.6, 60);
+        cl.setParameters(defaults);
+        for (let i = 0; i < 10; i++) { cl.advance(0.12, 60); pictures.push([`cloth-sway-${i}`, canvas.toDataURL()]); }
+        cl.destroy();
+      }
       const scale = Math.min(width / (rig.image.width * 1.2), height / (rig.image.height * 1.1));
       const ox = (width - rig.image.width * scale) / 2, oy = height - rig.image.height * scale;
       const bounds = points => {
@@ -140,7 +148,7 @@ async function main() {
     for (const [name, url] of result.images) await writeFile(resolve(review, `${name}.png`), Buffer.from(url.split(',')[1], 'base64'));
     const { images, ...metadata } = result;
     await writeFile(resolve(review, 'poses.json'), JSON.stringify({ ...metadata, project: basename(project), fixedFps: 60, poseSeconds: 1, poses: poses.map(([name, parameters, expression]) => ({ name, parameters, ...(expression && { expression }) })), hairFrames: 6, files: images.map(([name]) => `${name}.png`) }, null, 2) + '\n');
-    console.log(`Rendered ${poses.length + 6} poses, eye/mouth crops and contact-sheet.png in ${relative(root, review)}/`);
+    console.log(`Rendered ${result.images.length} review images in ${relative(root, review)}/`);
   } finally {
     await browser?.close();
     await server.close();

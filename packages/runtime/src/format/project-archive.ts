@@ -18,6 +18,7 @@ export async function packProjectAvatar(
   const source = manifest?.source ?? 'source.png', thumbnail = manifest?.thumbnail ?? 'thumbnail.png';
   checkEntryName(source); checkEntryName(thumbnail);
   wanted.add('built/base.png'); wanted.add('built/hairmask.png'); wanted.add(thumbnail);
+  if (json('rig.json').cloth?.length) wanted.add('built/base_cloth.png');
   if (includeSource) wanted.add(source);
   for (const [path, prefix] of [['built/layers.json', 'built/'], ['built/sprites/sprites.json', 'built/sprites/']]) {
     if (!metadata[path]) continue;

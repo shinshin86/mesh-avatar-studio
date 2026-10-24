@@ -1,6 +1,6 @@
 export { createMeshAvatar, LIVE_EXPRESSIONS } from './engine';
 export type { MeshAvatar, MeshAvatarOptions, LiveExpression } from './engine';
-export type { Rig, Eye, Strand, Accessory, Hand, Ellipse, Point, Band } from './rig/types';
+export type { Rig, Eye, Strand, Accessory, Hand, Cloth, ClothTuning, Ellipse, Point, Band } from './rig/types';
 export { validateRig, parseRig } from './rig/validate';
 export { PARAMS } from './engine/rig.js';
 export type { LightingSettings } from './lighting/settings';

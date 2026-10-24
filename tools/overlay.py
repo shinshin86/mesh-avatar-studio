@@ -118,6 +118,8 @@ def overlay(project, rig_name, part, zoom, output):
         .split("export const SECTIONS")[0]
     )
     colours = dict(re.findall(r"(\w+): '(#[0-9a-fA-F]+)'", colours_text))
+    # optional groups the editor does not colour yet (such as cloth)
+    colours.setdefault("cloth", "#e040a0")
     if part and part.split(".")[0] not in colours:
         raise ValueError("unknown part; use " + ", ".join(colours))
     shapes = [

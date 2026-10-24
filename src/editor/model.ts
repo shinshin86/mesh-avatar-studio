@@ -100,7 +100,7 @@ export function buildOverlay(rig: Rig): { handles: Handle[]; shapes: Shape[] } {
       if (value.length >= 2 && value.every(p => Array.isArray(p) && p.length === 2 && p.every(v => typeof v === 'number'))) {
         const points = value as Point[];
         const closed = ['opening', 'roi', 'outline', 'background'].includes(key);
-        const editable = closed || ['nodes', 'jaw'].includes(key);
+        const editable = closed || ['nodes', 'jaw', 'waist', 'hem'].includes(key);
         if (group !== 'cheeks') shapes.push({ item: path, group, kind: 'line', points, closed, editable });
         points.forEach((point, index) => {
           const item = group === 'strands' ? path.split('.').slice(0, 2).join('.') : path;

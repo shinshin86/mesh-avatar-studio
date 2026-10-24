@@ -200,6 +200,42 @@ uv run tools/build-sprites.py projects/<name>
 It cuts accepted variants into `built/sprites/`. Render the poses again (Step 5); the
 `angry`, `sad` and `surprise` frames show the expression eyes and mouths.
 
+## Optional — Garments
+
+For a skirt or hanging fabric, prepare a local `source_under.png` with exactly the
+same size, pose and pixel alignment as `source.png`. Remove the skirt and its tails,
+leaving modest inner shorts and complete legs. Ask before sending any image to an
+external generation service. Small redraw differences can create edge artifacts;
+compare the two images before building. If this input is absent, the builder uses
+inpainting, which may look blurry when the cloth swings away from the body.
+
+Add optional `rig.cloth` entries (see [Rig fields](rig-fields.md)). Trace each `outline`
+around the whole garment, place its `waist` along the attachment and its `hem` across
+the lower edge. Use the calibrated coordinates, zoomed grids and overlays from the
+earlier steps. Keep the grid wide enough for projecting ruffles; narrow or degenerate
+grids can distort extrapolated points. Put rear tails in separate entries with
+`behind: true`; use `parent: "skirt"` when their attachment should follow an earlier
+skirt entry. Depth controls drawing order; parent controls motion, independently.
+For planted feet, optionally set `body.hip: { "shift": 20, "band": [900, 1400] }`,
+adjusting these example coordinates to the illustration. `mesh.clothCell` defaults to 8.
+
+Validate the draft before rebuilding:
+
+```sh
+npm run validate-rig -- projects/<name>/rig.draft.json
+uv run --with numpy --with pillow --with opencv-python-headless tools/build-layers.py projects/<name> --rig rig.draft.json
+npm run render-poses -- projects/<name>
+```
+
+Inspect `review/rest.png` at the waist, ruffles and tail edges. Inspect the ten
+`cloth-sway-0.png` through `cloth-sway-9.png` frames for lag, reversal and settling,
+not just the contact sheet. Set `wind: 0` when checking convergence to rest; default
+wind intentionally keeps a small motion. Compare a lower `swing` or higher `damping`
+to the defaults. In Studio, select Cloth, adjust its numeric fields, save and reopen
+to confirm persistence. Waist/hem handles affect motion immediately; changing an
+outline marks layers stale and requires a rebuild. Keep `base.png` intact for older
+players; verify `base_cloth.png` and all `cloth_<name>` layers are present when packing.
+
 ## Step 7 — Hand over
 
 Tell the person:

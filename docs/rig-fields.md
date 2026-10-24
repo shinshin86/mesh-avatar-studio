@@ -150,3 +150,36 @@ the engine mapping. Do not copy the example illustration's coordinates into a ne
 Draft validation accepts omitted `x0/x1/top/bot` only as a complete group; supplying some of
 the four fields is an error. Complete rigs always require all four. Changing eye geometry
 requires rebuilding; old sampled curves cannot reconstruct new image pixels.
+
+## Optional garments
+
+`cloth` is an optional array. Omit it or use `[]` to retain the existing rendering.
+Coordinates are source-image pixels, with x increasing right and y increasing down.
+
+| Field | Meaning / default |
+| --- | --- |
+| `cloth[*].name` | Unique letters/digits/underscore/hyphen name; generates `cloth_<name>.png`. |
+| `cloth[*].outline` | Cutout polygon, at least three points, enclosing all ruffles and tails belonging to this garment. Changing it requires rebuilding layers. |
+| `cloth[*].waist` | Upper attachment polyline, at least two points, from image-left to right. Follows the body or parent garment. |
+| `cloth[*].hem` | Lower polyline, at least two points, from image-left to right. Cover the full width of the cloth, including projecting ruffles. |
+| `cloth[*].columns`, `rows` | Integer grid node counts, both at least `2`; defaults `8`, `5`. |
+| `cloth[*].swing` | Positive hem spring frequency in Hz; default `1`. Lower values give a slower response. |
+| `cloth[*].stiffness` | Positive spring multiplier; default `1`. Also affects frequency. |
+| `cloth[*].damping` | Positive damping multiplier; default `1`. Larger values suppress oscillations. |
+| `cloth[*].follow` | Fraction of the previous row's lag inherited by the next, `0..1`; default `0.85`. |
+| `cloth[*].cohesion` | Integer smoothing passes between columns, `0..8`; default `3`. |
+| `cloth[*].wind` | Nonnegative breeze strength as a fraction of `max`; default `0.05`, `0` disables wind. |
+| `cloth[*].max` | Positive maximum simulated grid displacement from the body-carried shape, px; default `20`. Extrapolated mesh points outside the grid can move farther. |
+| `cloth[*].behind` | Optional boolean, default `false`; draw before the bare base when true. Changing depth requires rebuilding overlapping cutouts. |
+| `cloth[*].parent` | Optional name of an **earlier** cloth entry. Its displaced grid drives this garment's waist, useful for rear tails attached to a skirt. |
+| `body.hip.shift` | Optional full-body sideways travel at `bodyAngleX=10`, px. Supply with `band` to fade sideways motion toward planted feet. |
+| `body.hip.band` | Increasing source-y range over which sideways body travel fades to zero. Existing rigs without `hip` keep their original deformation. |
+| `mesh.clothCell` | Positive integer garment render-mesh spacing, px; default `8`. Independent of cloth grid node counts. |
+
+`setClothTuning(name, tuning)` accepts a `Partial<ClothTuning>` containing the seven
+physics fields above. A `null` name applies to all garments; a string applies only to
+that name. Updates take effect on the next simulation step without resetting velocity,
+changing the rig or rebuilding layers. Invalid values or an unknown name throw a
+`RangeError`. Studio edits update the rig and are included when saving it.
+The element exposes this method through `element.avatar` / `await element.ready`;
+React exposes the same element through its ref and the runtime through `onLoad`.

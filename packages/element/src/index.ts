@@ -3,7 +3,7 @@ import { DEFAULT_SRC, frameSeconds, parseEmotion, parseExpression, parseFit, Rea
 
 export { DEFAULT_SRC, EMOTIONS } from './attributes.js';
 export type { Emotion, Fit } from './attributes.js';
-export type { AvatarSource, MeshAvatar, LiveExpression } from 'mesh-avatar';
+export type { AvatarSource, MeshAvatar, LiveExpression, ClothTuning } from 'mesh-avatar';
 
 const STYLE = `
 :host { display: block; position: relative; aspect-ratio: 1 / 1; }

@@ -4,6 +4,7 @@
 import { createRig } from './rig.js';
 import { createRenderer } from './renderer.js';
 import { createPhysics } from './physics.js';
+import { createCloth } from './cloth.js';
 import { createSpriteModule, eyeMood } from './sprites.js';
 import { Motion } from './motion.js';
 import { ExpressionOverlay } from './expression-overlay.js';
@@ -71,6 +72,8 @@ export async function createMeshAvatarImpl(canvas, options) {
     handWeights, handFrame, deformHand, TASSELS } = engine;
   const { Renderer, buildGrid } = createRenderer(engine, rig);
   const { Physics } = createPhysics(engine, rig);
+  const { Cloth } = createCloth(engine, rig);
+  const CLOTH = rig.cloth ?? [];
   const { createSprites } = createSpriteModule(engine, rig);
   const base = (options.assetsBase ?? '').replace(/\/?$/, '/');
   const asset = (name, build) => {
@@ -82,8 +85,11 @@ export async function createMeshAvatarImpl(canvas, options) {
   };
   const meta = await loadJson(asset('layers.json'));
 
-  const names = ['base', ...(rig.hand ? ['hand'] : []), ...TASSELS.map(t => t.name), ...[0, 1].flatMap(i => EYE_PARTS.map(p => `eye${i}_${p}`)), 'hairmask'];
+  // with garments the base drawing is the one without them (base.png keeps them for older runtimes)
+  const baseName = CLOTH.length ? 'base_cloth' : 'base';
+  const names = [baseName, ...(rig.hand ? ['hand'] : []), ...TASSELS.map(t => t.name), ...CLOTH.map(c => `cloth_${c.name}`), ...[0, 1].flatMap(i => EYE_PARTS.map(p => `eye${i}_${p}`)), 'hairmask'];
   const imgs = Object.fromEntries(await Promise.all(names.map(async n => [n, await loadImage(asset(`${n}.png`, meta.build))])));
+  if (CLOTH.length) imgs.base = imgs.base_cloth;
   const hairMask = channelOf(imgs.hairmask, 0);
   const hairAt = (x, y) => hairMask[Math.min(IMG.h - 1, Math.max(0, Math.round(y))) * IMG.w + Math.min(IMG.w - 1, Math.max(0, Math.round(x)))] / 255;
 
@@ -94,6 +100,16 @@ export async function createMeshAvatarImpl(canvas, options) {
   const rects = { base: [0, 0, IMG.w, IMG.h], ...meta.layers };
 
   // base layer, denser where hair strands bend and the face parts shift
+  // garments behind the body (drawn first) and in front of it, each skinned to its cloth grid
+  const cloth = new Cloth();
+  const addCloth = c => {
+    const n = `cloth_${c.name}`;
+    const mesh = buildGrid(rects[n], rig.mesh.clothCell ?? 8, alphaOf(imgs[n]), imgs[n].width);
+    cloth.attach(c.name, mesh);
+    R.addLayer(n, imgs[n], mesh);
+  };
+  CLOTH.filter(c => c.behind).forEach(addCloth);
+
   const baseMesh = buildGrid(rects.base, rig.mesh.baseCell, alphaOf(imgs.base), imgs.base.width, rig.mesh.fine);
   const baseW = [];
   for (let i = 0; i < baseMesh.rest.length / 2; i++) {
@@ -127,6 +143,8 @@ export async function createMeshAvatarImpl(canvas, options) {
   } catch (err) {
     console.warn('eye / mouth sprites not loaded:', err);
   }
+
+  CLOTH.filter(c => !c.behind).forEach(addCloth);
 
   const tassels = TASSELS.map(t => {
     const mesh = buildGrid(rects[t.name], rig.mesh.tasselCell, alphaOf(imgs[t.name]), imgs[t.name].width);
@@ -191,6 +209,7 @@ export async function createMeshAvatarImpl(canvas, options) {
       hp[i * 2] = tmp[0]; hp[i * 2 + 1] = tmp[1];
     }
     physics.chains.forEach((ch, k) => deformTassel(ch, tassels[k].mesh));
+    if (CLOTH.length) { cloth.step(P, dt, phys); cloth.deform(); }
 
     const ball = 7; // px of iris travel
     R.draw({
@@ -248,7 +267,8 @@ export async function createMeshAvatarImpl(canvas, options) {
     getLightingStats() { return { ...R.lightingStats }; },
     setAutoMotion(on) { motion.autoMotion = !!on; },
     /** Hair / tassel sway multiplier (1 = default). */
-    setSwayGain(g) { physics.gain = g; },
+    setSwayGain(g) { physics.gain = g; cloth.gain = g; },
+    setClothTuning(name, tuning) { cloth.setTuning(name, tuning); },
     /** Called with the motion id when a motion starts and with null when it ends. */
     onMotion(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     /** Advance the simulation by `sec` and draw (for tests / hidden tabs). */

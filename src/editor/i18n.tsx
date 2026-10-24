@@ -96,10 +96,11 @@ const ja: typeof en = {
 };
 const zh: typeof en = { ...workflowZh, ...uiZh };
 export const dictionaries = { en, ja, zh };
-export type PartGroup = 'head' | 'eyes' | 'mouth' | 'face' | 'cheeks' | 'strands' | 'buns' | 'accessories' | 'body' | 'hand' | 'mesh' | 'view';
+export type PartGroup = 'head' | 'eyes' | 'mouth' | 'face' | 'cheeks' | 'strands' | 'buns' | 'accessories' | 'body' | 'hand' | 'cloth' | 'mesh' | 'view';
 const partText: Record<Language, Record<PartGroup, [string, string, string]>> = {
   zh: partsZh,
   en: {
+    cloth: ['Cloth', 'Skirts and draped fabric.', 'Place the waist and hem handles, then adjust swing, damping and wind.'],
     head: ['Head turn', 'Area that moves when the face turns or tilts.', 'Place the centre in the middle of the face; the circle should cover the whole head including hair.'],
     eyes: ['Eyes', 'Outline of each eye opening; drives blinking and gaze.', 'Trace the opening inside the eyelashes. Add dots where the contour changes direction.'],
     mouth: ['Mouth', 'Closed-mouth line and the area for drawn mouth shapes.', 'Align the line with the closed mouth, and keep the surrounding area close to the lips.'],
@@ -114,6 +115,7 @@ const partText: Record<Language, Record<PartGroup, [string, string, string]>> = 
     view: ['Framing', 'Preview margins.', 'Adjust the margins so the head and accessories stay inside the preview.'],
   },
   ja: {
+    cloth: ['布・スカート', 'スカートや垂れ布の揺れ。', '腰と裾の点を合わせ、周期・減衰・風の強さを調整してください。'],
     head: ['頭の向き', '顔を振ったり傾けたりするときに動く範囲。', '中心を顔の真ん中に置き、円が髪を含む頭全体を覆うように調整してください。'],
     eyes: ['目', '目の開口部の輪郭。まばたきと視線に使う。', 'まつ毛の内側に沿って輪郭を置き、曲がる場所に点を追加してください。'],
     mouth: ['口', '閉じた口の線と、口の形の差し替え範囲。', '線を閉じた口に合わせ、周囲の範囲を唇の近くに収めてください。'],
@@ -129,6 +131,10 @@ const partText: Record<Language, Record<PartGroup, [string, string, string]>> = 
   },
 };
 const fieldText: Record<string, [string, string]> = {
+  swing: ['Hem frequency (Hz)', '裾の周波数 (Hz)'], stiffness: ['Stiffness multiplier', 'ばねの倍率'],
+  damping: ['Damping multiplier', '減衰の倍率'], follow: ['Row follow', '上の段への追従'], cohesion: ['Smoothing passes', '列の平滑化回数'],
+  wind: ['Wind strength', '風の強さ'], waist: ['Waist line', '腰の線'], hem: ['Hem line', '裾の線'],
+  columns: ['Columns', '列数'], rows: ['Rows', '行数'], clothCell: ['Cloth cell size', '布の格子幅'],
   image: ['Source image', '元画像'],
   center: ['Centre', '中心'], pivot: ['Pivot', '支点'], rx: ['Horizontal radius', '横の半径'], ry: ['Vertical radius', '縦の半径'],
   cx: ['Centre X', '中心の横位置'], cy: ['Centre Y', '中心の縦位置'], shiftX: ['Horizontal travel', '横の移動量'], shiftY: ['Vertical travel', '縦の移動量'],

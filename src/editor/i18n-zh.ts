@@ -89,6 +89,7 @@ export const workflowZh: typeof workflowEn = {
 };
 
 export const partsZh: Record<PartGroup, [string, string, string]> = {
+  cloth: ['布料', '裙摆和垂布的摆动。', '调整腰线与下摆控制点，再调整频率、阻尼和风力。'],
   head: ['头部转动', '转头或倾斜时跟随动作的区域。', '把中心放在面部中央，椭圆应覆盖包括头发在内的整个头部。'],
   eyes: ['眼睛', '眼睛开口轮廓，用于眨眼和视线变化。', '沿睫毛内侧描出眼睛开口，在轮廓转弯处添加控制点。'],
   mouth: ['嘴巴', '闭嘴时的线条及嘴型差分的作用区域。', '把线条对齐闭合的嘴巴，并将周围区域限制在嘴唇附近。'],
@@ -104,6 +105,8 @@ export const partsZh: Record<PartGroup, [string, string, string]> = {
 };
 
 export const fieldsZh: Record<string, string> = {
+  swing: '下摆频率 (Hz)', stiffness: '刚度倍率', damping: '阻尼倍率', follow: '上行跟随', cohesion: '横向平滑次数',
+  wind: '风力', waist: '腰线', hem: '下摆线', columns: '列数', rows: '行数', clothCell: '布料网格间距',
   image: '原图', width: '宽度', height: '高度', name: '名称',
   center: '中心', pivot: '支点', rx: '横向半径', ry: '纵向半径',
   cx: '中心 X', cy: '中心 Y', shiftX: '横向位移', shiftY: '纵向位移',

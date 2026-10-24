@@ -1,5 +1,5 @@
 import type { LightingSettings } from '../lighting/settings';
-import type { Rig } from '../rig/types';
+import type { Rig, ClothTuning } from '../rig/types';
 import { parseRig } from '../rig/validate';
 import { createMeshAvatarImpl } from './createMeshAvatar.js';
 import { OVERLAY_EXPRESSIONS } from './expression-overlay.js';
@@ -37,6 +37,8 @@ export interface MeshAvatar {
   setAutoIdle(on: boolean): void;
   setAutoMotion(on: boolean): void;
   setSwayGain(gain: number): void;
+  /** Override garment physics without rebuilding layers; null applies to every garment. */
+  setClothTuning(name: string | null, tuning: Partial<ClothTuning>): void;
   onMotion(listener: (id: string | null) => void): () => void;
   advance(seconds: number, fps?: number): void;
   advanceParameters(seconds: number): void;

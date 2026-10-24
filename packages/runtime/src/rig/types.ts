@@ -24,6 +24,26 @@ export interface Accessory {
   box: [number, number, number, number];
   color: { redness: number; minRed: number };
 }
+/** Optional garment that swings with the body (for example a skirt). */
+export interface ClothTuning {
+  swing: number;
+  stiffness: number;
+  damping: number;
+  follow: number;
+  cohesion: number;
+  wind: number;
+  max: number;
+}
+export interface Cloth extends Partial<ClothTuning> {
+  name: string;
+  outline: Point[];
+  waist: Point[];
+  hem: Point[];
+  columns?: number;
+  rows?: number;
+  behind?: boolean;
+  parent?: string;
+}
 export interface Hand {
   outline: Point[];
   jaw: Point[];
@@ -51,6 +71,7 @@ export interface Rig {
   body: {
     pivotX: number; pivotY: number; maxRoll: number;
     breathBand: Band; rollBand: Band; chest: Ellipse; shoulders: Ellipse[];
+    hip?: { shift: number; band: Band };
   };
   face: Record<'nose' | 'mouth' | 'eyeA' | 'eyeB' | 'earL' | 'earR', Ellipse> & {
     brow: Ellipse & { band: Band };
@@ -66,11 +87,12 @@ export interface Rig {
   strands?: Strand[];
   accessories?: Accessory[];
   hand?: Hand;
+  cloth?: Cloth[];
   mesh: {
     baseCell: number;
     fine: { x0: number; x1: number; y0: number; y1: number; cell: number };
     handCell: number; tasselCell: number; eyeBallCell: number;
-    eyeCell: number; spriteCell: number;
+    eyeCell: number; spriteCell: number; clothCell?: number;
   };
   view: { padTop: number; padSide: number; gazeCenter?: Point };
 }

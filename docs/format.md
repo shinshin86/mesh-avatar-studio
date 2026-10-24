@@ -13,6 +13,8 @@ rig.json                       complete version 1 rig, including sampled eye cur
 built/
   layers.json                  image size, layer rectangles and sampled eye curves
   base.png                     image with movable parts removed and inpainted
+  base_cloth.png               required only for nonempty rig.cloth; base without garments
+  cloth_<name>.png              garment cutout for each rig.cloth entry
   hairmask.png                 full-size hair mask, read from the red channel
   <name>.png                   one image for every entry in layers.json.layers
   sprites/                     optional drawn eye and mouth variants
@@ -29,6 +31,15 @@ generated eye layers and procedural mouth without drawn variants.
 
 Readers ignore unknown files and unknown JSON keys. A project may also contain drafts,
 source variants, masks and review images; these are not required for playback.
+
+For nonempty `rig.cloth`, `base_cloth.png` is a full-size image and every garment has a
+`cloth_<name>` rectangle in `layers.json.layers` with a matching cropped PNG. Players
+draw rear garments, `base_cloth`, eye/mouth layers, front garments, accessories, then
+the optional hand. `base.png` retains the garments so older players still show the
+clothed illustration. `pack-avatar` includes both bases and the garment cutouts.
+The optional editing input `source_under.png` has the same dimensions and alignment
+as `source.png`, with only garments removed; it is not needed for playback and is
+not included by `pack-avatar`. Without it the layer builder inpaints the covered area.
 
 ## Manifest: `avatar.json`
 

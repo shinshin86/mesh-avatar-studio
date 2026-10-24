@@ -33,5 +33,15 @@ test('pack CLI selects playback files, honors --no-source and protects existing 
     const editable = resolve(root, 'editable.mavatar');
     expect(command('pack-avatar', [root, '-o', editable]).status).toBe(0);
     expect(unpackAvatar(readFileSync(editable))['original.png']).toEqual(new Uint8Array([2]));
+    const rigPath = resolve(root, 'rig.json'), rig = JSON.parse(readFileSync(rigPath, 'utf8'));
+    rig.cloth = [{ name: 'skirt', outline: [[0, 0], [100, 0], [100, 100]], waist: [[0, 0], [100, 0]], hem: [[0, 100], [100, 100]] }];
+    writeFileSync(rigPath, JSON.stringify(rig));
+    const metaPath = resolve(root, 'built/layers.json'), meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+    meta.layers.cloth_skirt = [0, 0, 100, 100]; writeFileSync(metaPath, JSON.stringify(meta));
+    for (const file of ['base_cloth', 'cloth_skirt']) writeFileSync(resolve(root, `built/${file}.png`), new Uint8Array([3]));
+    const clothed = resolve(root, 'cloth.mavatar');
+    expect(command('pack-avatar', [root, '-o', clothed]).status).toBe(0);
+    expect(unpackAvatar(readFileSync(clothed))['built/base_cloth.png']).toEqual(new Uint8Array([3]));
+    expect(command('validate-avatar', [clothed]).status).toBe(0);
   } finally { rmSync(root, { recursive: true, force: true }); }
-});
+}, 60000);

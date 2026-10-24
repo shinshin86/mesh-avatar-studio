@@ -14,5 +14,6 @@ export function layerSignature(rig: Rig) {
       jawRange: rig.hand.jawRange, background: rig.hand.background,
     } : null,
     accessories: (rig.accessories ?? []).map(part => ({ name: part.name, box: part.box, color: part.color })),
+    cloth: (rig.cloth ?? []).map(part => ({ name: part.name, outline: part.outline, behind: part.behind ?? false })),
   });
 }

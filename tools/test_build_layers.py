@@ -49,6 +49,36 @@ class BuildLayersTest(unittest.TestCase):
             check=False,
         )
 
+    def test_cloth_layers_keep_legacy_base_and_generate_bare_base(self):
+        self.rig['cloth'] = [{
+            'name': 'skirt', 'outline': [[20, 45], [80, 45], [80, 70], [20, 70]],
+            'waist': [[30, 45], [70, 45]], 'hem': [[20, 70], [80, 70]],
+        }]
+        self.draft.write_text(json.dumps(self.rig))
+        with Image.open(self.project / 'source.png') as source:
+            full = source.convert('RGBA')
+        ImageDraw.Draw(full).rectangle((20, 45, 80, 70), fill=(255, 80, 150, 255))
+        full.save(self.project / 'source.png')
+        for with_under in (False, True):
+            with self.subTest(with_under=with_under):
+                if with_under:
+                    under = full.copy()
+                    ImageDraw.Draw(under).rectangle((20, 45, 80, 70), fill=(120, 160, 200, 255))
+                    under.save(self.project / 'source_under.png')
+                result = self.run_cli()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                meta = json.loads((self.project / 'built/layers.json').read_text())
+                self.assertIn('cloth_skirt', meta['layers'])
+                with Image.open(self.project / 'built/base.png') as image:
+                    self.assertEqual(image.getpixel((50, 60)), (255, 80, 150, 255))
+                with Image.open(self.project / 'built/base_cloth.png') as image:
+                    self.assertEqual(image.size, full.size)
+                    self.assertNotEqual(image.getpixel((50, 60)), (255, 80, 150, 255))
+                    if with_under:
+                        self.assertEqual(image.getpixel((50, 60)), (120, 160, 200, 255))
+                with Image.open(self.project / 'built/cloth_skirt.png') as image:
+                    self.assertGreater(image.getchannel('A').getextrema()[1], 0)
+
     def test_draft_build_is_loadable_without_optional_parts_or_eye_curves(self):
         before = self.draft.read_bytes()
         sprites = self.project / "built/sprites"

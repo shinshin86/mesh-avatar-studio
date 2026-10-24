@@ -8,6 +8,14 @@ const positive: Check = (v, p, e) => {
   number(v, p, e);
   if (typeof v === 'number' && v <= 0) e.push(`${p}: must be positive`);
 };
+const nonnegative: Check = (v, p, e) => {
+  number(v, p, e);
+  if (typeof v === 'number' && v < 0) e.push(`${p}: must be nonnegative`);
+};
+const cohesion: Check = (v, p, e) => {
+  nonnegative(v, p, e);
+  if (typeof v === 'number' && (!Number.isInteger(v) || v > 8)) e.push(`${p}: expected an integer from 0 to 8`);
+};
 const integer: Check = (v, p, e) => {
   positive(v, p, e);
   if (typeof v === 'number' && !Number.isInteger(v)) e.push(`${p}: expected an integer`);
@@ -51,7 +59,8 @@ const schema = (draft: boolean) => object({
   head: object({ ...ellipseFields, shiftX: number, shiftY: number, pivotX: number,
     pivotY: number, maxRoll: number, weightBand: band, turnBand: band }),
   body: object({ pivotX: number, pivotY: number, maxRoll: number, breathBand: band,
-    rollBand: band, chest: ellipse, shoulders: array(ellipse) }),
+    rollBand: band, chest: ellipse, shoulders: array(ellipse),
+    hip: object({ shift: number, band }) }, ['hip']),
   face: object({ nose: ellipse, mouth: ellipse, eyeA: ellipse, eyeB: ellipse,
     earL: ellipse, earR: ellipse, brow: object({ ...ellipseFields, band }),
     jaw: object({ ...ellipseFields, band }) }),
@@ -68,11 +77,17 @@ const schema = (draft: boolean) => object({
     elbow: point, wrist: point, knuckle: point, contact: point, forearmShare: unit,
     armBand: band, wristBand: band, handBand: band, fingerXBand: band,
     fingerYBand: band, pinBand: band }),
+  cloth: array(object({ name: string, outline: polygon, waist: line, hem: line,
+    columns: integer, rows: integer, stiffness: positive, damping: positive, max: positive,
+    swing: positive, follow: unit, cohesion, wind: nonnegative,
+    behind: (v, p, e) => { if (typeof v !== 'boolean') e.push(`${p}: expected a boolean`); },
+    parent: string }, ['columns', 'rows', 'stiffness', 'damping', 'max', 'swing', 'follow', 'cohesion', 'wind', 'behind', 'parent'])),
   mesh: object({ baseCell: integer, fine: object({ x0: wholeNumber, x1: wholeNumber,
     y0: wholeNumber, y1: wholeNumber, cell: integer }), handCell: integer,
-    tasselCell: integer, eyeBallCell: integer, eyeCell: integer, spriteCell: integer }),
+    tasselCell: integer, eyeBallCell: integer, eyeCell: integer, spriteCell: integer,
+    clothCell: integer }, ['clothCell']),
   view: object({ padTop: number, padSide: number, gazeCenter: point }, ['gazeCenter']),
-}, ['buns', 'strands', 'accessories', 'hand']);
+}, ['buns', 'strands', 'accessories', 'hand', 'cloth']);
 
 export function validateRig(value: unknown, options: { draft?: boolean } = {}): string[] {
   const errors: string[] = [];
@@ -103,6 +118,16 @@ export function validateRig(value: unknown, options: { draft?: boolean } = {}): 
     if (accessory.split <= 0 || accessory.split >= 1) errors.push(`rig.accessories[${i}].split: must be strictly between 0 and 1`);
     if (accessory.pivot.every((n, k) => n === accessory.tip[k])) errors.push(`rig.accessories[${i}].tip: must differ from pivot`);
     if (accessory.box[0] >= accessory.box[2] || accessory.box[1] >= accessory.box[3]) errors.push(`rig.accessories[${i}].box: rectangle must have positive area`);
+  }
+  const clothNames = new Set<string>();
+  for (const [i, cloth] of (rig.cloth ?? []).entries()) {
+    if (!/^[A-Za-z0-9_-]+$/.test(cloth.name) || clothNames.has(cloth.name))
+      errors.push(`rig.cloth[${i}].name: must be a unique layer-safe name`);
+    if (cloth.parent !== undefined && !clothNames.has(cloth.parent))
+      errors.push(`rig.cloth[${i}].parent: must name an earlier cloth entry`);
+    if ((cloth.columns ?? 2) < 2 || (cloth.rows ?? 2) < 2)
+      errors.push(`rig.cloth[${i}]: columns and rows must be at least 2`);
+    clothNames.add(cloth.name);
   }
   return errors;
 }

@@ -192,7 +192,10 @@ export function createRig(rig) {
     // inhale: everything above the cut-off rises, shoulders lift more, the chest widens a little
     p[1] -= b * (5 * breathW + 4 * shoulder);
     p[0] += (p[0] - BODY.chest.cx) * 0.012 * b * chest;
-    p[0] += P.bodyAngleX / 10 * (7 + 9 * chest);
+    // full-body rigs (body.hip): the sideways sway is a hip shift that fades out towards
+    // the feet, so they stay planted
+    const hip = BODY.hip;
+    p[0] += P.bodyAngleX / 10 * (hip ? hip.shift * (1 - sstep(...hip.band, restY)) : 7 + 9 * chest);
     // bottom rows stay put so no gap opens at the cut-off edge of the image
     rotateAround(p, BODY.pivotX, BODY.pivotY, -P.bodyAngleZ / 10 * BODY.maxRoll * (1 - sstep(...BODY.rollBand, restY)));
   }

@@ -265,6 +265,8 @@ def hair_mask(rgba, rig):
         excluded |= ellipse_mask(shape, rig["face"][key])
     if rig.get("hand"):
         excluded |= polygon_mask(shape, rig["hand"]["outline"]) > 0
+    for cloth in rig.get("cloth", []):
+        excluded |= polygon_mask(shape, cloth["outline"]) > 0
     opaque = rgba[..., 3] > 200
     lab = cv2.cvtColor(rgba[..., :3], cv2.COLOR_RGB2LAB).astype(np.float32)
     sampling = (sample > 0) & opaque & ~excluded
@@ -390,6 +392,60 @@ def hand_prefill(rgba, remove, hand):
     return prefill, painted
 
 
+def build_cloth(project, rig, rgba, base, store, images):
+    """Cut each garment into its own layer and write base_cloth.png without them.
+
+    base.png keeps the garments, so runtimes that do not know rig.cloth still draw them.
+    A garment is its outline. With source_under.png (the same drawing without the
+    garments) it also takes the edge pixels just outside the approximate outline that
+    are background in the under drawing, or differ strongly from it; base_cloth takes
+    the under drawing wherever the two differ. Without it, the outline area is inpainted.
+    """
+    h, w = rgba.shape[:2]
+    shape = (h, w)
+    under = None
+    under_path = project / "source_under.png"
+    if under_path.exists():
+        with Image.open(under_path) as image:
+            under = np.array(image.convert("RGBA"))
+        if under.shape != rgba.shape:
+            raise ValueError("source_under.png must match source.png dimensions")
+        under[..., 3] = np.where(under[..., 3] > 240, 255, under[..., 3])
+        diff = np.abs(rgba.astype(np.int16) - under.astype(np.int16)).max(2)
+        # small differences over the body are redrawing noise, not garment
+        changed = (
+            (diff > 24) & (rgba[..., 3] > 0) & ((under[..., 3] < 128) | (diff > 90))
+        ).astype(np.uint8) * 255
+    masks = {}
+    for cloth in rig["cloth"]:
+        outline = polygon_mask(shape, cloth["outline"])
+        if under is not None:
+            # the drawn outline is approximate: reach a little past it for garment edges
+            outline |= changed & cv2.dilate(outline, np.ones((31, 31), np.uint8))
+        masks[cloth["name"]] = outline
+    front = np.zeros(shape, np.uint8)
+    for cloth in rig["cloth"]:
+        if not cloth.get("behind"):
+            front |= masks[cloth["name"]]
+    taken = np.zeros(shape, np.uint8)
+    for cloth in rig["cloth"]:
+        # a garment behind another loses what the front one covers; overlapping
+        # outlines of the same depth keep each pixel in the first garment only
+        mask = masks[cloth["name"]] & ~taken
+        if cloth.get("behind"):
+            mask &= ~front
+        taken |= mask
+        store(f"cloth_{cloth['name']}", *crop_layer(rgba, mask))
+    if under is not None:
+        bare = base.copy()
+        replace = (diff > 0) | (cv2.dilate(taken, np.ones((3, 3), np.uint8)) > 0)
+        bare[replace] = under[replace]
+    else:
+        print("cloth: no source_under.png; filling the garment area by inpainting")
+        bare = inpaint_rgba(base, cv2.dilate(taken, np.ones((7, 7), np.uint8)))
+    images["base_cloth"] = bare
+
+
 def validate_inputs(rig, rgba):
     h, w = rgba.shape[:2]
     if rig.get("version") != 1 or rig.get("image") != {"width": w, "height": h}:
@@ -499,6 +555,21 @@ def validate_inputs(rig, rgba):
         colour = accessory["color"]
         if not 0 <= colour["redness"] <= 1 or not 0 <= colour["minRed"] <= 255:
             raise ValueError(f"accessories[{i}].color thresholds are out of range")
+    cloth_names = set()
+    for i, cloth in enumerate(rig.get("cloth", [])):
+        name = cloth["name"]
+        if (
+            not isinstance(name, str)
+            or not re.fullmatch(r"[A-Za-z0-9_-]+", name)
+            or name in cloth_names
+            or f"cloth_{name}" in names
+        ):
+            raise ValueError(f"cloth[{i}].name must be a unique, safe layer filename")
+        cloth_names.add(name)
+        names.add(f"cloth_{name}")
+        points(cloth["outline"], f"cloth[{i}].outline")
+        points(cloth["waist"], f"cloth[{i}].waist", 2)
+        points(cloth["hem"], f"cloth[{i}].hem", 2)
 
 
 def build(project, rig_path):
@@ -591,6 +662,8 @@ def build(project, rig_path):
         )
     images["base"] = base
     images["hairmask"] = hair_mask(rgba, rig)
+    if rig.get("cloth"):
+        build_cloth(project, rig, rgba, base, store, images)
 
     # Calculate everything before replacing files. Keep sprites and unrelated
     # assets intact; only filenames in this build's manifest are consumed.
