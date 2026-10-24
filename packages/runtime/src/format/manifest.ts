@@ -1,3 +1,5 @@
+import { parseLipSyncSettings, type LipSyncSettings } from '../engine/lip-sync.ts';
+
 export interface AvatarManifest {
   format: 'mesh-avatar';
   version: 1;
@@ -7,6 +9,7 @@ export interface AvatarManifest {
   thumbnail?: string;
   source?: string;
   studio?: { version: string };
+  lipSync?: LipSyncSettings;
 }
 
 export function parseManifest(input: unknown): AvatarManifest {
@@ -29,6 +32,11 @@ export function parseManifest(input: unknown): AvatarManifest {
       || !('version' in studio) || typeof studio.version !== 'string' || !studio.version.trim()) {
       errors.push('avatar.json.studio.version: expected a non-empty string');
     } else manifest.studio = { version: studio.version };
+  }
+  if (value.lipSync !== undefined) {
+    try {
+      manifest.lipSync = parseLipSyncSettings(value.lipSync);
+    } catch (error) { errors.push(`avatar.json.lipSync: ${error instanceof Error ? error.message : String(error)}`); }
   }
   if (errors.length) throw new Error(errors.join('\n'));
   return manifest;

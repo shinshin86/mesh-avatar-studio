@@ -50,7 +50,8 @@ export function kanaToMoras(text, mora = 0.14) {
 }
 
 /** Mouth target at time t (s) of a mora timeline, or null when it is over. */
-export function sampleMoras(moras, t) {
+export function sampleMoras(moras, t, granularity = 0.5) {
+  if (granularity !== 0.5) return sampleGroupedMoras(moras, t, granularity);
   let start = 0;
   for (const m of moras) {
     if (t < start + m.dur) {
@@ -60,6 +61,32 @@ export function sampleMoras(moras, t) {
       const onset = m.onset === 'lips' ? 0.05 : m.onset === 'consonant' ? 0.45 : 1;
       const k = x < 0.35 ? onset + (1 - onset) * (x / 0.35) : 1;
       return { open: v.open * k, form: v.form, vowel: m.vowel };
+    }
+    start += m.dur;
+  }
+  return null;
+}
+
+// Low sensitivity groups short morae and softens closures. Long pauses still close.
+function sampleGroupedMoras(moras, t, granularity) {
+  const groupSeconds = granularity < 0.5 ? (0.5 - granularity) * 0.72 : 0;
+  let start = 0, groupDuration = 0, groupVowel = null;
+  for (const m of moras) {
+    let vowel = m.vowel;
+    if (m.vowel === 'n') {
+      if (groupSeconds && m.dur <= 0.2 && groupVowel) vowel = groupVowel;
+      else { groupDuration = 0; groupVowel = null; }
+    } else {
+      if (!groupVowel || groupDuration >= groupSeconds) { groupVowel = m.vowel; groupDuration = 0; }
+      groupDuration += m.dur;
+      if (groupSeconds) vowel = groupVowel;
+    }
+    if (t < start + m.dur) {
+      const v = VOWELS[vowel];
+      const original = m.onset === 'lips' ? 0.05 : m.onset === 'consonant' ? 0.45 : 1;
+      const onset = granularity < 0.5 ? 1 - (1 - original) * granularity * 2 : original * (2 - granularity * 2);
+      const attack = Math.min(m.dur * 0.35, 0.05), x = (t - start) / attack;
+      return { open: v.open * (x < 1 ? onset + (1 - onset) * x : 1), form: v.form, vowel };
     }
     start += m.dur;
   }

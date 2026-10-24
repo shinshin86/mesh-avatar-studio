@@ -206,7 +206,7 @@ export function localProjectMiddleware(root: string, reveal = revealFolder, runn
         saving.add(path);
         try {
           let bytes: Uint8Array;
-          try { bytes = await packProjectAvatar(names => readSelected(path, names), { name: body.project, includeSource: body.includeSource ?? true }); }
+          try { bytes = await packProjectAvatar(names => readSelected(path, names), { name: body.project, includeSource: body.includeSource ?? true, lipSync: body.lipSync }); }
           catch (error) { if (error instanceof HttpError || (error as NodeJS.ErrnoException).code) throw error; throw new HttpError(400, (error as Error).message); }
           res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="${body.project}.mavatar"`, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
           res.end(Buffer.from(bytes));
@@ -288,7 +288,7 @@ export function localProjectMiddleware(root: string, reveal = revealFolder, runn
         const manifest = resolve(path, 'built/sprites/sprites.json'); if (await exists(manifest)) await checked(path, manifest);
         json(200, { variants: await variantState(path), requests: await requests(path, name) }); return;
       }
-      if (req.method === 'POST' && tail.length === 1 && ['rig', 'rebuild', 'variant-requests', 'import-variants'].includes(tail[0])) {
+      if (req.method === 'POST' && tail.length === 1 && ['rig', 'lip-sync', 'rebuild', 'variant-requests', 'import-variants'].includes(tail[0])) {
         if (name === SAMPLE) throw new HttpError(403, 'The sample is read-only.');
         if (!await sourceFile(path)) throw new HttpError(403, 'Source image is missing. This avatar is playback-only.');
         const action = tail[0], body = await readBody(req, action === 'import-variants' ? 36 * 1024 * 1024 : 1024 * 1024);
@@ -297,7 +297,17 @@ export function localProjectMiddleware(root: string, reveal = revealFolder, runn
         if (saving.has(path)) throw new HttpError(409, 'A project operation is already in progress.');
         saving.add(path);
         try {
-          if (action === 'rig') { await saveRig(path, body); json(200, { path: relative(root, resolve(path, 'rig.json')).split(sep).join('/') }); }
+          if (action === 'lip-sync') {
+            const target = resolve(path, 'avatar.json'), temporary = resolve(path, `.avatar-${randomUUID()}.tmp`);
+            let raw: Record<string, unknown> = { format: 'mesh-avatar', version: 1, name };
+            if (await exists(target)) raw = JSON.parse(await readFile(await checked(path, target), 'utf8'));
+            const manifest = { ...raw, lipSync: body };
+            try { manifest.lipSync = parseManifest(manifest).lipSync; } catch (error) { throw new HttpError(400, (error as Error).message); }
+            try { await writeFile(temporary, JSON.stringify(manifest, null, 2) + '\n', { flag: 'wx' }); await rename(temporary, target); }
+            finally { await unlink(temporary).catch(() => undefined); }
+            json(200, { path: relative(root, target).split(sep).join('/') });
+          }
+          else if (action === 'rig') { await saveRig(path, body); json(200, { path: relative(root, resolve(path, 'rig.json')).split(sep).join('/') }); }
           else {
             if (action === 'rebuild' || action === 'variant-requests') await saveRig(path, body?.rig);
             const result = await projectJob(root, path, action === 'rebuild' ? 'build-layers' : action === 'variant-requests' ? 'variant-requests' : 'build-sprites', files, runner);

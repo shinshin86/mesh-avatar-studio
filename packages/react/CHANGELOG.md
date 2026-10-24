@@ -1,5 +1,12 @@
 # mesh-avatar-react
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [fc3e071]
+  - mesh-avatar-element@0.2.0
+
 ## 0.1.0
 
 ### Minor Changes

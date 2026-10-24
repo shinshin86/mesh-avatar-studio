@@ -75,8 +75,9 @@ Recommended setups:
 ### 2. Open the project and check it
 
 Start the editor (`npm run dev`), choose **Open project** and pick your project from the list.
-In the preview, use **Pose test** to turn and tilt the head and close the eyes, and
-**Lip sync** to check the vowel mouth shapes.
+In the preview, use **Pose test** to turn and tilt the head and close the eyes. In **Lip sync**,
+choose a mouth style and try it with kana text. Open **Fine-tune** to adjust movement, size
+and closing, or preview a local audio file.
 
 ![Lip sync check](docs/images/en/03-lip-sync.png)
 

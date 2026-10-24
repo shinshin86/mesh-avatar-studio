@@ -24,6 +24,7 @@
     "validate-avatar": "node --experimental-strip-types tools/validate-avatar.mjs",
     "pack-avatar": "node --experimental-strip-types tools/pack-avatar.mjs",
     "render-poses": "node --experimental-strip-types tools/render-poses.mjs",
+    "quality": "node --experimental-strip-types tools/quality.mjs",
     "doctor": "node tools/doctor.mjs"
   },
   "dependencies": {

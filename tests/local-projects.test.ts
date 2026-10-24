@@ -48,6 +48,20 @@ async function call(path: string, method = 'GET', body?: unknown, headers: Recor
   return result;
 }
 
+test('saves lip sync settings atomically in the manifest without changing the rig or unrelated metadata', async () => {
+  const path = resolve(root, 'projects/nova/avatar.json');
+  await writeFile(path, JSON.stringify({ format: 'mesh-avatar', version: 1, name: 'Nova', author: 'Artist', custom: { keep: true } }));
+  const rigBefore = await readFile(resolve(root, 'projects/nova/rig.json'), 'utf8');
+  const lipSync = { granularity: 0.2, openness: 0.75, closeSpeed: 0.1, preset: 'custom' };
+  expect((await call('/__studio/projects/nova/lip-sync', 'POST', lipSync)).status).toBe(200);
+  const saved = await readFile(path, 'utf8');
+  expect(JSON.parse(saved)).toMatchObject({ name: 'Nova', author: 'Artist', custom: { keep: true }, lipSync });
+  expect(await readFile(resolve(root, 'projects/nova/rig.json'), 'utf8')).toBe(rigBefore);
+  expect((await call('/__studio/projects/nova/lip-sync', 'POST', { openness: 1.1 })).status).toBe(400);
+  expect(await readFile(path, 'utf8')).toBe(saved);
+  expect((await call('/__studio/projects/sample-miko-qipao/lip-sync', 'POST', lipSync)).status).toBe(403);
+});
+
 test('lists eligible projects and the read-only installed sample, and serves project images', async () => {
   await mkdir(resolve(root, 'projects/unbuilt'), { recursive: true });
   await writeFile(resolve(root, 'projects/unbuilt/rig.draft.json'), '{}');

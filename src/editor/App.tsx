@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import fixture from 'virtual:sample-rig';
 import { EditorCanvas } from './EditorCanvas';
 import { setAt } from './model';
-import { type Rig, parseRig, validateRig } from 'mesh-avatar';
+import { type Rig, type LipSyncSettings, parseRig, validateRig } from 'mesh-avatar';
 import { Preview } from './Preview';
 import { RigHistory, downloadRig } from './history';
-import { openProjectFolder, openLocalProject, copySample, localProjects, projectAction, sampleImagesAvailable, sampleSourceUrl, repositoryContext, runProjectJob, ProjectJobError, importAvatar, exportAvatar, type ProjectJob, type LocalProject, type LocalProjectEntry } from './project';
+import { openProjectFolder, saveLipSync, openLocalProject, copySample, localProjects, projectAction, sampleImagesAvailable, sampleSourceUrl, repositoryContext, runProjectJob, ProjectJobError, importAvatar, exportAvatar, type ProjectJob, type LocalProject, type LocalProjectEntry } from './project';
 import { ExportAvatar, ImportAvatar } from './AvatarTransfer';
 import { archiveText } from './archive-i18n';
 import { folderOpenError } from './folder-errors';
@@ -37,6 +37,8 @@ function Workspace() {
   const [help, setHelp] = useState(false);
   const [history] = useState(() => new RigHistory(parseRig(fixture)));
   const [rig, setRig] = useState(history.present);
+  const [lipSync, setLipSync] = useState<LipSyncSettings | undefined>();
+  const [savedLipSync, setSavedLipSync] = useState<string | undefined>();
   const [savedRig, setSavedRig] = useState(() => JSON.stringify(history.present));
   const pickedFiles = useRef<File[] | undefined>(undefined);
   const [archiveBusy, setArchiveBusy] = useState(false);
@@ -141,6 +143,7 @@ function Workspace() {
     try {
       const project = await openProjectFolder(files);
       projectOpened.current = true;
+      setLipSync(project.lipSync); setSavedLipSync(JSON.stringify(project.lipSync));
       if (project.rig) {
         history.load(project.rig); setRig(history.present); setDragStale(null);
         setSavedRig(JSON.stringify(project.rig));
@@ -181,6 +184,7 @@ function Workspace() {
     try {
       const project = await openLocalProject(entry);
       projectOpened.current = true;
+      setLipSync(project.lipSync); setSavedLipSync(JSON.stringify(project.lipSync));
       history.load(project.rig!); setRig(history.present); setDragStale(null); setBuiltSignature(layerSignature(project.rig!));
       setSavedRig(JSON.stringify(project.rig)); pickedFiles.current = undefined;
       setSelected(null); setLocalProject(entry); setPickedName('');
@@ -201,11 +205,15 @@ function Workspace() {
   const save = async () => {
     if (jobRef.current) return;
     if (localProject?.hasSource === false) return;
-    if (!localProject || localProject.readOnly) { downloadRig(history.present); return; }
+    if (!localProject || localProject.readOnly) {
+      if (JSON.stringify(lipSync) !== savedLipSync) await exportFile(true).catch(() => undefined); else downloadRig(history.present);
+      return;
+    }
     if (saving) return;
     setSaving(true);
     const snapshot = JSON.stringify(history.present);
-    try { const result = await projectAction(localProject, 'rig', history.present); setSavedRig(snapshot); setNotice({ key: 'savedTo', path: result.path }); setError(null); }
+    try { const result = await projectAction(localProject, 'rig', history.present);
+      if (lipSync) { await saveLipSync(localProject, lipSync); setSavedLipSync(JSON.stringify(lipSync)); } setSavedRig(snapshot); setNotice({ key: 'savedTo', path: result.path }); setError(null); }
     catch { setError({ kind: 'saveError', paths: [] }); }
     finally { setSaving(false); }
   };
@@ -347,7 +355,7 @@ function Workspace() {
   };
   const playbackOnly = localProject?.hasSource === false;
   const busy = job !== null || opening || archiveBusy;
-  const dirty = JSON.stringify(rig) !== savedRig;
+  const dirty = JSON.stringify(rig) !== savedRig || JSON.stringify(lipSync) !== savedLipSync;
   const writable = !!localProject && !localProject.readOnly && !playbackOnly;
   const importFile = async (file: File) => {
     if (jobRef.current || saving || opening) return;
@@ -370,9 +378,10 @@ function Workspace() {
       if (writable && dirty) {
         const snapshot = JSON.stringify(history.present);
         await projectAction(localProject!, 'rig', history.present); setSavedRig(snapshot);
+        if (lipSync) { await saveLipSync(localProject!, lipSync); setSavedLipSync(JSON.stringify(lipSync)); }
       }
       const name = localProject?.name ?? (pickedName || 'sample-miko-qipao');
-      const blob = await exportAvatar(name, includeSource, pickedFiles.current);
+      const blob = await exportAvatar(name, includeSource, pickedFiles.current, lipSync);
       const url = URL.createObjectURL(blob), link = document.createElement('a');
       link.href = url; link.download = `${name}.mavatar`; link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -450,7 +459,7 @@ function Workspace() {
         </div>
       </section>}
       <div className="right-column">
-        <Preview key={localProject?.name ?? (pickedName || 'sample-miko-qipao')} projectKey={localProject?.name ?? (pickedName || 'sample-miko-qipao')} rig={rig} assets={assets} hasMouthSprites={mouthSprites} onDrawMouth={playbackOnly ? undefined : () => setMouthRequest(value => value + 1)} />
+        <Preview key={localProject?.name ?? (pickedName || 'sample-miko-qipao')} projectKey={localProject?.name ?? (pickedName || 'sample-miko-qipao')} rig={rig} assets={assets} lipSync={lipSync} onLipSyncChange={setLipSync} hasMouthSprites={mouthSprites} onDrawMouth={playbackOnly ? undefined : () => setMouthRequest(value => value + 1)} />
         {!playbackOnly && <VariantsPanel project={localProject} projectPath={localProject?.relativePath ?? (pickedName ? `<${pickedName}>` : 'samples/miko-qipao')} assets={assets} rootPath={rootPath} busy={busy || saving} stale={changed.length > 0} onRun={runJob} mouthRequest={mouthRequest} onMouthPresence={setMouthSprites} />}
         {!localProject && !pickedName && <details className="panel new-illustration"><summary>{t.newIllustration}</summary><AskAgent newProject rootPath={rootPath} /></details>}
         {!playbackOnly && <aside className="panel inspector" inert={busy}>

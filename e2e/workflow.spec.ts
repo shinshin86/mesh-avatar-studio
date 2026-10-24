@@ -200,6 +200,14 @@ test('pose and lip tabs keep a large preview at 1440 by 900 in both languages', 
       await page.getByRole('tab', { name: tab, exact: true }).click();
       expect((await page.getByTestId('preview').boundingBox())!.height).toBeGreaterThanOrEqual(420);
       await expect(page.getByRole('tabpanel')).toHaveCount(1);
+      if (tab === 'Lip sync' || tab === '口の動き') {
+        const pane = page.locator('#lip-panel'); await pane.evaluate(element => { element.scrollTop = 0; });
+        const bounds = (await pane.boundingBox())!;
+        for (const locator of [pane.locator('.lip-text-row')]) {
+          const box = (await locator.boundingBox())!;
+          expect(box.y).toBeGreaterThanOrEqual(bounds.y); expect(box.y + box.height).toBeLessThanOrEqual(bounds.y + bounds.height);
+        }
+      }
       expect((await page.locator('.preview-panel').boundingBox())!.y + (await page.locator('.preview-panel').boundingBox())!.height).toBeLessThanOrEqual(900);
     }
   }

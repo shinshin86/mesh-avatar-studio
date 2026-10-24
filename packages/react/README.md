@@ -87,12 +87,19 @@ export function SpeakingCharacter() {
   return <>
     <MeshAvatar ref={ref} style={{ width: 320 }} />
     <button onClick={() => ref.current?.avatar?.setExpression('smile')}>Smile</button>
+    <button onClick={() => ref.current?.setLipSync({ granularity: 1, openness: 0.5, closeSpeed: 1 })}>Snappy mouth</button>
     <button onClick={() => void ref.current?.speak('こんにちは').catch(console.error)}>Animate speech</button>
   </>;
 }
 ```
 
 `speak(text, { speed, loop })` animates Japanese mouth shapes without generating audio. `play(id)` plays a motion and waits for loading. `load(source)` loads an imperative source, returning the loading promise.
+
+Use `ref.current?.setLipSync(...)` for mouth-movement settings; there is no separate prop.
+`granularity` controls syllable separation, `openness` controls mouth size and `closeSpeed`
+controls closing speed (each 0–1, default 0.5). Updates retain omitted values and survive
+avatar reloads. Settings saved in Studio are applied automatically. See the
+[runtime style table](https://github.com/shinshin86/mesh-avatar-studio/tree/main/packages/runtime#mouth-movement).
 
 ### Audio file or TTS audio
 

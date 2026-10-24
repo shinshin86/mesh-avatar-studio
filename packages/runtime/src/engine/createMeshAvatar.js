@@ -158,6 +158,7 @@ export async function createMeshAvatarImpl(canvas, options) {
 
   const physics = new Physics();
   const motion = new Motion(rig.view.gazeCenter ?? [rig.head.cx, rig.head.cy]);
+  if (options.lipSync !== undefined) motion.setLipSync(options.lipSync);
   const listeners = new Set();
   motion.onMotion = id => { for (const fn of listeners) fn(id); };
 
@@ -246,6 +247,8 @@ export async function createMeshAvatarImpl(canvas, options) {
     getParameters() { return { ...lastParameters }; },
     /** 0..1 loudness of the voice being played (e.g. normalised RMS). */
     setVoiceLevel(v) { motion.setVoiceLevel(v); },
+    /** Partial mouth-movement settings; omitted fields retain their current values. */
+    setLipSync(settings) { motion.setLipSync(settings); },
     /** true while TTS audio is playing: idle motions pause and the head nods along. */
     setSpeaking(on) { motion.setSpeaking(on); },
     /** AITuber OnAir emotion tag: happy / sad / angry / surprised / relaxed / neutral (or null). */

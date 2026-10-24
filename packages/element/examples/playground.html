@@ -98,6 +98,12 @@ footer { padding-block: 24px; font-size: 13px; line-height: 1.7; }
             </section>
             <section class="control-panel">
               <h2>Text lip sync</h2>
+              <label for="mouth-style">Mouth style</label>
+              <select id="mouth-style">
+                <option value="" disabled hidden>Custom</option>
+                <option value="calm">Relaxed</option><option value="default" selected>Standard</option>
+                <option value="lively">Snappy</option><option value="subtle">Subtle</option><option value="big">Expressive</option>
+              </select>
               <form id="speech-form">
                 <label for="speech-text">Japanese text</label>
                 <input id="speech-text" type="text" value="こんにちは" maxlength="300">
@@ -125,6 +131,15 @@ import 'https://cdn.jsdelivr.net/npm/mesh-avatar-element@0/dist/standalone.js';
 // Kept inline in the standalone example so it can also open directly from disk.
 function setupPlayground(root, { sampleURL }) {
   const el = root.querySelector('mesh-avatar');
+  const mouthStyles = {
+    calm: { granularity: 0, openness: 0.5, closeSpeed: 0 },
+    default: { granularity: 0.5, openness: 0.5, closeSpeed: 0.5 },
+    lively: { granularity: 1, openness: 0.5, closeSpeed: 1 },
+    subtle: { granularity: 0.5, openness: 0, closeSpeed: 0.5 },
+    big: { granularity: 0.5, openness: 1, closeSpeed: 0.5 },
+  };
+  const mouthStyle = root.querySelector('#mouth-style');
+
   const status = root.querySelector('#status');
   const sourceName = root.querySelector('#source-name');
   const controls = root.querySelector('#avatar-controls');
@@ -188,6 +203,11 @@ function setupPlayground(root, { sampleURL }) {
   }
 
   function ready() {
+    const settings = { granularity: 0.5, openness: 0.5, closeSpeed: 0.5,
+      ...el.avatar?.package?.manifest.lipSync, ...el.lipSync };
+    mouthStyle.value = Object.keys(mouthStyles).find(name =>
+      Object.keys(mouthStyles[name]).every(key => mouthStyles[name][key] === settings[key])) ?? '';
+
     status.textContent = root.dataset.ready;
     status.dataset.state = 'ready';
     controls.disabled = false;
@@ -210,6 +230,9 @@ function setupPlayground(root, { sampleURL }) {
       }
     });
   }
+  mouthStyle.addEventListener('change', () => {
+    el.setLipSync(mouthStyles[mouthStyle.value]);
+  });
   root.querySelector('#emotion').addEventListener('change', event => {
     el.emotion = event.target.value || null;
   });

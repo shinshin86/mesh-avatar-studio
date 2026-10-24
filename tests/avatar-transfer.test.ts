@@ -44,6 +44,18 @@ async function call(path: string, data?: unknown, headers: Record<string, string
 }
 const exported = () => call('export', { project: 'sample-miko-qipao', includeSource: true });
 
+test('export and import retain lip-sync preferences without modifying the sample manifest', async () => {
+  const lipSync = { granularity: 0.2, openness: 0.75, closeSpeed: 0.1, preset: 'custom' };
+  const result = await call('export', { project: 'sample-miko-qipao', lipSync });
+  expect(result.status).toBe(200);
+  const packed = unpackAvatar(result.bytes), manifest = JSON.parse(new TextDecoder().decode(packed['avatar.json']));
+  expect(manifest.lipSync).toEqual(lipSync);
+  expect((await call('import', result.bytes)).status).toBe(200);
+  expect(JSON.parse(await readFile(resolve(root, 'projects/Miko-qipao/avatar.json'), 'utf8')).lipSync).toEqual(lipSync);
+  expectSameBytes(await readFile(resolve(root, 'samples/miko-qipao/avatar.json')), fixture['avatar.json'], 'sample manifest');
+  expect((await call('export', { project: 'sample-miko-qipao', lipSync: { openness: 1.1 } })).status).toBe(400);
+});
+
 function expectSameBytes(actual: Uint8Array, expected: Uint8Array, path: string) {
   // Compare every byte without traversing large typed arrays as object properties.
   expect(Buffer.from(actual).equals(expected), `${path}: all bytes must match`).toBe(true);

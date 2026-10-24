@@ -1,9 +1,9 @@
-import { loadMeshAvatar, type AvatarSource, type MeshAvatar } from 'mesh-avatar';
+import { loadMeshAvatar, parseManifest, type AvatarSource, type MeshAvatar, type LipSyncSettings } from 'mesh-avatar';
 import { DEFAULT_SRC, frameSeconds, parseEmotion, parseExpression, parseFit, ReadySignal, type Fit } from './attributes.js';
 
 export { DEFAULT_SRC, EMOTIONS } from './attributes.js';
 export type { Emotion, Fit } from './attributes.js';
-export type { AvatarSource, MeshAvatar, LiveExpression, ClothTuning } from 'mesh-avatar';
+export type { AvatarSource, MeshAvatar, LiveExpression, LipSyncSettings, ClothTuning } from 'mesh-avatar';
 
 const STYLE = `
 :host { display: block; position: relative; aspect-ratio: 1 / 1; }
@@ -33,6 +33,7 @@ export class MeshAvatarElement extends Base {
   #onScreen = true;
   #observer: IntersectionObserver | null = null;
   #voiceLevel: number | null = null;
+  #lipSync: LipSyncSettings = {};
   #warned = new Set<string>();
 
   constructor() {
@@ -77,6 +78,18 @@ export class MeshAvatarElement extends Base {
   setVoiceLevel(value: number) {
     this.#voiceLevel = value;
     this.#avatar?.setVoiceLevel(value);
+  }
+
+  /** Explicit mouth-movement overrides, retained across loads. Assignment is a partial update. */
+  get lipSync(): LipSyncSettings { return { ...this.#lipSync }; }
+  set lipSync(settings: LipSyncSettings) { this.setLipSync(settings); }
+
+  /** Partial overrides of the avatar's saved mouth-movement settings, retained across loads. */
+  setLipSync(settings: LipSyncSettings): void {
+    // Validate before updating either the loaded avatar or the retained overrides.
+    const updates = parseManifest({ format: 'mesh-avatar', version: 1, name: 'Avatar', lipSync: settings }).lipSync!;
+    this.#avatar?.setLipSync(updates);
+    this.#lipSync = { ...this.#lipSync, ...updates };
   }
 
   /** Moves the mouth to Japanese text without audio. Waits for the avatar to load. */
@@ -160,6 +173,7 @@ export class MeshAvatarElement extends Base {
         if (name !== 'emotion' || this.hasAttribute(name)) this.#apply(avatar, name);
       }
       if (this.#voiceLevel !== null) avatar.setVoiceLevel(this.#voiceLevel);
+      avatar.setLipSync(this.#lipSync);
       // Hair moves less for people who ask for reduced motion; the avatar itself still moves.
       if (matchMedia('(prefers-reduced-motion: reduce)').matches) avatar.setSwayGain(0.5);
       avatar.onMotion(motion => this.dispatchEvent(new CustomEvent('motion', { detail: { id: motion } })));

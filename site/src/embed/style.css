@@ -20,7 +20,7 @@
 .control-panel h3 { margin: 0; font-size: 12px; font-weight: 500; }
 .control-panel pre { white-space: pre-wrap; overflow-wrap: anywhere; padding-inline: 12px; }
 .control-panel label { display: block; margin-block: 12px 8px; font-size: 14px; }
-.control-panel input[type='text'] { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; background: white; color: var(--ink); }
+.control-panel input[type='text'], .control-panel select { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; background: white; color: var(--ink); }
 .control-panel button:not(.copy-button), .control-panel .file-button { min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); cursor: pointer; font: inherit; font-size: 14px; }
 .control-panel button:hover:not(:disabled), .control-panel button[aria-pressed='true'], .file-button:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .control-panel button:disabled { opacity: .5; cursor: default; }
@@ -33,7 +33,7 @@
 .file-actions { display: flex; flex-wrap: wrap; gap: 8px; position: relative; }
 .control-panel .file-button { display: inline-flex; align-items: center; margin: 0; }
 .file-input { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; clip-path: inset(50%); overflow: hidden; white-space: nowrap; }
-.file-input:focus-visible + .file-button, .embed-page input[type='text']:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.file-input:focus-visible + .file-button, .embed-page input[type='text']:focus-visible, .embed-page select:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 1000px) {
   .embed-layout { grid-template-columns: minmax(240px, .7fr) minmax(0, 1fr); }
   .control-panel { grid-template-columns: 1fr; }

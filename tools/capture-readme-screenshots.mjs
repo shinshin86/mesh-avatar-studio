@@ -128,9 +128,15 @@ async function prepare(page, language, scene) {
     await expect(page.getByTestId('editor')).toHaveAttribute('data-focus-group', 'eyes');
   } else if (scene === '03-lip-sync') {
     await page.getByRole('tab', { name: ja ? '口の動き' : 'Lip sync', exact: true }).click();
+    const style = page.getByTestId('audio-lip-settings').getByRole('button', { name: ja ? 'はっきり' : 'Expressive', exact: true });
+    await style.click();
+    await expect(style).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'あ', exact: true }).click();
     await expect(page.getByRole('button', { name: 'あ', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await expect.poll(async () => Number(await page.getByRole('slider', { name: ja ? '口の開き' : 'Mouth open', exact: true }).inputValue())).toBeGreaterThan(0.8);
+    await expect.poll(async () => Number(await page.getByRole('slider', { name: ja ? '口の開き' : 'Mouth open', exact: true }).inputValue())).toBeGreaterThan(0.98);
+    await page.locator('#lip-panel').evaluate(element => { element.scrollTop = 0; });
+    await expect(page.locator('.lip-text-row')).toBeInViewport();
+    await expect(style).toBeInViewport();
   } else if (scene === '04-rebuild') {
     await page.getByTestId('part-eyes').click();
     await page.locator('summary').filter({ hasText: ja ? /^1 · 開口部 \(\d+\)$/ : /^1 · Opening \(\d+\)$/ }).click();

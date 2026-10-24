@@ -239,3 +239,39 @@ test('coalesces connection, src and fit changes and exposes a pending ready imme
   expect(defaults).toBe(0);
   expect(explicit).toBe(1);
 });
+
+
+test('mouth settings apply before loading, merge partial updates and survive fit and source reloads', async ({ page }) => {
+  await open(page);
+  const result = await page.evaluate(async src => {
+    const el = document.createElement('mesh-avatar');
+    el.paused = true;
+    el.lipSync = { granularity: 0, openness: 0 };
+    el.setLipSync({ closeSpeed: 0 });
+    document.body.append(el);
+    const opening = async () => {
+      const avatar = await el.ready;
+      avatar.setAutoIdle(false); avatar.setAutoMotion(false); avatar.holdMouth('a');
+      for (let i = 0; i < 60; i++) avatar.advance(1 / 60);
+      return avatar.getParameters().mouthOpen;
+    };
+    const before = await opening();
+    el.setLipSync({ openness: 1 });
+    const large = await opening();
+    const overrides = el.lipSync;
+    overrides.openness = 0; // The getter must not expose retained mutable state.
+    let rejected = false;
+    try { el.setLipSync({ openness: 2 }); } catch { rejected = true; }
+    const retained = el.lipSync;
+    el.fit = 'cover';
+    const fit = await opening();
+    el.src = src + '?settings-reload';
+    const source = await opening();
+    el.remove();
+    return { before, large, fit, source, rejected, retained };
+  }, sample);
+  expect(result.before).toBeCloseTo(0.495, 5);
+  for (const value of [result.large, result.fit, result.source]) expect(value).toBeCloseTo(1, 5);
+  expect(result.rejected).toBe(true);
+  expect(result.retained).toEqual({ granularity: 0, openness: 1, closeSpeed: 0 });
+});

@@ -25,6 +25,38 @@ test.beforeEach(async ({ context, page }) => {
 });
 test.afterEach(({ page }) => { expect(outside.get(page) ?? []).toEqual([]); });
 
+async function checkMouthStyles(page: Page, language = 'en') {
+  const selector = page.getByRole('combobox', { name: language === 'ja' ? '口の動きのタイプ' : 'Mouth style', exact: true });
+  await expect(selector).toHaveValue('default');
+  await expect(selector.locator('option:not([disabled])')).toHaveText(language === 'ja'
+    ? ['ゆったり', '標準', 'キビキビ', '控えめ', 'はっきり']
+    : ['Relaxed', 'Standard', 'Snappy', 'Subtle', 'Expressive']);
+  expect(await page.evaluate(() => document.querySelector('mesh-avatar')!.lipSync)).toEqual({});
+  const styles = {
+    calm: { granularity: 0, openness: 0.5, closeSpeed: 0 },
+    default: { granularity: 0.5, openness: 0.5, closeSpeed: 0.5 },
+    lively: { granularity: 1, openness: 0.5, closeSpeed: 1 },
+    subtle: { granularity: 0.5, openness: 0, closeSpeed: 0.5 },
+    big: { granularity: 0.5, openness: 1, closeSpeed: 0.5 },
+  };
+  for (const [name, settings] of Object.entries(styles)) {
+    await selector.selectOption(name);
+    expect(await page.evaluate(() => document.querySelector('mesh-avatar')!.lipSync)).toEqual(settings);
+    if (name === 'subtle' || name === 'big') {
+      const opening = await page.evaluate(() => {
+        const el = document.querySelector('mesh-avatar')!, avatar = el.avatar!;
+        el.paused = true; avatar.holdMouth('a');
+        for (let i = 0; i < 60; i++) avatar.advance(1 / 60);
+        const value = avatar.getParameters().mouthOpen;
+        avatar.stopLipSync(); el.paused = false;
+        return value;
+      });
+      if (name === 'subtle') { expect(opening).toBeGreaterThan(0.45); expect(opening).toBeLessThan(0.55); }
+      else expect(opening).toBeGreaterThan(0.95);
+    }
+  }
+}
+
 for (const language of ['en', 'ja']) {
   test(`embed demo works in ${language} without outside requests`, async ({ page }) => {
     const errors: string[] = [];
@@ -32,6 +64,8 @@ for (const language of ['en', 'ja']) {
     await page.goto(`${site}${language === 'ja' ? 'ja/' : ''}embed/`);
     await expect(page.locator('#status')).toHaveAttribute('data-state', 'ready');
     await expect(page.locator('html')).toHaveAttribute('lang', language);
+    await checkMouthStyles(page, language);
+    await expect(page.locator('#mouth-style-code')).toContainText('el.setLipSync({ granularity: 0.5, openness: 1, closeSpeed: 0.5 });');
     const image = PNG.sync.read(await page.locator('mesh-avatar canvas').screenshot({ omitBackground: true }));
     expect(image.data.some((value, index) => index % 4 === 3 && value > 0)).toBe(true);
     await page.locator('[data-expression="smile"]').click();
@@ -58,6 +92,7 @@ for (const language of ['en', 'ja']) {
     });
     await expect(page.locator('#status')).toHaveAttribute('data-state', 'ready');
     await expect(page.locator('#source-name')).toHaveText('chosen.mavatar');
+    await expect(page.locator('#mouth-style')).toHaveValue('big');
     await expect(page.locator('#selected-file')).toContainText('chosen.mavatar');
     await expect(page.locator('#file-code')).toHaveText('<mesh-avatar src="/path/to/your-avatar.mavatar"></mesh-avatar>');
     expect(await page.evaluate(() => document.querySelector('mesh-avatar')!.avatar !== Reflect.get(window, 'previousAvatar'))).toBe(true);
@@ -94,6 +129,7 @@ for (const example of ['basic', 'playground']) {
     await expect.poll(() => page.evaluate(() => !!document.querySelector('mesh-avatar')?.avatar)).toBe(true);
     if (example === 'playground') {
       await expect(page.locator('#status')).toHaveAttribute('data-state', 'ready');
+      await checkMouthStyles(page);
       await page.locator('[data-expression="wink"]').click();
       expect(await page.evaluate(() => document.querySelector('mesh-avatar')!.avatar!.getExpression().name)).toBe('wink');
       await page.locator('#avatar-file').setInputFiles({ name: 'chosen.mavatar', mimeType: 'application/octet-stream', buffer: archive });

@@ -38,6 +38,11 @@ jobs:
       - name: Build embed element
         run: npm run build:element
 
+      # Built in dependency order here; prepack then skips rebuilding (MESH_AVATAR_PREBUILT)
+      # because changesets publishes the packages in parallel.
+      - name: Build React wrapper
+        run: npm run build:react
+
       - name: Run unit tests
         run: npm test
 
@@ -50,3 +55,4 @@ jobs:
           title: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MESH_AVATAR_PREBUILT: '1'

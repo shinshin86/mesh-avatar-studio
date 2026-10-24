@@ -1,5 +1,11 @@
 # mesh-avatar
 
+## 0.3.0
+
+### Minor Changes
+
+- fc3e071: Add optional mouth-movement settings for audio loudness and kana previews: granularity, openness and closing speed. Configure them with `lipSync` or partial `setLipSync` updates; omitted and center values preserve the existing motion. Avatar manifests store the settings and optional editor preset, and loaders apply them. The element retains explicit property or method overrides across loads.
+
 ## 0.2.1
 
 ### Patch Changes

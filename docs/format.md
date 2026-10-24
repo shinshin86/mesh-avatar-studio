@@ -64,7 +64,23 @@ not included by `pack-avatar`. Without it the layer builder inpaints the covered
 | `license` | Optional license text or reference to the artwork's terms. The runtime's MIT license does not grant rights to the artwork. |
 | `source` | Optional original-image filename relative to the root, normally `source.png`. |
 | `thumbnail` | Optional preview-image filename relative to the root, normally `thumbnail.png`. |
+| `lipSync` | Optional mouth-movement settings: `granularity`, `openness`, `closeSpeed` (each optional, finite 0–1, default 0.5). Optional `preset` records the editor selection (`calm`, `default`, `lively`, `subtle`, `big`, `custom`); playback always uses the numbers. An omitted or empty block preserves existing behavior. |
 | `studio.version` | Optional version string identifying the Studio that prepared the avatar. |
+
+For example, `"lipSync": { "granularity": 0, "openness": 0.5, "closeSpeed": 0,
+"preset": "calm" }` selects smoother, less frequent closures. Low `granularity` reacts only
+to large loudness dips and groups short kana morae; high values separate smaller dips.
+`openness` scales mouth opening from 0.55 to 1.25 times the original amount (capped at 1),
+with exactly the original amount at 0.5. `closeSpeed` changes release from slow to quick.
+All three default to 0.5, preserving the existing animation exactly. `preset` does not
+change the numeric values or cause playback.
+
+The editor saves this block independently of the rig and preserves it on export/import.
+Preview audio is never stored in the archive. Loaders and Live/Player apply saved settings;
+explicit runtime settings override the corresponding saved fields. Audio-driven lip sync
+requires an application supplying analyzed loudness. Loading an avatar alone does not
+start a microphone. Older readers ignore this optional key. Format version and existing
+fields are unchanged. Unknown fields in the block are ignored.
 
 On import, Studio saves the original image as `source.png` and updates `avatar.json.source` when its filename differs.
 

@@ -2,6 +2,10 @@ import type { LiveExpression } from 'mesh-avatar';
 
 interface Messages {
   expressions: Record<LiveExpression, string>;
+  mouthStyle: string;
+  mouthStyleHint: string;
+  customMouthStyle: string;
+  mouthStyles: Record<'calm' | 'default' | 'lively' | 'subtle' | 'big', string>;
   pointerHint: string;
   expressionHint: string;
   loading: string;
@@ -18,6 +22,10 @@ const messages: Record<'en' | 'ja', Messages> = {
       neutral: 'Neutral', smile: 'Smile', shy: 'Shy', surprise: 'Surprise',
       halfLidded: 'Half-lidded', angry: 'Angry', sad: 'Sad', wink: 'Wink',
     },
+    mouthStyle: 'Mouth style',
+    mouthStyleHint: 'Choose a style, then animate the text below to compare.',
+    customMouthStyle: 'Custom',
+    mouthStyles: { calm: 'Relaxed', default: 'Standard', lively: 'Snappy', subtle: 'Subtle', big: 'Expressive' },
     pointerHint: 'Move your pointer and she turns to face it.',
     expressionHint: 'Pick an expression to try it.',
     loading: 'Loading the live preview…',
@@ -32,6 +40,10 @@ const messages: Record<'en' | 'ja', Messages> = {
       neutral: '通常', smile: '笑顔', shy: '照れ', surprise: '驚き',
       halfLidded: '半目', angry: '怒り', sad: '悲しみ', wink: 'ウインク',
     },
+    mouthStyle: '口の動きのタイプ',
+    mouthStyleHint: 'タイプを選んで、下の文章で口の動きを試せます。',
+    customMouthStyle: 'カスタム',
+    mouthStyles: { calm: 'ゆったり', default: '標準', lively: 'キビキビ', subtle: '控えめ', big: 'はっきり' },
     pointerHint: 'ポインターを動かすと、その方向へ顔を向けます。',
     expressionHint: 'ボタンで表情を切り替えられます。',
     loading: 'プレビューを読み込んでいます…',

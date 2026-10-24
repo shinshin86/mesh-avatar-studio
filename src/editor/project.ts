@@ -1,4 +1,4 @@
-import { openAvatar, parseRig, type Rig, type AvatarPackage } from 'mesh-avatar';
+import { openAvatar, parseRig, type Rig, type AvatarPackage, parseManifest, type LipSyncSettings } from 'mesh-avatar';
 import type { LocalProject, LocalProjectEntry } from '../project-types';
 import { FolderOpenError } from './folder-errors';
 import { packProjectAvatar } from '../../packages/runtime/src/format/project-archive';
@@ -16,6 +16,7 @@ export interface ProjectAssets {
   assets: Record<string, string>;
   rig?: Rig;
   urls: string[];
+  lipSync?: LipSyncSettings;
 }
 export async function openProjectFolder(files: File[]): Promise<ProjectAssets> {
   const entries = files.map(file => ({ file, path: file.webkitRelativePath.replace(/^[^/]+\//, '') || file.name }));
@@ -43,6 +44,8 @@ export async function openProjectFolder(files: File[]): Promise<ProjectAssets> {
   for (const entry of entries.filter(entry => entry.path.startsWith(prefix))) {
     built.push({ entry, bytes: entry === layers ? layerBytes : await read(entry) });
   }
+  const manifestFile = entries.find(entry => entry.path === 'avatar.json');
+  const lipSync = manifestFile ? parseManifest(JSON.parse(new TextDecoder().decode(await read(manifestFile)))).lipSync : undefined;
   const urls: string[] = [];
   const sourceUrl = URL.createObjectURL(new Blob([sourceBytes], { type: source.file.type }));
   urls.push(sourceUrl);
@@ -51,7 +54,7 @@ export async function openProjectFolder(files: File[]): Promise<ProjectAssets> {
     urls.push(url);
     return [entry.path.slice(prefix.length), url];
   }));
-  return { sourceUrl, assets, rig, urls };
+  return { sourceUrl, assets, rig, urls, lipSync };
 }
 
 export async function localProjects(): Promise<LocalProjectEntry[] | null> {
@@ -80,7 +83,7 @@ export async function importAvatar(file: File): Promise<LocalProject> {
   if (!response.ok) throw new Error(result.error);
   return result;
 }
-export async function exportAvatar(name: string, includeSource: boolean, pickedFiles?: File[]): Promise<Blob> {
+export async function exportAvatar(name: string, includeSource: boolean, pickedFiles?: File[], lipSync?: LipSyncSettings): Promise<Blob> {
   if (pickedFiles) {
     const entries = new Map(pickedFiles.map(file => [file.webkitRelativePath.replace(/^[^/]+\//, '') || file.name, file]));
     const bytes = await packProjectAvatar(async paths => {
@@ -90,10 +93,10 @@ export async function exportAvatar(name: string, includeSource: boolean, pickedF
         if (file) files[path] = new Uint8Array(await file.arrayBuffer());
       }
       return files;
-    }, { name, includeSource });
+    }, { name, includeSource, lipSync });
     return new Blob([new Uint8Array(bytes)], { type: 'application/octet-stream' });
   }
-  const response = await fetch('/__studio/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project: name, includeSource }) });
+  const response = await fetch('/__studio/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project: name, includeSource, lipSync }) });
   if (!response.ok) throw new Error((await response.json()).error);
   return response.blob();
 }
@@ -138,14 +141,14 @@ async function jsonFile(url: string) {
 }
 export async function openLocalProject(project: LocalProject): Promise<ProjectAssets> {
   const base = baseUrl(project), version = Date.now();
-  const { rig, assets } = await openAvatar(base, { version, rigFile: project.rigFile });
+  const { rig, assets, manifest } = await openAvatar(base, { version, rigFile: project.rigFile });
   const sourceUrl = project.hasSource === false ? '' : `${base}source.png?v=${version}`;
   // Check images before replacing the editor's current project.
   const urls = [sourceUrl, ...Object.entries(assets).filter(([name]) => name.endsWith('.png')).map(([, url]) => url)].filter(Boolean);
   await Promise.all(urls.map(url => new Promise<void>((done, reject) => {
     const image = new Image(); image.onload = () => done(); image.onerror = () => reject(new Error('Missing project image.')); image.src = url;
   })));
-  return { sourceUrl, assets, rig, urls: [] };
+  return { sourceUrl, assets, rig, urls: [], lipSync: manifest.lipSync };
 }
 export async function projectAction(project: LocalProject, action: 'rig' | 'reveal', rig?: Rig): Promise<{ path: string }> {
   const response = await fetch(`${baseUrl(project)}${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: rig ? JSON.stringify(rig) : '{}' });
@@ -160,4 +163,9 @@ export function sampleImagesAvailable(): Promise<boolean> {
     image.onerror = () => resolve(false);
     image.src = url;
   }))).then(results => results.every(Boolean));
+}
+
+export async function saveLipSync(project: LocalProject, lipSync: LipSyncSettings) {
+  const response = await fetch(`${baseUrl(project)}lip-sync`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lipSync) });
+  if (!response.ok) throw new Error('Could not save lip sync settings.');
 }

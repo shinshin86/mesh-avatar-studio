@@ -130,3 +130,16 @@ test('loadMeshAvatar releases owned resources on destroy or failure but preserve
   second.destroy(); expect(release).not.toHaveBeenCalled();
   shared.release();
 });
+
+test('loadMeshAvatar applies saved mouth settings and lets explicit runtime options override them', async () => {
+  const lipSync = { granularity: 0.2, openness: 0.75, closeSpeed: 0.1 };
+  const archive = packAvatar(files, { manifest: { lipSync } });
+  const avatar = await loadMeshAvatar({} as HTMLCanvasElement, archive);
+  expect(avatar.package.manifest.lipSync).toEqual(lipSync);
+  expect(vi.mocked(createMeshAvatar).mock.calls.at(-1)?.[1].lipSync).toEqual(lipSync);
+  avatar.destroy();
+  const override = { openness: 0.3 };
+  const other = await loadMeshAvatar({} as HTMLCanvasElement, archive, { lipSync: override });
+  expect(vi.mocked(createMeshAvatar).mock.calls.at(-1)?.[1].lipSync).toEqual({ ...lipSync, ...override });
+  other.destroy();
+});

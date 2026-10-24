@@ -88,6 +88,8 @@ el.avatar.setExpression('smile');
 | `load(source)` | Loads a File, Blob, ArrayBuffer, Uint8Array, URL or URL string without changing `src`. Returns the loading promise and emits `load` or `error`. The `AvatarSource` type is re-exported from `mesh-avatar`. |
 | `ready` | Promise resolving with the avatar for the current source, rejecting on loading failure. A new load after completion creates a new promise; overlapping pending loads resolve with the latest avatar. |
 | `src`, `fit`, `expression`, `emotion`, `paused` | Properties reflecting their corresponding attributes. Use attributes for `no-idle` and `label`. |
+| `lipSync` | Get a copy of explicit mouth-movement overrides, or assign a partial `LipSyncSettings` object. Overrides survive avatar reloads. |
+| `setLipSync(settings)` | Partially updates mouth movement: `granularity`, `openness`, `closeSpeed` (0–1). Omitted fields keep their values. |
 | `setVoiceLevel(value)` | Mouth opening from loudness, 0–1. Retains the value until loading finishes. |
 | `speak(text, options?)` | Calls `speakKana` after loading. Japanese text animates the mouth without generating audio. Options: `speed`, `loop`. |
 | `play(id)` | Plays a runtime motion after loading. Available IDs are in `el.avatar.motions`. |
@@ -134,6 +136,23 @@ Download either HTML example and open it directly, or serve it on your site. Bot
 ## Lip sync
 
 Each example below assumes the CDN script and a `<mesh-avatar>` element are on your page. Run JavaScript as a module.
+
+### Mouth movement
+
+Use `lipSync` or `setLipSync` to adjust syllable separation, mouth size and closing speed.
+Each setting accepts 0–1; 0.5 keeps the original behavior. Settings saved in Studio apply
+automatically when the avatar loads. Explicit overrides work before loading and survive
+source or fit changes. `LipSyncSettings` is exported as a TypeScript type.
+
+```js
+await customElements.whenDefined('mesh-avatar');
+const el = document.querySelector('mesh-avatar');
+el.lipSync = { granularity: 0, closeSpeed: 0 };
+el.setLipSync({ openness: 0.75 }); // Retains the other settings.
+```
+
+See the [runtime style table](https://github.com/shinshin86/mesh-avatar-studio/tree/main/packages/runtime#mouth-movement)
+for the five Studio styles. These settings apply to text and audio lip sync below.
 
 ### Audio file or TTS audio
 

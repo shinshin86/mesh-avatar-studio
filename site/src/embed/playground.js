@@ -1,5 +1,14 @@
-export function setupPlayground(root, { sampleURL }) {
+export function setupPlayground(root, { sampleURL, messages }) {
   const el = root.querySelector('mesh-avatar');
+  const mouthStyles = {
+    calm: { granularity: 0, openness: 0.5, closeSpeed: 0 },
+    default: { granularity: 0.5, openness: 0.5, closeSpeed: 0.5 },
+    lively: { granularity: 1, openness: 0.5, closeSpeed: 1 },
+    subtle: { granularity: 0.5, openness: 0, closeSpeed: 0.5 },
+    big: { granularity: 0.5, openness: 1, closeSpeed: 0.5 },
+  };
+  const mouthStyle = root.querySelector('#mouth-style');
+
   const status = root.querySelector('#status');
   const sourceName = root.querySelector('#source-name');
   const selectedFile = root.querySelector('#selected-file');
@@ -8,6 +17,21 @@ export function setupPlayground(root, { sampleURL }) {
   const notice = root.querySelector('#notice');
   const speechText = root.querySelector('#speech-text');
   const fileInput = root.querySelector('#avatar-file');
+
+  root.querySelector('#mouth-style-label').textContent = messages.mouthStyle;
+  root.querySelector('#mouth-style-hint').textContent = messages.mouthStyleHint;
+  const custom = new Option(messages.customMouthStyle, ''); custom.disabled = true; custom.hidden = true;
+  mouthStyle.add(custom);
+  for (const name of Object.keys(mouthStyles)) mouthStyle.add(new Option(messages.mouthStyles[name], name));
+
+  function mouthStyleCode(settings) {
+    const fields = ['granularity', 'openness', 'closeSpeed'].map(key => `${key}: ${settings[key]}`).join(', ');
+    updateCode('mouth-style-code', `const el = document.querySelector('mesh-avatar');\nel.setLipSync({ ${fields} });`);
+  }
+  mouthStyle.addEventListener('change', () => {
+    const settings = mouthStyles[mouthStyle.value];
+    el.setLipSync(settings); mouthStyleCode(settings);
+  });
 
   function updateCode(id, text) {
     root.querySelector(`#${id}`).textContent = text;
@@ -25,6 +49,12 @@ export function setupPlayground(root, { sampleURL }) {
   }
 
   function ready() {
+    const settings = { granularity: 0.5, openness: 0.5, closeSpeed: 0.5,
+      ...el.avatar?.package?.manifest.lipSync, ...el.lipSync };
+    mouthStyle.value = Object.keys(mouthStyles).find(name =>
+      Object.keys(mouthStyles[name]).every(key => mouthStyles[name][key] === settings[key])) ?? '';
+    mouthStyleCode(settings);
+
     status.textContent = root.dataset.ready;
     status.dataset.state = 'ready';
     controls.disabled = false;
@@ -36,7 +66,6 @@ export function setupPlayground(root, { sampleURL }) {
     status.dataset.state = 'error';
     controls.disabled = true;
   });
-  if (el.avatar) ready();
 
   for (const button of root.querySelectorAll('[data-expression]')) {
     button.addEventListener('click', () => {
@@ -96,4 +125,5 @@ export function setupPlayground(root, { sampleURL }) {
       }
     });
   }
+  if (el.avatar) ready();
 }

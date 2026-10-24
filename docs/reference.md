@@ -287,6 +287,56 @@ The camera is optional. Turn on only the microphone and the avatar keeps its idl
 the camera the mouth keeps one shape and changes only how far it opens; drawn mouth images
 are still used when the project has them.
 
+### Mouth movement settings
+
+The studio's **Lip sync** tab offers five styles: Relaxed, Standard, Snappy, Subtle and
+Expressive. Choosing one immediately previews the mouth motion with kana. Open **Fine-tune**
+to adjust movement, size and closing; adjusting a slider selects **Custom**, and releasing it
+previews the result. A user-started kana phrase keeps its current playback position while
+settings change. The disclosure also contains a local audio-file preview driven by loudness.
+Preview files stay in the browser and are not included in avatar exports.
+
+Each movement setting accepts a finite number from 0 to 1 and defaults to 0.5:
+
+| Setting | 0 | 0.5 (existing behavior) | 1 |
+| --- | --- | --- | --- |
+| `granularity` | Only large loudness dips separate syllables; merge short kana morae. | Existing sensitivity. | Smaller dips separate syllables; stronger kana closures. |
+| `openness` | Scale opening by 0.55. | Original opening amount. | Scale opening by 1.25, capped at 1. |
+| `closeSpeed` | Slow release (6/s). | Existing audio 32/s and kana 22/s release. | Quick release (45/s). |
+
+Configure the runtime when creating it, or update settings during playback:
+
+```ts
+import { createMeshAvatar, type LipSyncSettings } from 'mesh-avatar';
+
+const settings: LipSyncSettings = { granularity: 0, openness: 0.5, closeSpeed: 0 };
+const avatar = await createMeshAvatar(canvas, { rig, assets, lipSync: settings });
+avatar.setLipSync({ openness: 0.75 }); // retains the current movement and closing settings
+avatar.setSpeaking(true);
+avatar.setVoiceLevel(level); // normalized audio loudness, 0–1
+```
+
+`setLipSync(settings: LipSyncSettings): void` is a partial update: omitted or undefined fields
+retain their current values. Empty settings and omitted creation options use the existing
+behavior; explicitly setting all three numbers to 0.5 produces the same motion and random
+draws. Invalid objects, non-finite numbers and values outside 0–1 throw before changing settings.
+Openness also affects held-mouth previews. Low kana granularity groups adjacent short morae
+and softens brief closures; long pauses still close the mouth.
+
+Writable projects save the numbers and optional editor selection in `avatar.json.lipSync`;
+exports include them for browser-picked folders and read-only samples too. `loadMeshAvatar`
+applies these saved values, with explicit `options.lipSync` fields taking precedence. The
+Live page and browser Player apply the avatar's settings to their existing microphone
+loudness path. Loading an avatar alone does not start a microphone.
+
+The element exposes `element.lipSync: LipSyncSettings` (get/set) and
+`element.setLipSync(settings: LipSyncSettings): void`. Both assignment and the method apply
+partial updates. The getter returns a copy of explicit overrides; these survive source or
+fit changes and otherwise the avatar's saved values apply. The optional `preset` field
+(`calm`, `default`, `lively`, `subtle`, `big`, `custom`) records the editor selection only;
+playback always uses the three numbers. The React wrapper exposes the element through its
+ref, so call `ref.current.setLipSync(...)`; it has no dedicated settings prop.
+
 ### Video calls
 
 To use the avatar in Zoom, Google Meet or other video-call apps, show the stream view in OBS
@@ -326,6 +376,9 @@ upgrading it.
   use the same `project`.
 
 ## Verify
+
+For headless deformation statistics and seeded motion comparisons, see
+[deformation and motion metrics](quality.md).
 
 ```sh
 npm run lint

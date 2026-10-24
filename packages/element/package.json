@@ -1,6 +1,6 @@
 {
   "name": "mesh-avatar-element",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "license": "MIT",
   "description": "A <mesh-avatar> custom element: put a Mesh Avatar Studio avatar on any web page with one tag.",
@@ -36,7 +36,7 @@
   },
   "scripts": {
     "build": "vite build && vite build --mode standalone && tsc -p tsconfig.build.json",
-    "prepack": "npm run build"
+    "prepack": "node ../../tools/prepack.mjs"
   },
   "exports": {
     ".": {
@@ -46,6 +46,6 @@
     "./standalone": "./dist/standalone.js"
   },
   "dependencies": {
-    "mesh-avatar": "^0.2.1"
+    "mesh-avatar": "^0.3.0"
   }
 }

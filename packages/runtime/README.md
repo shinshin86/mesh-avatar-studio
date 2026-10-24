@@ -88,6 +88,38 @@ Emotion tags are `happy`, `sad`, `angry`, `surprised`, `relaxed` and `neutral` (
 
 For custom loading or tooling, the package also exports `createMeshAvatar`, `openAvatar`, `packAvatar`, `unpackAvatar`, `validateAvatarFiles`, `parseManifest`, `parseRig`, `validateRig` and lighting settings. See the [avatar format reference](https://github.com/shinshin86/mesh-avatar-studio/blob/main/docs/format.md) for archive contents, validation and compatibility rules.
 
+## Mouth movement
+
+Three optional settings control audio loudness lip sync and kana previews. `granularity`
+changes how readily the mouth separates syllables, `openness` changes the opening amount,
+and `closeSpeed` changes how quickly it closes. Each accepts a finite value from 0 to 1;
+0.5 preserves the existing behavior.
+
+The Studio's five styles use these values:
+
+| Style | `granularity` | `openness` | `closeSpeed` |
+| --- | --- | --- | --- |
+| Relaxed | 0 | 0.5 | 0 |
+| Standard | 0.5 | 0.5 | 0.5 |
+| Snappy | 1 | 0.5 | 1 |
+| Subtle | 0.5 | 0 | 0.5 |
+| Expressive | 0.5 | 1 | 0.5 |
+
+If your app already supplies a rig and built assets, pass `lipSync` when creating the avatar:
+
+```ts
+import { createMeshAvatar, type LipSyncSettings } from 'mesh-avatar';
+
+const lipSync: LipSyncSettings = { granularity: 0, openness: 0.5, closeSpeed: 0 };
+const avatar = await createMeshAvatar(canvas, { rig, assets, lipSync });
+avatar.setLipSync({ openness: 0.75 }); // Other settings keep their current values.
+```
+
+Avatars saved or exported in Studio carry these settings in `avatar.json.lipSync`.
+`loadMeshAvatar` applies them automatically; explicit `options.lipSync` fields override the
+saved values. `setLipSync` is a partial update and works during playback. The optional
+`preset` field records the editor selection only; playback uses the three numbers.
+
 ## License
 
 The runtime is MIT licensed; see [LICENSE](./LICENSE). The browser bundle includes [fflate](https://github.com/101arrowz/fflate), with its MIT notice retained in the bundle.

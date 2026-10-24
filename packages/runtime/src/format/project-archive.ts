@@ -1,4 +1,5 @@
 import { parseManifest, type AvatarManifest } from './manifest.ts';
+import type { LipSyncSettings } from '../engine/lip-sync.ts';
 import { checkEntryName, packAvatar } from './zip.ts';
 
 type Files = Record<string, Uint8Array>;
@@ -6,7 +7,7 @@ type Files = Record<string, Uint8Array>;
 // Shared by Studio and the CLI; this is not part of the runtime's public API.
 export async function packProjectAvatar(
   read: (paths: Set<string>) => Promise<Files>,
-  { name, includeSource = true }: { name: string; includeSource?: boolean },
+  { name, includeSource = true, lipSync }: { name: string; includeSource?: boolean; lipSync?: LipSyncSettings },
 ): Promise<Uint8Array> {
   const wanted = new Set(['avatar.json', 'rig.json', 'built/layers.json', 'built/sprites/sprites.json']);
   const metadata = await read(wanted);
@@ -30,5 +31,6 @@ export async function packProjectAvatar(
   const files = await read(wanted);
   let override: Partial<AvatarManifest> | undefined = manifest ? undefined : { name };
   if (!includeSource && manifest?.source) override = { ...manifest, source: undefined };
+  if (lipSync !== undefined) override = { ...manifest, ...override, lipSync };
   return packAvatar(files, { manifest: override });
 }

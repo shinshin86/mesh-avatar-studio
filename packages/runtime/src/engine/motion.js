@@ -1,4 +1,5 @@
 // Drives parameters: idle ("auto idle"), mouse follow, blinking, expressions, motions.
+import { resolveLipSync, lipMotionOptions } from './lip-sync.ts';
 import { PARAMS } from './rig.js';
 import { MOTIONS, IDLE_MOTIONS, ADDITIVE, sampleTrack } from './motions.js';
 import { VOWELS, kanaToMoras, sampleMoras } from './kana.js';
@@ -81,6 +82,8 @@ export class Motion {
     this.mouth = 0;
     this.vowel = 'a';
     this.vowelForm = 0;
+    this.lipSync = resolveLipSync();
+    this.lipMotion = lipMotionOptions(this.lipSync);
     this.syllableArmed = true;
     this.voicePeak = 0;
     this.voiceTrough = 0;
@@ -103,6 +106,11 @@ export class Motion {
 
   // ---- speech (driven from outside, e.g. by the TTS audio analyser) ----
   setVoiceLevel(v) { this.voice = Math.min(1, Math.max(0, Number(v) || 0)); }
+
+  setLipSync(settings) {
+    this.lipSync = resolveLipSync(settings, this.lipSync);
+    this.lipMotion = lipMotionOptions(this.lipSync);
+  }
 
   setSpeaking(on) {
     if (on === this.speaking) return;
@@ -156,33 +164,35 @@ export class Motion {
       else {
         this.kana.t += dt;
         if (this.kana.loop) this.kana.t %= this.kana.duration;
-        m = sampleMoras(this.kana.moras, this.kana.t);
+        m = sampleMoras(this.kana.moras, this.kana.t, this.lipSync.granularity);
       }
-      if (!m) { this.kana = null; return this.mouth > 0.01 ? [this.mouth *= 0.6, this.vowelForm] : null; }
-      const k = m.open > this.mouth ? 1 - Math.exp(-dt * 30) : 1 - Math.exp(-dt * 22);
-      this.mouth += (m.open - this.mouth) * k;
+      if (!m) { this.kana = null; return this.mouth > 0.01 ? [this.mouth *= this.lipSync.closeSpeed === 0.5 ? 0.6 : Math.exp(-dt * this.lipMotion.kanaRelease), this.vowelForm] : null; }
+      const target = this.lipMotion.openness === 1 ? m.open : Math.min(1, m.open * this.lipMotion.openness);
+      const k = target > this.mouth ? 1 - Math.exp(-dt * 30) : 1 - Math.exp(-dt * this.lipMotion.kanaRelease);
+      this.mouth += (target - this.mouth) * k;
       if (m.form !== null) this.vowelForm = m.form;
       return [this.mouth, this.vowelForm];
     }
     const v = this.speaking ? this.voice : 0;
     // recent peak / trough: follow at once, then relax over ~0.2 s
-    const relax = 1 - Math.exp(-dt * 5);
+    const relax = 1 - Math.exp(-dt * this.lipMotion.relax);
     this.voicePeak = v > this.voicePeak ? v : this.voicePeak + (v - this.voicePeak) * relax;
     this.voiceTrough = v < this.voiceTrough ? v : this.voiceTrough + (v - this.voiceTrough) * relax;
     const peak = Math.max(this.voicePeak, 0.05);
-    if (v < peak * 0.6) this.syllableArmed = true;
-    else if (this.syllableArmed && v > peak * 0.8 && v > 0.1) {
+    if (v < peak * this.lipMotion.arm) this.syllableArmed = true;
+    else if (this.syllableArmed && v > peak * this.lipMotion.trigger && v > 0.1) {
       this.syllableArmed = false;
       const r = Math.random();
       this.vowel = r < 0.4 ? 'a' : r < 0.58 ? 'o' : r < 0.74 ? 'e' : r < 0.88 ? 'i' : 'u';
     }
     const range = this.voicePeak - this.voiceTrough;
-    const rise = range < peak * 0.3 ? 1 : Math.max(0, (v - this.voiceTrough) / range);
+    const rise = range < peak * this.lipMotion.range ? 1 : Math.max(0, (v - this.voiceTrough) / range);
     const shape = VOWELS[this.vowel ?? 'a'];
-    const level = Math.min(1, Math.pow(v, 0.7) * 1.15) * Math.pow(rise, 0.3);
-    const target = this.speaking ? Math.min(0.95, level) * (0.45 + 0.55 * shape.open / 0.9) : 0;
+    const level = Math.min(1, Math.pow(v, 0.7) * 1.15) * Math.pow(rise, this.lipMotion.risePower);
+    const baseTarget = this.speaking ? Math.min(0.95, level) * (0.45 + 0.55 * shape.open / 0.9) : 0;
+    const target = this.lipMotion.openness === 1 ? baseTarget : Math.min(1, baseTarget * this.lipMotion.openness);
     // quick attack, quick release: the mouth has to shut between morae (~7 per second)
-    const k = target > this.mouth ? 1 - Math.exp(-dt * 40) : 1 - Math.exp(-dt * 32);
+    const k = target > this.mouth ? 1 - Math.exp(-dt * 40) : 1 - Math.exp(-dt * this.lipMotion.audioRelease);
     this.mouth += (target - this.mouth) * k;
     if (this.speaking) this.vowelForm = shape.form;   // after the line: close in the last shape
     return this.speaking || this.mouth > 0.01 ? [this.mouth, this.vowelForm] : null;
