@@ -302,7 +302,11 @@ impl Sprites {
                             .any(|it| it.name == format!("eyes_{m}_{i}"))
                 })
                 .map(|m| format!("eyes_{m}"));
-            let want = eye_sprite(open, smile, drawn.as_deref()).unwrap_or("open");
+            // a frame the avatar has no drawing for falls back to the layered eye, so a missing
+            // drawing (e.g. a closed eye without a half-closed one) never hides the eye
+            let want = eye_sprite(open, smile, drawn.as_deref())
+                .filter(|w| self.items.iter().any(|it| it.name == format!("{w}_{i}")))
+                .unwrap_or("open");
             let st = &mut self.eye_state[i];
             if want != st.cur {
                 st.prev = st.cur.clone();

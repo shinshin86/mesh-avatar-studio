@@ -143,7 +143,10 @@ export function createSpriteModule(engine, rig) {
         eyes.forEach(([open, smile], i) => {
           const st = eyeState[i];
           const drawn = EYE_MOODS_DRAWN.includes(mood) && items[`eyes_${mood}_${i}`] ? `eyes_${mood}` : null;
-          const want = eyeSprite(open, smile, drawn) ?? 'open';
+          // a frame the avatar has no drawing for falls back to the layered eye, so a missing
+          // drawing (e.g. a closed eye without a half-closed one) never hides the eye
+          let want = eyeSprite(open, smile, drawn) ?? 'open';
+          if (!items[`${want}_${i}`]) want = 'open';
           if (want !== st.cur) { st.prev = st.cur; st.cur = want; st.t = 0; }
           // A redraw without elapsed time (a paused preview moving a slider) shows the target
           // frame at once; otherwise the fade would stay at its first frame.

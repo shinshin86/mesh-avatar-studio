@@ -65,6 +65,15 @@ test('avatars without drawn expression eyes keep the previous drawings', () => {
   expect(frame(0.1, 'sad').shown).toEqual(eyes('closed'));
 });
 
+test('a frame without a drawing keeps the layered eye instead of hiding it', () => {
+  const frame = sprites(eyes('closed'));
+  expect(frame(0.5)).toEqual({ covered: [false, false], shown: [] });
+  expect(frame(0.1)).toEqual({ covered: [true, true], shown: eyes('closed') });
+  // closing back to half fades the closed drawing out over the layered eye
+  expect(frame(0.5, null, 0.02)).toEqual({ covered: [false, false], shown: eyes('closed') });
+  expect(frame(0.5, null, 1)).toEqual({ covered: [false, false], shown: [] });
+});
+
 test('drawn expression mouths replace the closed mouth until an open mouth drawing has faded in', () => {
   const frame = sprites(['mouth_a', 'mouth_a_half', 'mouth_angry', 'mouth_sad']);
   expect(frame(1, 'angry').shown).toEqual(['mouth_angry']);
