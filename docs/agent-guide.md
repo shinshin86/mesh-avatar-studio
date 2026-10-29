@@ -264,8 +264,10 @@ vertices (double-click an edge to add a point; Alt-click a vertex to remove
 it). Pause idle motion and test the **Weight shift** slider in both directions.
 Joint, split and tuning edits recalculate mesh weights; they do not require a
 layer rebuild. Save and reopen to confirm persistence. Omit `legs` to preserve an
-existing avatar's deformation. Idle targets follow a five-second sine with an
-amplitude of 0.7; the slider accepts the full `-1..1` parameter range.
+existing avatar's deformation. With `legs`, idle weight transfer targets `±0.7`
+over a five-second cycle: a 0.9-second smooth S transition and a 1.6-second hold
+in each half-cycle. Rigs without `legs` retain their previous output. The slider
+accepts the full `-1..1` parameter range.
 
 ## Step 7 — Hand over
 

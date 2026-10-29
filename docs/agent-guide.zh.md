@@ -156,6 +156,13 @@ uv run tools/build-sprites.py projects/<name>
 ```
 它会把通过检查的差分切成 `built/sprites/`。再次渲染姿态（第 5 步）；`angry`、`sad` 和 `surprise` 帧会显示表情眼睛和嘴。
 
+## 可选 — 双腿重心转移
+
+带有 `legs` 的绑定在待机时以5秒为周期转移重心，目标值为 `±0.7`。
+每个半周期先用0.9秒完成平滑的S形转移，再保持1.6秒，然后转向另一侧。
+不含 `legs` 的绑定保持原来的输出。预览中的重心转移滑块可检查完整的 `-1..1` 范围。
+字段说明见 [Rig fields](rig-fields.md#optional-planted-legs)。
+
 ## 第 7 步 —— 交付
 
 告诉用户：
