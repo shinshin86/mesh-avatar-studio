@@ -162,24 +162,77 @@ Coordinates are source-image pixels, with x increasing right and y increasing do
 | `cloth[*].outline` | Cutout polygon, at least three points, enclosing all ruffles and tails belonging to this garment. Changing it requires rebuilding layers. |
 | `cloth[*].waist` | Upper attachment polyline, at least two points, from image-left to right. Follows the body or parent garment. |
 | `cloth[*].hem` | Lower polyline, at least two points, from image-left to right. Cover the full width of the cloth, including projecting ruffles. |
+| `cloth[*].scale` | Optional positive image scale, millimetres per source pixel. If omitted, infer 0.8m from mean hip-to-ankle length when `legs` exists; otherwise assume image height represents 1.6m. Supply this for cropped or unusually proportioned art. |
 | `cloth[*].columns`, `rows` | Integer grid node counts, both at least `2`; defaults `8`, `5`. |
-| `cloth[*].swing` | Positive hem spring frequency in Hz; default `1`. Lower values give a slower response. |
-| `cloth[*].stiffness` | Positive spring multiplier; default `1`. Also affects frequency. |
-| `cloth[*].damping` | Positive damping multiplier; default `1`. Larger values suppress oscillations. |
-| `cloth[*].follow` | Fraction of the previous row's lag inherited by the next, `0..1`; default `0.85`. |
-| `cloth[*].cohesion` | Integer smoothing passes between columns, `0..8`; default `3`. |
-| `cloth[*].wind` | Nonnegative breeze strength as a fraction of `max`; default `0.05`, `0` disables wind. |
-| `cloth[*].max` | Positive maximum simulated grid displacement from the body-carried shape, px; default `20`. Extrapolated mesh points outside the grid can move farther. |
+| `cloth[*].responseGain` | Positive rendered-response exaggeration; default `1` (physical). `1.6` amplifies cloth angles only. Child solvers use the unexaggerated parent grid, while visible attachments follow the exaggerated grid. |
+| `cloth[*].swing` | Positive multiplier on the physical pendulum frequency; default `1`. A value of `1` uses the source scale, column length and gravity. |
+| `cloth[*].stiffness` | Positive restoring-force multiplier; default `1`. Effective angular frequency is `√(g / (0.8L)) × swing × √stiffness`, with g and L in source-pixel units. |
+| `cloth[*].damping` | Positive damping multiplier; default `1`. Effective angular damping ratio is `0.25 × damping`; larger values suppress oscillations. |
+| `cloth[*].follow` | Column rigidity, `0..1`; default `0.85`. At `1` each of the two links is rigid; lower values add up to 10% within-link quadratic bend, without a delayed row chain. |
+| `cloth[*].cohesion` | Integer smoothing passes over column angles and angular velocities, `0..8`; default `3`. |
+| `cloth[*].wind` | Nonnegative coherent breeze strength as a fraction of `max`; default `0.05`, `0` disables wind. All columns receive the same phase. |
+| `cloth[*].max` | Positive soft limit on grid displacement from the body-carried shape, px; default `20`. Limits rotation at the hem and reserves up to 10% for weak vertical bounce. Extrapolated mesh points outside the grid can move farther. |
 | `cloth[*].behind` | Optional boolean, default `false`; draw before the bare base when true. Changing depth requires rebuilding overlapping cutouts. |
 | `cloth[*].parent` | Optional name of an **earlier** cloth entry. Its displaced grid drives this garment's waist, useful for rear tails attached to a skirt. |
 | `body.hip.shift` | Optional full-body sideways travel at `bodyAngleX=10`, px. Supply with `band` to fade sideways motion toward planted feet. |
 | `body.hip.band` | Increasing source-y range over which sideways body travel fades to zero. Existing rigs without `hip` keep their original deformation. |
 | `mesh.clothCell` | Positive integer garment render-mesh spacing, px; default `8`. Independent of cloth grid node counts. |
 
-`setClothTuning(name, tuning)` accepts a `Partial<ClothTuning>` containing the seven
-physics fields above. A `null` name applies to all garments; a string applies only to
+Each column has two equal-length pendulum links, driven by the attachment's
+horizontal acceleration. Gravity is 9.80665m/s², converted to source pixels.
+Each link uses an effective length of 0.8 times its source length, between a uniform rigid strip
+(2L/3) and a tip-heavy point mass (L), approximating a ruffled hem.
+Upward attachment acceleration increases apparent gravity; source y points down,
+so the implementation uses `g - accelerationY`. The angle is relative to the world
+rest shape, so the cloth retains its hanging orientation as the pelvis tilts. The two absolute angles are solved together using the equal-mass double-pendulum mass matrix, gravity and Coriolis forces. Link masses are proportional to their equal half-lengths. Rayleigh damping sets both small-angle modes to `0.25 × damping`; their frequencies follow the link lengths rather than hand-tuned rows. Each rendered link retains its length, with a small within-link bend controlled by `follow`.
+Each link endpoint retains its distance from that link's pivot; a separate weak, critically damped vertical response can change it slightly during vertical acceleration. Parent
+accelerations are evaluated on the parent's unexaggerated physical grid; visible attachments follow its rendered grid. No additional
+random samples are used.
+
+`setClothTuning(name, tuning)` accepts a `Partial<ClothTuning>` containing the
+tuning fields above. A `null` name applies to all garments; a string applies only to
 that name. Updates take effect on the next simulation step without resetting velocity,
 changing the rig or rebuilding layers. Invalid values or an unknown name throw a
 `RangeError`. Studio edits update the rig and are included when saving it.
 The element exposes this method through `element.avatar` / `await element.ready`;
 React exposes the same element through its ref and the runtime through `onLoad`.
+
+## Optional planted legs
+
+Omit `legs` to retain the existing deformation exactly. `weightShift` is an optional
+parameter in `-1..1`, default `0`: negative supports the image-left leg, positive
+supports the image-right leg. For rigs with `legs`, idle weight transfer uses a five-second cycle: a 0.9-second quintic S transition and 1.6-second hold in each half-cycle, targeting `±0.7`. The existing body spring smooths it. Rigs without `legs` retain the previous deterministic sine and deformation.
+
+| Field | Meaning |
+| --- | --- |
+| `legs.spine` | Optional stabilization fraction `0..1`, default `0.7`; the upper torso retains a small opposite pelvic inclination of `1 - spine`, blended through the spine. Chest and head follow serial springs rather than a rigid translating trunk. |
+| `legs.bob` | Optional nonnegative extra pelvis dip in source px, default `2`; driven by transfer speed and returning to zero during a hold. Included in the planted-foot IK. |
+| `legs.pelvis` | Bone rotation centre `[x,y]` in source pixels. |
+| `legs.shift` | Nonnegative sideways travel in px at full weight transfer. |
+| `legs.tilt` | Nonnegative pelvic tilt in radians at full transfer; the free side lowers. |
+| `legs.bend` | Nonnegative inward-flexion scale in px. The free knee gets an extra inward offset of `bend * weightShift²`; the remaining flexion goes towards the camera. Also sets the small soft-IK settling scale. |
+| `legs.band` | Increasing source-y interval for counter-rotation; the spine blends towards the chest; shoulder inclination is partly countered rather than fully cancelled. |
+| `legs.left`, `legs.right` | Image-side joints, each with `hip`, `knee`, `ankle` source points. Require band start < hip y < knee y < ankle y. The rest knee determines which way the leg bends. |
+| `legs.split` | Polyline dividing the legs, with strictly increasing y. Put its start inside the crotch gap: the split is hard below this point and blends over eight pixels above it. |
+
+The IK is solved in 3D, with a forward pole, then projected onto the drawing. Bone
+lengths are preserved in 3D; the projected bones may shorten. The source knee's
+inward offset relative to the hip–ankle axis travels with that axis, retaining the
+drawn rest shape. Rest forward depth is 5% of the shorter projected bone. A smooth
+pelvis drop keeps both legs within reach without sudden knee extension; calibrate
+modest shift/tilt values for each illustration. At neutral, the added deformation is zero.
+With legs, `bodyAngleX` enters the same pelvis/IK transform, using `body.hip.shift`
+when supplied, and does not also apply the legacy hip shear. Breath and body roll
+remain in their existing order, fading to zero over the last 55 px before the ankles.
+Vertices at and below the higher ankle stay exactly fixed. Cloth attachments follow
+the pelvis through the usual base deformer, with their existing lag.
+
+Studio exposes the pelvis and joint handles, an editable split polyline, and the
+shift, tilt, bend and band fields under **Legs**. These edits recalculate weights
+without marking image layers stale. Pause idle motion to test the **Weight shift**
+slider, then save the rig to persist the geometry and tuning.
+
+`render-poses` adds `weight-left`, `weight-right` at `±0.6`, plus
+`weight-shift-0..9` over one five-second cycle when `legs` is present.
+
+For planted rigs, the chest drive lags the pelvis by approximately 0.1–0.2s; head stabilization follows one spring later and preserves intentional head gestures. Independent idle body noise is reduced to 35% without changing random-number consumption.

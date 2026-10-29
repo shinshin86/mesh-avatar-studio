@@ -46,3 +46,26 @@ test('integer rectangles and cells round in both handle moves and numeric edits 
   expect(moveHandle(rig, handles.find(h => h.id === 'head.center')!, [615.35, 400.24]).head).toMatchObject({ cx: 615.4, cy: 400.2 });
   expect(validateRig(box)).toEqual([]); expect(validateRig(fine)).toEqual([]);
 });
+
+test('leg joints and the editable split update weights without invalidating image layers', async () => {
+  const { layerSignature } = await import('../src/editor/stale');
+  let rig = parseRig(fixture);
+  rig.legs = {
+    pelvis: [640, 800], shift: 20, tilt: 0.06, bend: 10, band: [750, 850],
+    left: { hip: [520, 850], knee: [530, 1000], ankle: [520, 1200] },
+    right: { hip: [740, 850], knee: [730, 1000], ankle: [740, 1200] },
+    split: [[630, 840], [630, 1254]],
+  };
+  const baseline = layerSignature(rig), overlay = buildOverlay(rig);
+  for (const id of ['legs.pelvis', ...['left', 'right'].flatMap(side => ['hip', 'knee', 'ankle'].map(joint => `legs.${side}.${joint}`))])
+    expect(overlay.handles.some(handle => handle.id === id)).toBe(true);
+  expect(overlay.shapes.filter(shape => /^legs\.(left|right)$/.test(shape.item))).toHaveLength(2);
+  const knee = overlay.handles.find(handle => handle.id === 'legs.left.knee')!;
+  rig = moveHandle(rig, knee, [540, 1010]);
+  expect(rig.legs!.left.knee).toEqual([540, 1010]);
+  expect(overlay.handles.find(handle => handle.id === 'legs.split.0')!.vertex).toMatchObject({ path: 'legs.split', closed: false });
+  rig = changeVertex(rig, 'legs.split', 1, [635, 1000], false);
+  expect(rig.legs!.split).toHaveLength(3);
+  expect(layerSignature(rig)).toBe(baseline);
+  expect(validateRig(rig)).toEqual([]);
+});

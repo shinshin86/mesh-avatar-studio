@@ -26,6 +26,7 @@ export interface Accessory {
 }
 /** Optional garment that swings with the body (for example a skirt). */
 export interface ClothTuning {
+  responseGain?: number;
   swing: number;
   stiffness: number;
   damping: number;
@@ -35,6 +36,8 @@ export interface ClothTuning {
   max: number;
 }
 export interface Cloth extends Partial<ClothTuning> {
+  /** Physical image scale in millimetres per source pixel; inferred if omitted. */
+  scale?: number;
   name: string;
   outline: Point[];
   waist: Point[];
@@ -60,6 +63,20 @@ export interface Hand {
   fingerXBand: Band;
   fingerYBand: Band;
   pinBand: Band;
+}
+export interface Leg { hip: Point; knee: Point; ankle: Point }
+/** Optional planted-foot weight transfer. Left/right refer to the image. */
+export interface Legs {
+  spine?: number;
+  bob?: number;
+  pelvis: Point;
+  shift: number;
+  tilt: number;
+  bend: number;
+  band: Band;
+  left: Leg;
+  right: Leg;
+  split: Point[];
 }
 export interface Rig {
   version: 1;
@@ -88,6 +105,7 @@ export interface Rig {
   accessories?: Accessory[];
   hand?: Hand;
   cloth?: Cloth[];
+  legs?: Legs;
   mesh: {
     baseCell: number;
     fine: { x0: number; x1: number; y0: number; y1: number; cell: number };

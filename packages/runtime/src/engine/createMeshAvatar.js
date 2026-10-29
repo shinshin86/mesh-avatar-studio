@@ -157,7 +157,7 @@ export async function createMeshAvatarImpl(canvas, options) {
   if (rig.hand) R.addLayer('hand', imgs.hand, handMesh);
 
   const physics = new Physics();
-  const motion = new Motion(rig.view.gazeCenter ?? [rig.head.cx, rig.head.cy]);
+  const motion = new Motion(rig.view.gazeCenter ?? [rig.head.cx, rig.head.cy], !!rig.legs);
   if (options.lipSync !== undefined) motion.setLipSync(options.lipSync);
   const listeners = new Set();
   motion.onMotion = id => { for (const fn of listeners) fn(id); };

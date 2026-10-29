@@ -100,7 +100,7 @@ export function buildOverlay(rig: Rig): { handles: Handle[]; shapes: Shape[] } {
       if (value.length >= 2 && value.every(p => Array.isArray(p) && p.length === 2 && p.every(v => typeof v === 'number'))) {
         const points = value as Point[];
         const closed = ['opening', 'roi', 'outline', 'background'].includes(key);
-        const editable = closed || ['nodes', 'jaw', 'waist', 'hem'].includes(key);
+        const editable = closed || ['nodes', 'jaw', 'waist', 'hem', ...(group === 'legs' ? ['split'] : [])].includes(key);
         if (group !== 'cheeks') shapes.push({ item: path, group, kind: 'line', points, closed, editable });
         points.forEach((point, index) => {
           const item = group === 'strands' ? path.split('.').slice(0, 2).join('.') : path;
@@ -166,5 +166,11 @@ export function buildOverlay(rig: Rig): { handles: Handle[]; shapes: Shape[] } {
     Object.entries(object).forEach(([key, child]) => walk(child, `${path}.${key}`, group));
   }
   Object.entries(rig).forEach(([group, value]) => { if (group !== 'image') walk(value, group, group); });
+  if (rig.legs) {
+    for (const side of ['left', 'right'] as const) {
+      const leg = rig.legs[side];
+      shapes.push({ item: `legs.${side}`, group: 'legs', kind: 'line', points: [rig.legs.pelvis, leg.hip, leg.knee, leg.ankle] });
+    }
+  }
   return { handles, shapes };
 }

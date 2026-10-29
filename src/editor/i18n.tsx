@@ -32,7 +32,7 @@ const en = {
   lipSync: 'Lip sync', release: 'Release', lipText: 'Kana text', lipPlay: 'Play', lipStop: 'Stop',
   lipSpeed: 'Morae per second', lipLoop: 'Loop', skippedKana: 'Skipped characters:', lipHelp: 'Hiragana, katakana and spaces. Preview only; no audio.',
   sweepTip: 'Swings the head through its full range to find tears',
-  turn: 'Turn left/right', look: 'Look up/down', tilt: 'Tilt', eyeOpen: 'Eyes open', mouthOpen: 'Mouth open', bodyTilt: 'Body tilt',
+  turn: 'Turn left/right', look: 'Look up/down', tilt: 'Tilt', eyeOpen: 'Eyes open', mouthOpen: 'Mouth open', bodyTilt: 'Body tilt', weightShift: 'Weight shift',
   loading: 'Loading local assets…', updating: 'Updating preview…', ready: 'Engine ready', previewError: 'Preview could not load',
   selection: 'Selected part', selectedItem: 'Selected rig item', selectPart: 'Select a part to edit it', tip: 'Tip',
   guideTitle: 'Three steps to your first edit', guide1: 'Pick a part on the left', guide2: 'Drag its dots on the image',
@@ -75,7 +75,7 @@ const ja: typeof en = {
   lipSync: '口の動き', release: '解除', lipText: 'かなの文章', lipPlay: '再生', lipStop: '停止',
   lipSpeed: '1秒あたりの拍数', lipLoop: '繰り返し', skippedKana: '読み飛ばす文字:', lipHelp: 'ひらがな・カタカナ・空白に対応。音声は再生しません。',
   sweepTip: '頭を最大角度まで動かし、画像の隙間や破れを確認します',
-  turn: '顔を左右に向ける', look: '顔を上下に向ける', tilt: '頭を傾ける', eyeOpen: '目の開き', mouthOpen: '口の開き', bodyTilt: '体を傾ける',
+  turn: '顔を左右に向ける', look: '顔を上下に向ける', tilt: '頭を傾ける', eyeOpen: '目の開き', mouthOpen: '口の開き', bodyTilt: '体を傾ける', weightShift: '体重移動',
   loading: '画像を読み込み中…', updating: 'プレビューを更新中…', ready: 'プレビューの準備完了', previewError: 'プレビューを読み込めませんでした',
   selection: '選択パーツ', selectedItem: '選択するパーツ', selectPart: 'パーツを選んで編集してください', tip: '調整のコツ',
   guideTitle: '最初の編集は3ステップ', guide1: '左の一覧からパーツを選ぶ', guide2: '画像の点をドラッグする',
@@ -96,10 +96,11 @@ const ja: typeof en = {
 };
 const zh: typeof en = { ...workflowZh, ...uiZh };
 export const dictionaries = { en, ja, zh };
-export type PartGroup = 'head' | 'eyes' | 'mouth' | 'face' | 'cheeks' | 'strands' | 'buns' | 'accessories' | 'body' | 'hand' | 'cloth' | 'mesh' | 'view';
+export type PartGroup = 'head' | 'eyes' | 'mouth' | 'face' | 'cheeks' | 'strands' | 'buns' | 'accessories' | 'body' | 'hand' | 'legs' | 'cloth' | 'mesh' | 'view';
 const partText: Record<Language, Record<PartGroup, [string, string, string]>> = {
   zh: partsZh,
   en: {
+    legs: ['Legs', 'Planted feet and weight transfer.', 'Place the pelvis and image-left/right hip, knee and ankle joints. Trace the split between the legs, then test both weight-shift directions.'],
     cloth: ['Cloth', 'Skirts and draped fabric.', 'Place the waist and hem handles, then adjust swing, damping and wind.'],
     head: ['Head turn', 'Area that moves when the face turns or tilts.', 'Place the centre in the middle of the face; the circle should cover the whole head including hair.'],
     eyes: ['Eyes', 'Outline of each eye opening; drives blinking and gaze.', 'Trace the opening inside the eyelashes. Add dots where the contour changes direction.'],
@@ -115,6 +116,7 @@ const partText: Record<Language, Record<PartGroup, [string, string, string]>> = 
     view: ['Framing', 'Preview margins.', 'Adjust the margins so the head and accessories stay inside the preview.'],
   },
   ja: {
+    legs: ['脚・体重移動', '足を接地させたまま体重を移す動き。', '骨盤と画像左右の股関節・膝・足首を合わせ、脚の境界線を置いてから左右の体重移動を確認してください。'],
     cloth: ['布・スカート', 'スカートや垂れ布の揺れ。', '腰と裾の点を合わせ、周期・減衰・風の強さを調整してください。'],
     head: ['頭の向き', '顔を振ったり傾けたりするときに動く範囲。', '中心を顔の真ん中に置き、円が髪を含む頭全体を覆うように調整してください。'],
     eyes: ['目', '目の開口部の輪郭。まばたきと視線に使う。', 'まつ毛の内側に沿って輪郭を置き、曲がる場所に点を追加してください。'],
@@ -131,8 +133,14 @@ const partText: Record<Language, Record<PartGroup, [string, string, string]>> = 
   },
 };
 const fieldText: Record<string, [string, string]> = {
-  swing: ['Hem frequency (Hz)', '裾の周波数 (Hz)'], stiffness: ['Stiffness multiplier', 'ばねの倍率'],
-  damping: ['Damping multiplier', '減衰の倍率'], follow: ['Row follow', '上の段への追従'], cohesion: ['Smoothing passes', '列の平滑化回数'],
+  pelvis: ['Pelvis', '骨盤'], left: ['Image-left leg', '画像左の脚'], right: ['Image-right leg', '画像右の脚'],
+  hip: ['Hip', '股関節'], knee: ['Knee', '膝'], ankle: ['Ankle', '足首'],
+  shift: ['Sideways travel (px)', '横の移動量 (px)'], tilt: ['Pelvic tilt (rad)', '骨盤の傾き (rad)'], bend: ['Knee flexion (px)', '膝の曲げ量 (px)'],
+  spine: ['Spine stabilization', '背骨の安定化'], bob: ['Transfer dip (px)', '乗せ替え時の沈み (px)'],
+  responseGain: ['Cloth exaggeration (1 = physical)', '布の誇張倍率 (1 = 物理どおり)'],
+  scale: ['Image scale (mm/px)', '画像の縮尺 (mm/px)'],
+  swing: ['Frequency multiplier', '周波数の倍率'], stiffness: ['Stiffness multiplier', 'ばねの倍率'],
+  damping: ['Damping multiplier', '減衰の倍率'], follow: ['Column rigidity', '列の剛性'], cohesion: ['Smoothing passes', '列の平滑化回数'],
   wind: ['Wind strength', '風の強さ'], waist: ['Waist line', '腰の線'], hem: ['Hem line', '裾の線'],
   columns: ['Columns', '列数'], rows: ['Rows', '行数'], clothCell: ['Cloth cell size', '布の格子幅'],
   image: ['Source image', '元画像'],
@@ -168,6 +176,7 @@ export function fieldTitle(path: string, language: Language) {
       if (key === 'accessories') return t.accessory;
       if (key in parts) return parts[key as PartGroup][0];
     }
+    if (key === 'split' && path.startsWith('legs.')) return { en: 'Leg boundary', ja: '脚の境界線', zh: '双腿分界线' }[language];
     return language === 'zh' ? fieldsZh[key] ?? key : fieldText[key]?.[language === 'en' ? 0 : 1] ?? key;
   }).join(' · ');
 }

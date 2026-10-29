@@ -79,15 +79,18 @@ const schema = (draft: boolean) => object({
     fingerYBand: band, pinBand: band }),
   cloth: array(object({ name: string, outline: polygon, waist: line, hem: line,
     columns: integer, rows: integer, stiffness: positive, damping: positive, max: positive,
-    swing: positive, follow: unit, cohesion, wind: nonnegative,
+    responseGain: positive, swing: positive, follow: unit, cohesion, wind: nonnegative,
     behind: (v, p, e) => { if (typeof v !== 'boolean') e.push(`${p}: expected a boolean`); },
-    parent: string }, ['columns', 'rows', 'stiffness', 'damping', 'max', 'swing', 'follow', 'cohesion', 'wind', 'behind', 'parent'])),
+    parent: string, scale: positive }, ['responseGain', 'columns', 'rows', 'stiffness', 'damping', 'max', 'swing', 'follow', 'cohesion', 'wind', 'behind', 'parent', 'scale'])),
+  legs: object({ spine: unit, bob: nonnegative, pelvis: point, shift: nonnegative, tilt: nonnegative, bend: nonnegative,
+    band, split: line, left: object({ hip: point, knee: point, ankle: point }),
+    right: object({ hip: point, knee: point, ankle: point }) }, ['spine', 'bob']),
   mesh: object({ baseCell: integer, fine: object({ x0: wholeNumber, x1: wholeNumber,
     y0: wholeNumber, y1: wholeNumber, cell: integer }), handCell: integer,
     tasselCell: integer, eyeBallCell: integer, eyeCell: integer, spriteCell: integer,
     clothCell: integer }, ['clothCell']),
   view: object({ padTop: number, padSide: number, gazeCenter: point }, ['gazeCenter']),
-}, ['buns', 'strands', 'accessories', 'hand', 'cloth']);
+}, ['buns', 'strands', 'accessories', 'hand', 'cloth', 'legs']);
 
 export function validateRig(value: unknown, options: { draft?: boolean } = {}): string[] {
   const errors: string[] = [];
@@ -120,6 +123,16 @@ export function validateRig(value: unknown, options: { draft?: boolean } = {}): 
     if (accessory.box[0] >= accessory.box[2] || accessory.box[1] >= accessory.box[3]) errors.push(`rig.accessories[${i}].box: rectangle must have positive area`);
   }
   const clothNames = new Set<string>();
+  if (rig.legs) {
+    const legs = rig.legs;
+    for (const side of ['left', 'right'] as const) {
+      const b = legs[side];
+      if (!(legs.band[0] < b.hip[1] && b.hip[1] < b.knee[1] && b.knee[1] < b.ankle[1]))
+        errors.push(`rig.legs.${side}: require band start < hip y < knee y < ankle y`);
+    }
+    if (legs.split.some((p, i) => i > 0 && p[1] <= legs.split[i - 1][1]))
+      errors.push('rig.legs.split: y coordinates must increase');
+  }
   for (const [i, cloth] of (rig.cloth ?? []).entries()) {
     if (!/^[A-Za-z0-9_-]+$/.test(cloth.name) || clothNames.has(cloth.name))
       errors.push(`rig.cloth[${i}].name: must be a unique layer-safe name`);

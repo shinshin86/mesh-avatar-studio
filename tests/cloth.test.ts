@@ -11,8 +11,10 @@ function simulation(tuning: Partial<ClothTuning> = {}, parts = [garment()]) {
   const rig = parseRig(fixture); rig.cloth = parts.map(c => ({ ...c, ...tuning }));
   const engine = {
     baseWeights: () => ({}),
-    deformBase(x: number, y: number, _w: unknown, P: { shift: number }, _phys: unknown, out: number[]) {
-      out[0] = x + P.shift; out[1] = y; return out;
+    deformBase(x: number, y: number, _w: unknown, P: { shift: number; lift?: number; rotation?: number }, _phys: unknown, out: number[]) {
+      const angle = P.rotation ?? 0;
+      out[0] = x * Math.cos(angle) - y * Math.sin(angle) + P.shift;
+      out[1] = x * Math.sin(angle) + y * Math.cos(angle) + (P.lift ?? 0); return out;
     },
   } as unknown as Parameters<typeof createCloth>[0];
   const { Cloth: Simulator, garments } = createCloth(engine, rig);
@@ -24,7 +26,7 @@ function simulation(tuning: Partial<ClothTuning> = {}, parts = [garment()]) {
 test('optional cloth/hip/clothCell validate, including all tuning bounds and parent ordering', () => {
   const rig = parseRig(fixture); rig.cloth = [garment()]; rig.body.hip = { shift: 20, band: [700, 1200] }; rig.mesh.clothCell = 8;
   expect(validateRig(rig)).toEqual([]);
-  for (const bad of [{ rows: 1 }, { columns: 1 }, { parent: 'later' }, { swing: 0 }, { stiffness: 0 }, { damping: -1 }, { max: 0 }, { follow: 1.1 }, { wind: -1 }, { cohesion: 1.5 }, { cohesion: 9 }]) {
+  for (const bad of [{ rows: 1 }, { columns: 1 }, { parent: 'later' }, { swing: 0 }, { stiffness: 0 }, { damping: -1 }, { max: 0 }, { follow: 1.1 }, { wind: -1 }, { cohesion: 1.5 }, { cohesion: 9 }, { scale: 0 }, { scale: -1 }, { responseGain: 0 }]) {
     const r = structuredClone(rig); Object.assign(r.cloth![0], bad); expect(validateRig(r).length, JSON.stringify(bad)).toBeGreaterThan(0);
   }
   rig.cloth.push({ ...garment(), name: 'tail', parent: 'skirt' }); expect(validateRig(rig)).toEqual([]);
@@ -88,4 +90,108 @@ test('cloth geometry has editable handles and only cut-out changes stale layers'
   expect(h.vertex?.closed).toBe(false);
   const moved = moveHandle(s.rig, h, [10, 5]); expect(moved.cloth![0].waist[0]).toEqual([10, 5]); expect(layerSignature(moved)).toBe(initial);
   s.rig.cloth![0].outline[0][0]++; expect(layerSignature(s.rig)).not.toBe(initial);
+});
+
+test('both physical links retain length while the lower link can lag', () => {
+  const s = simulation({ wind: 0, follow: 1, cohesion: 0 }); s.step(); s.step(10);
+  let maxDifference = 0, lift = 0;
+  for (let f = 0; f < 120; f++) {
+    s.step(10); const g = s.garments[0];
+    maxDifference = Math.max(maxDifference, Math.abs(g.angle[0] - g.lowerAngle[0]));
+    for (let k = 0; k < g.cols; k++) {
+      const top = k * 2, joint = (2 * g.cols + k) * 2, hem = (4 * g.cols + k) * 2;
+      expect(Math.hypot(g.out[joint] - g.out[top], g.out[joint + 1] - g.out[top + 1])).toBeCloseTo(50, 8);
+      expect(Math.hypot(g.out[hem] - g.out[joint], g.out[hem + 1] - g.out[joint + 1])).toBeCloseTo(50, 8);
+      lift = Math.max(lift, g.target[hem + 1] - g.out[hem + 1]);
+    }
+  }
+  expect(maxDifference).toBeGreaterThan(0.001);
+  expect(lift).toBeGreaterThan(0.001);
+});
+
+test('a physical 13px step settles within two to three significant cycles', () => {
+  const s = simulation({ swing: 1, stiffness: 1, damping: 1, max: 35, follow: 0.95 }); s.step();
+  const values: number[] = [];
+  for (let f = 0; f < 600; f++) { s.step(13); const g = s.garments[0]; values.push(g.out.at(-2)! - g.target.at(-2)!); }
+  // The conventional2% settling band excludes infinitesimal damping tails.
+  const significant = values.filter(v => Math.abs(v) > 13 * 0.02);
+  const crossings = significant.slice(1).filter((v, i) => v * significant[i] < 0).length;
+  expect(crossings).toBeGreaterThanOrEqual(3);
+  expect(crossings).toBeLessThanOrEqual(6);
+  expect(Math.max(...values.slice(240).map(Math.abs))).toBeLessThan(13 * 0.02);
+});
+
+test('wind has no column phase offset and follows the moving parent attachment', () => {
+  const s = simulation({ wind: 0.4, cohesion: 0 }, [garment(), { ...garment(), name: 'tail', parent: 'skirt', waist: [[0, 100], [100, 100]], hem: [[0, 200], [100, 200]] }]);
+  for (let f = 0; f < 600; f++) {
+    s.step(); const g = s.garments[0];
+    for (let k = 1; k < g.cols; k++) expect(g.angle[k]).toBeCloseTo(g.angle[0], 12);
+  }
+  const [parent, tail] = s.garments;
+  for (let k = 0; k < parent.cols; k++) for (let axis = 0; axis < 2; axis++)
+    expect(tail.out[k * 2 + axis]).toBeCloseTo(parent.out[((parent.rows - 1) * parent.cols + k) * 2 + axis], 10);
+});
+
+test('paused redraw updates waist attachment without advancing pendulum time', () => {
+  const s = simulation(); s.step();
+  s.cloth.step({ shift: 13 }, 0, {});
+  expect(s.cloth.time).toBe(1 / 60);
+  expect(s.garments[0].out[0]).toBe(13);
+  expect(s.garments[0].angle.every(v => v === 0)).toBe(true);
+});
+
+test('source scale and gravity set the pendulum period, and vertical acceleration changes it', () => {
+  const s = simulation({ swing: 1, stiffness: 1, damping: 1, cohesion: 0 }, [{ ...garment(), scale: 2 }]); s.step();
+  // Equal half-links at2mm/px: the low coupled mode is1.306Hz
+  // after zeta0.25 damping (the high mode is3.152Hz).
+  s.step(3); const crossings: number[] = []; let previous = s.garments[0].angle[0];
+  for (let f = 0; f < 240; f++) { s.step(3); const angle = s.garments[0].angle[0]; if (angle > 0 && previous <= 0) crossings.push((f + 1) / 60); previous = angle; }
+  expect(crossings.length).toBeGreaterThanOrEqual(3);
+  const measured = 1 / (crossings[2] - crossings[1]);
+  expect(measured).toBeCloseTo(1.306, 1);
+  expect(s.garments[0].gravity).toBeCloseTo(4903.325, 5);
+  const up = simulation({ swing: 1, stiffness: 1, damping: 1, cohesion: 0 }, [{ ...garment(), scale: 2 }]); up.step();
+  const upCrossings: number[] = []; previous = 0;
+  for (let f = 0; f < 240; f++) {
+    const t = (f + 1) / 60;
+    up.cloth.step({ shift: 3, lift: -0.5 * 4903.325 * t * t }, 1 / 60, {});
+    const angle = up.garments[0].angle[0];
+    if (angle > 0 && previous <= 0) upCrossings.push(t);
+    previous = angle;
+  }
+  expect(1 / (upCrossings[2] - upCrossings[1])).toBeCloseTo(measured * Math.sqrt(2), 1);
+});
+
+
+test('a tilted waist leaves each column hanging in its world-rest orientation', () => {
+  const s = simulation({ wind: 0 });
+  s.cloth.step({ shift: 0, rotation: 0.3 }, 1 / 60, {});
+  const g = s.garments[0];
+  for (let k = 0; k < g.cols; k++) {
+    const top = k * 2, hem = ((g.rows - 1) * g.cols + k) * 2;
+    expect(g.out[hem] - g.out[top]).toBeCloseTo(0, 10);
+    expect(g.out[hem + 1] - g.out[top + 1]).toBeCloseTo(100, 10);
+  }
+});
+
+
+test('cloth exaggeration changes only rendered angles, not dynamics or link lengths', () => {
+  const a = simulation({ responseGain: 1, follow: 1 }), b = simulation({ responseGain: 1.6, follow: 1 });
+  a.step(); b.step(); a.step(2, 12); b.step(2, 12);
+  const ga = a.garments[0], gb = b.garments[0];
+  expect(gb.angle).toEqual(ga.angle); expect(gb.lowerAngle).toEqual(ga.lowerAngle);
+  const offset = (g: typeof ga) => g.out.at(-2)! - g.target.at(-2)!;
+  expect(Math.abs(offset(gb) / offset(ga))).toBeGreaterThan(1.5);
+  expect(Math.abs(offset(gb) / offset(ga))).toBeLessThan(1.7);
+});
+
+test('parent exaggeration does not feed back into child dynamics', () => {
+  const parts: Cloth[] = [garment(), { ...garment(), name: 'tail', parent: 'skirt', waist: [[0, 100], [100, 100]], hem: [[0, 200], [100, 200]] }];
+  const a = simulation({ responseGain: 1 }, parts), b = simulation({ responseGain: 1.6 }, parts);
+  for (let f = 0; f < 180; f++) { const x = Math.sin(f / 60 * 5) * 5; a.step(x); b.step(x); }
+  for (let g = 0; g < 2; g++) {
+    expect(b.garments[g].angle).toEqual(a.garments[g].angle);
+    expect(b.garments[g].lowerAngle).toEqual(a.garments[g].lowerAngle);
+    expect(b.garments[g].physicalOut).toEqual(a.garments[g].physicalOut);
+  }
 });

@@ -27,6 +27,7 @@ async function main() {
   const project = await realpath(resolve(args[0]));
   if (relative(root, project).startsWith('..')) throw new Error('project must stay inside the repository');
   const rig = JSON.parse(await readFile(resolve(project, 'rig.json'), 'utf8'));
+  const reviewPoses = rig.legs ? [...poses, ['weight-left', { weightShift: -0.6 }], ['weight-right', { weightShift: 0.6 }]] : poses;
   const errors = validateRig(rig);
   if (errors.length) throw new Error(errors.join('\n'));
   const built = await realpath(resolve(project, 'built'));
@@ -97,6 +98,19 @@ async function main() {
         av.advance(seconds, 60); pictures.push([`hair-sway-${i}`, canvas.toDataURL()]);
       }
       av.destroy();
+      if (rig.legs) {
+        const legs = await avatar();
+        // One complete five-second sway cycle, including its neutral return. Keep cloth
+        // history across frames so the waist and tails visibly follow the pelvis.
+        const snapshots = new Map(Array.from({ length: 10 }, (_, i) => [Math.round(i * 300 / 9), i]));
+        for (let frame = 0; frame <= 300; frame++) {
+          const t = frame / 60;
+          legs.setParameters({ ...defaults, weightShift: 0.7 * Math.sin(t * Math.PI * 2 / 5) });
+          legs.advance(1 / 60, 60);
+          if (snapshots.has(frame)) pictures.push([`weight-shift-${snapshots.get(frame)}`, canvas.toDataURL()]);
+        }
+        legs.destroy();
+      }
       if (rig.cloth?.length) {
         // garments: lean and shift the body, let go, and follow the swing as it settles
         const cl = await avatar();
@@ -141,13 +155,13 @@ async function main() {
         ctx.fillStyle = '#171b23'; ctx.font = '16px sans-serif'; ctx.fillText(name, x + 8, y + 22);
       }
       return { images: [...pictures, ...crops, ['contact-sheet', sheet.toDataURL()]], width, height, cropBounds: { eyes, mouth }, padTop: 0.1, padSide: 0.1 };
-    }, { rig, assets, poses });
+    }, { rig, assets, poses: reviewPoses });
     if (browserErrors.length) throw new Error(browserErrors.join('\n'));
     const review = resolve(project, 'review'); await mkdir(review, { recursive: true });
     if (relative(project, await realpath(review)).startsWith('..')) throw new Error('review folder must stay inside the project');
     for (const [name, url] of result.images) await writeFile(resolve(review, `${name}.png`), Buffer.from(url.split(',')[1], 'base64'));
     const { images, ...metadata } = result;
-    await writeFile(resolve(review, 'poses.json'), JSON.stringify({ ...metadata, project: basename(project), fixedFps: 60, poseSeconds: 1, poses: poses.map(([name, parameters, expression]) => ({ name, parameters, ...(expression && { expression }) })), hairFrames: 6, files: images.map(([name]) => `${name}.png`) }, null, 2) + '\n');
+    await writeFile(resolve(review, 'poses.json'), JSON.stringify({ ...metadata, project: basename(project), fixedFps: 60, poseSeconds: 1, poses: reviewPoses.map(([name, parameters, expression]) => ({ name, parameters, ...(expression && { expression }) })), hairFrames: 6, ...(rig.legs && { weightShiftFrames: 10, weightShiftSeconds: 5 }), files: images.map(([name]) => `${name}.png`) }, null, 2) + '\n');
     console.log(`Rendered ${result.images.length} review images in ${relative(root, review)}/`);
   } finally {
     await browser?.close();

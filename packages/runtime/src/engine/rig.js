@@ -1,3 +1,5 @@
+import { createLegs } from './legs.js';
+
 export const PARAMS = [
   { id: 'angleX', label: 'Face angle X', min: -30, max: 30, def: 0, group: 'Head and body' },
   { id: 'angleY', label: 'Face angle Y', min: -30, max: 30, def: 0, group: 'Head and body' },
@@ -18,6 +20,7 @@ export const PARAMS = [
   { id: 'armAngle', label: 'Arm angle', min: -10, max: 10, def: 0, group: 'Hand' },
   { id: 'handAngle', label: 'Wrist angle', min: -10, max: 10, def: 0, group: 'Hand' },
   { id: 'fingerTap', label: 'Finger tap', min: 0, max: 1, def: 0, group: 'Hand' },
+  { id: 'weightShift', label: 'Weight shift', min: -1, max: 1, def: 0, group: 'Legs' },
 ];
 
 // Reference algorithms are intentionally retained as JavaScript; the factory's rig input
@@ -94,6 +97,7 @@ export function createRig(rig) {
   // face so its rim falls in the background, and its slope is zero at the rim.
   const HEAD = rig.head;
   const BODY = rig.body;
+  const LEGS = createLegs(rig.legs, BODY, HEAD);
 
   const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -158,6 +162,7 @@ export function createRig(rig) {
       chest: gaussian(x, y, BODY.chest),
       breath: 1 - sstep(...BODY.breathBand, y),
       shoulder: BODY.shoulders.reduce((sum, area) => sum + gaussian(x, y, area), 0),
+      ...(LEGS && { legs: LEGS.weights(x, y) }),
     };
   }
 
@@ -187,7 +192,9 @@ export function createRig(rig) {
     rotateAround(p, HEAD.pivotX, HEAD.pivotY, -P.angleZ / 30 * HEAD.maxRoll * w);
   }
 
-  function applyBody(p, restY, P, chest = 0, breathW = 1, shoulder = 0) {
+  function applyBody(p, restY, P, chest = 0, breathW = 1, shoulder = 0, legWeights) {
+    if (LEGS) LEGS.apply(p, p[0], restY, legWeights ?? LEGS.weights(p[0], restY), P);
+    const plantedX = p[0], plantedY = p[1];
     const b = P.breath;
     // inhale: everything above the cut-off rises, shoulders lift more, the chest widens a little
     p[1] -= b * (5 * breathW + 4 * shoulder);
@@ -195,15 +202,21 @@ export function createRig(rig) {
     // full-body rigs (body.hip): the sideways sway is a hip shift that fades out towards
     // the feet, so they stay planted
     const hip = BODY.hip;
-    p[0] += P.bodyAngleX / 10 * (hip ? hip.shift * (1 - sstep(...hip.band, restY)) : 7 + 9 * chest);
+    if (!LEGS) p[0] += P.bodyAngleX / 10 * (hip ? hip.shift * (1 - sstep(...hip.band, restY)) : 7 + 9 * chest);
     // bottom rows stay put so no gap opens at the cut-off edge of the image
     rotateAround(p, BODY.pivotX, BODY.pivotY, -P.bodyAngleZ / 10 * BODY.maxRoll * (1 - sstep(...BODY.rollBand, restY)));
+    if (LEGS) {
+      const pin = LEGS.pin(restY);
+      p[0] = plantedX + (p[0] - plantedX) * pin;
+      p[1] = plantedY + (p[1] - plantedY) * pin;
+    }
   }
 
   // Base layer: hair and face-part offsets are added in rest space, then head, then body.
   function deformBase(x, y, w, P, phys, out) {
     const p = out;
     p[0] = x; p[1] = y;
+    if (LEGS && !LEGS.pin(y)) return p;
     const g = phys.gain;
     for (const [i, wi, t] of w.strands) {
       const o = phys.strands?.[i];
@@ -229,7 +242,7 @@ export function createRig(rig) {
     p[1] -= ay * (6 * w.nose + 3 * w.mouth);
     p[1] += (y - rig.face.eyeA.cy) * -0.06 * Math.abs(ay) * w.eyeA + (y - rig.face.eyeB.cy) * -0.06 * Math.abs(ay) * w.eyeB;
     applyHead(p, w.head, P, w.turn);
-    applyBody(p, y, P, w.chest, w.breath, w.shoulder);
+    applyBody(p, y, P, w.chest, w.breath, w.shoulder, w.legs);
     return p;
   }
 
@@ -298,5 +311,5 @@ export function createRig(rig) {
     const w = baseWeights(t.pivot[0], t.pivot[1]);
     return deformBase(t.pivot[0], t.pivot[1], w, P, phys, out);
   }
-  return { IMG, EYES, MOUTH, CHEEKS, STRANDS, TASSELS, headWeight, turnWeight, baseWeights, deformBase, applyHead, applyBody, handWeights, handFrame, deformHand, eyePartY, eyePartAlpha, tasselAnchor };
+  return { legs: LEGS, stepBody: (P, dt) => LEGS?.step(P, dt), IMG, EYES, MOUTH, CHEEKS, STRANDS, TASSELS, headWeight, turnWeight, baseWeights, deformBase, applyHead, applyBody, handWeights, handFrame, deformHand, eyePartY, eyePartAlpha, tasselAnchor };
 }

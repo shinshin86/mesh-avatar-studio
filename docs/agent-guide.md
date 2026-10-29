@@ -236,6 +236,35 @@ to confirm persistence. Waist/hem handles affect motion immediately; changing an
 outline marks layers stale and requires a rebuild. Keep `base.png` intact for older
 players; verify `base_cloth.png` and all `cloth_<name>` layers are present when packing.
 
+## Optional — Legs
+
+Add `rig.legs` only when the illustration has two visible legs and planted feet
+(see [Rig fields](rig-fields.md#optional-planted-legs)). Use the calibrated source
+coordinates, zoomed grids and an overlay from the earlier steps. Left and right
+mean image-left and image-right. Place `pelvis` at the pelvic rotation centre,
+each `hip` at the top of the thigh, each `knee` at the drawn knee joint and each
+`ankle` at the fixed foot attachment. Keep hip, knee and ankle y increasing.
+Trace `split` down the gap between the legs, starting inside the crotch gap and
+continuing below both ankles, with strictly increasing y. Avoid putting this
+boundary through a leg. Place `band` above the hips where the pelvis motion should
+blend into the torso; its start must be above both hips.
+
+Start with modest `shift` (pixels), `tilt` (radians) and `bend` (pixels). Validate
+the draft before using it, then run `render-poses` as in Step 5. Compare `rest`,
+`weight-left`, `weight-right` and every `weight-shift-0..9` frame. Inspect the
+crotch, knees, ankles and any garment attachments at full resolution: feet must
+stay planted, knees must bend smoothly without reversing and the split must not
+produce a tear or overlap. The solver preserves bone lengths in 3D, so their
+projected lengths can shorten. Also check body sway and head movement together.
+
+In Studio, select **Legs**, align the pelvis and joint handles, and edit the split
+vertices (double-click an edge to add a point; Alt-click a vertex to remove
+it). Pause idle motion and test the **Weight shift** slider in both directions.
+Joint, split and tuning edits recalculate mesh weights; they do not require a
+layer rebuild. Save and reopen to confirm persistence. Omit `legs` to preserve an
+existing avatar's deformation. Idle targets follow a five-second sine with an
+amplitude of 0.7; the slider accepts the full `-1..1` parameter range.
+
 ## Step 7 — Hand over
 
 Tell the person:
