@@ -50,6 +50,15 @@ input[type="color"] { width: 100%; height: 32px; border: 0; padding: 0; }
 .live-expression > summary::-webkit-details-marker { display: none; }
 .live-expression > summary::before { content: '▸'; }
 .live-expression[open] > summary::before { content: '▾'; }
+.live-overlays { border: 1px solid #d5dfeb; border-radius: 12px; background: white; }
+.live-overlays > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px 16px; font-weight: 600; list-style: none; }
+.live-overlays > summary::-webkit-details-marker { display: none; }
+.live-overlays > summary::before { content: '▸'; }
+.live-overlays[open] > summary::before { content: '▾'; }
+.live-overlays > small { display: block; padding: 0 16px 14px; color: #5a6a80; }
+.overlay-buttons { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 8px; }
+.overlay-buttons button[aria-pressed="true"] { border-color: #3977d8; background: #e8f0fd; color: #1d4f9c; font-weight: 600; }
+.overlays-on { margin-left: auto; padding: 1px 7px; border-radius: 999px; background: #e8f0fd; color: #1d4f9c; font-size: 11px; font-weight: 600; }
 .expression-on { margin-left: auto; padding: 1px 7px; border-radius: 999px; background: #e8f0fd; color: #1d4f9c; font-size: 11px; font-weight: 600; }
 .live-expression-body { padding: 0 16px 16px; }
 .live-expression-body h3 { margin: 16px 0 4px; font-size: 13px; }

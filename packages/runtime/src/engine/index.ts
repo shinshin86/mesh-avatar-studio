@@ -31,6 +31,8 @@ export interface MeshAvatar {
   setSpeaking(on: boolean): void;
   setEmotion(tag: string | null, options?: { playMotion?: boolean }): void;
   setExpression(name: LiveExpression): void;
+  /** Show the named overlay layers from built/overlays/overlays.json and hide the rest; unknown names are ignored. */
+  setOverlays(names: string[]): void;
   getExpression(): { name: LiveExpression; active: boolean };
   setTalkGain(gain: number): void;
   play(id: string): void;

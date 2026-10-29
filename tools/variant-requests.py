@@ -20,7 +20,7 @@ from agent_common import (
 )
 
 CHANGES = {
-    "eyes_closed": "Close both eyes naturally, using one clean upper lash line per eye. Remove all visible iris and eye white. Keep the eyebrows unchanged.",
+    "eyes_closed": "Close both eyes naturally, as in a relaxed blink: one clean upper lash line per eye that curves gently downward, not the upward arc of a smiling closed eye. Remove all visible iris and eye white, and the original upper lash and eyelid crease lines, so only the closed lash line remains. Keep the eyebrows unchanged.",
     "eyes_half": "Draw both eyes half closed, with the upper lids halfway down. Keep the iris visible only below the upper lid and preserve the original gaze.",
     "eyes_smile": "Draw both eyes closed in a gentle smiling upward arc, with clean lashes and no visible iris or eye white. Keep the eyebrows unchanged.",
     "eyes_sad": "Redraw both eyes as sad open eyes: the upper lids drooping at the outer corners and raised toward the nose, softer and slightly moist, with the gaze a little downward. Do not draw tears on the cheeks. Keep each eye in place and the eyebrows unchanged; they are moved separately.",

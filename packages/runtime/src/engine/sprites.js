@@ -104,6 +104,15 @@ export function createSpriteModule(engine, rig) {
       layer.visible = false;
       items[name] = { mesh, W, inner, layer };
     }
+    // A partial set (a variant that failed or was never drawn) leaves what is missing to the
+    // layered eye and the shader mouth instead of hiding them under a drawing that is not there.
+    // Only an eye with both the closed and the half-closed drawing is held open for the sprites.
+    const eyesDrawn = [0, 1].map(i => Boolean(items[`eyes_closed_${i}`] && items[`eyes_half_${i}`]));
+    const mouthsDrawn = Object.values(MOUTH_SHAPES).some(def => items[def.sprite]);
+    const frameFor = (want, i) => {
+      if (want === 'eyes_smile' && !items[`eyes_smile_${i}`]) want = 'eyes_closed';
+      return want === 'open' || items[`${want}_${i}`] ? want : 'open';
+    };
     const tmp = [0, 0];
     let lastShape = null;
     const eyeState = [0, 1].map(() => ({ cur: 'open', prev: 'open', t: 1 }));
@@ -127,7 +136,8 @@ export function createSpriteModule(engine, rig) {
     return {
       /**
        * Show / hide and deform the sprites for this frame.
-       * Returns which eyes are covered by a sprite, so the layered eye parts can be hidden.
+       * Returns which eyes are covered by a sprite, so the layered eye parts can be hidden, and
+       * whether a drawing shows the mouth, so the shader mouth can be left out.
        * `mood` (angry / sad / surprise) picks drawn expression eyes (sad, surprise) and closed
        * mouths (angry, sad) when the avatar has them.
        */
@@ -143,7 +153,7 @@ export function createSpriteModule(engine, rig) {
         eyes.forEach(([open, smile], i) => {
           const st = eyeState[i];
           const drawn = EYE_MOODS_DRAWN.includes(mood) && items[`eyes_${mood}_${i}`] ? `eyes_${mood}` : null;
-          const want = eyeSprite(open, smile, drawn) ?? 'open';
+          const want = frameFor(eyeSprite(open, smile, drawn) ?? 'open', i);
           if (want !== st.cur) { st.prev = st.cur; st.cur = want; st.t = 0; }
           // A redraw without elapsed time (a paused preview moving a slider) shows the target
           // frame at once; otherwise the fade would stay at its first frame.
@@ -186,8 +196,11 @@ export function createSpriteModule(engine, rig) {
           const squash = Math.min(1.1, Math.max(0.5, P.mouthOpen / def.ref));
           place(mt, P, phys, squash, def.width);
         }
-        return { eyes: covered, mouth: shape };
+        // the shader mouth stays off while a drawing could show the mouth: closed, or a drawn shape
+        return { eyes: covered, mouth: shape, mouthDrawn: mouthsDrawn && (!def || Boolean(mt)) };
       },
+      /** Whether each eye has the closed and half-closed drawings, so the layered eye stays open. */
+      eyesDrawn,
     };
   }
   return { createSprites, mouthShape, eyeSprite };

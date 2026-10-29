@@ -146,6 +146,23 @@ test('standalone bundle renders with one module script and no dev-server transfo
   await drawn(page);
 });
 
+test('overlays attribute and property show overlay layers on the loaded avatar', async ({ page }) => {
+  await open(page);
+  const calls = await page.evaluate(() => {
+    const el = document.querySelector('mesh-avatar')!, avatar = el.avatar!, seen: string[][] = [];
+    const original = avatar.setOverlays.bind(avatar);
+    avatar.setOverlays = names => { seen.push([...names]); original(names); };
+    el.setAttribute('overlays', 'glasses  hat');
+    const fromAttribute = el.overlays;
+    el.overlays = ['glasses'];
+    const reflected = el.getAttribute('overlays');
+    el.overlays = [];
+    return { seen, fromAttribute, reflected, removed: el.hasAttribute('overlays') };
+  });
+  expect(calls).toEqual({ seen: [['glasses', 'hat'], ['glasses'], []], fromAttribute: ['glasses', 'hat'], reflected: 'glasses', removed: false });
+  await drawn(page);
+});
+
 test('unknown expression warns once without throwing or changing the expression', async ({ page }) => {
   const warnings: string[] = [], errors: string[] = [];
   page.on('console', message => { if (message.type() === 'warning' && message.text().includes('<mesh-avatar>')) warnings.push(message.text()); });

@@ -1,6 +1,6 @@
 # Mesh Avatar Studio
 
-[日本語](README.ja.md)
+[日本語](README.ja.md) · [简体中文](README.zh.md)
 
 Turn a single illustration into an animated 2D mesh avatar: it blinks, talks, turns its head,
 breathes and sways its hair. A coding agent prepares the avatar from your image; you fine-tune
@@ -72,9 +72,40 @@ Recommended setups:
 | Claude Code | Claude Opus 5.5 |
 | Codex | GPT-6.1 Sol |
 
+#### One command with Codex
+
+With the [Codex CLI](https://github.com/openai/codex) installed and signed in, one command
+creates the project, has Codex follow the agent guide without questions and opens the editor
+on the result:
+
+```sh
+npm run create -- /path/to/your-image.png
+```
+
+Codex also draws closed eyes, mouth shapes and expressions with OpenAI image generation, and
+first closes an open mouth in the illustration so the avatar rests with it closed. This sends
+the image and masks to OpenAI, so the command asks first; add `--yes` to agree in advance, or
+`--no-variants` to keep everything on your machine. It usually takes tens of minutes. Codex writes its notes to `projects/<name>/HANDOVER.md`. It runs with
+`--approve-for-me`, so its requests to run tools outside its sandbox, such as Chromium for the
+pose review, are reviewed automatically instead of by you. `npm run create -- --help` lists the
+options.
+
+Without an illustration, `--random` has Codex draw a new anime-style girl first and builds the
+avatar from her. Her looks are chosen at random; `--prompt` describes what you want instead,
+and `--seed` repeats the same random choices. The drawing is kept in `work/random/`, and the
+choices in `projects/<name>/work/character.json`.
+
+```sh
+npm run create -- --random
+npm run create -- --random --prompt "silver short hair, school uniform"
+```
+
 ### 2. Open the project and check it
 
 Start the editor (`npm run dev`), choose **Open project** and pick your project from the list.
+The pencil next to a project renames it, together with its folder under `projects/`.
+If the avatar has overlay layers such as glasses (`built/overlays/`), the preview lists them
+under **Overlays** so you can switch them on and off.
 In the preview, use **Pose test** to turn and tilt the head and close the eyes. In **Lip sync**,
 choose a mouth style and try it with kana text. Open **Fine-tune** to adjust movement, size
 and closing, or preview a local audio file.
@@ -143,6 +174,10 @@ Optional **Lighting** adds shading that follows a light you drag over the avatar
 by default; open its section near the bottom of the Live page, or below the preview in the
 editor. The OBS URL includes the lighting settings. See [Lighting](docs/reference.md#lighting).
 
+If the avatar has overlay layers such as glasses (`built/overlays/`), the **Overlays** section
+of the Live page switches them on and off. The stream view follows at once, and the OBS URL
+includes the overlays that are shown.
+
 Keep the Live page open in its own window. Open the OBS URL inside OBS or in another
 tab; do not paste it into the tab running Live. If the page reports that tracking has
 stopped or slowed while hidden, bring its window to the front.
@@ -173,6 +208,13 @@ your own `.mavatar` file; nothing is uploaded. It has no stream URL: choose **Op
 window** (Chrome or Edge) and add that window to OBS with **Window Capture** on a green
 background and a Chroma Key filter. Transparency, the OBS Browser Source and switching
 expressions from other apps need Studio's Live page.
+
+## Experimental native runtime
+
+A Rust runtime, PNG renderer and transparent macOS desktop avatar are available in
+[the native guide](native/README.md). They load the same `.mavatar` files and built
+project folders as the JavaScript runtime. The native version is experimental;
+its APIs and controls may change.
 
 ## Releases
 

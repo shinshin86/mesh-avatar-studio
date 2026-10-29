@@ -68,6 +68,7 @@ The element defaults to `display: block; aspect-ratio: 1 / 1`. Set its width in 
 | `paused` | Boolean attribute; presence pauses animation | Absent |
 | `no-idle` | Boolean attribute; presence disables automatic idle motion | Absent |
 | `label` | Accessible canvas label | `Avatar` |
+| `overlays` | Space-separated overlay layer names to show, such as `glasses`; names come from the avatar's `built/overlays/overlays.json`, and unknown names are ignored | None shown |
 
 Attributes can be changed after loading. Connection and `src` / `fit` changes in the same task are combined into one load in a microtask; `load(source)` starts immediately. Changing `src` or `fit` destroys the current avatar and loads a new one. After `load(source)`, changing `fit` reloads that source; changing `src` switches back to the attribute URL. A failed load leaves the element empty; listen for `error` to show a fallback. Unknown expression, emotion or fit values warn once per attribute/value pair rather than throwing.
 
@@ -88,6 +89,7 @@ el.avatar.setExpression('smile');
 | `load(source)` | Loads a File, Blob, ArrayBuffer, Uint8Array, URL or URL string without changing `src`. Returns the loading promise and emits `load` or `error`. The `AvatarSource` type is re-exported from `mesh-avatar`. |
 | `ready` | Promise resolving with the avatar for the current source, rejecting on loading failure. A new load after completion creates a new promise; overlapping pending loads resolve with the latest avatar. |
 | `src`, `fit`, `expression`, `emotion`, `paused` | Properties reflecting their corresponding attributes. Use attributes for `no-idle` and `label`. |
+| `overlays` | Array of overlay layer names to show, reflecting the `overlays` attribute; `[]` hides them all. The choice is kept when the avatar reloads. |
 | `lipSync` | Get a copy of explicit mouth-movement overrides, or assign a partial `LipSyncSettings` object. Overrides survive avatar reloads. |
 | `setLipSync(settings)` | Partially updates mouth movement: `granularity`, `openness`, `closeSpeed` (0–1). Omitted fields keep their values. |
 | `setVoiceLevel(value)` | Mouth opening from loudness, 0–1. Retains the value until loading finishes. |

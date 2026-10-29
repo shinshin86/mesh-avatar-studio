@@ -4,12 +4,21 @@ import { SAMPLE_PROJECT, type ViewSettings } from './settings';
 
 export const neutralParameters: Record<string, number> = Object.fromEntries(PARAMS.map(param => [param.id, param.def]));
 export interface FrameTiming { frames: number; totalMs: number; maxMs: number }
+/** Names of the avatar's overlay layers (built/overlays/overlays.json), or none. */
+async function listOverlays(assets: Record<string, string>): Promise<string[]> {
+  const url = assets['overlays/overlays.json'];
+  if (!url) return [];
+  try {
+    const sheet = await (await fetch(url)).json();
+    return Array.isArray(sheet?.overlays) ? sheet.overlays.map((item: { name?: unknown }) => item?.name).filter((name: unknown): name is string => typeof name === 'string') : [];
+  } catch { return []; }
+}
 export async function createAvatarView(canvas: HTMLCanvasElement, settings: ViewSettings,
   beforeFrame?: (avatar: MeshAvatar, now: number, dt: number) => void,
   afterFrame?: (avatar: MeshAvatar, now: number) => void) {
   canvas.dataset.state = 'loading';
   const options = { manual: true, fit: settings.fit, preserveMouthForm: true };
-  let avatar: MeshAvatar;
+  let avatar: MeshAvatar, overlays: string[] = [];
   if (settings.avatar) avatar = await loadMeshAvatar(canvas, settings.avatar, options);
   else {
     const projects = await localProjects(), project = projects?.find(entry => entry.name === settings.project);
@@ -17,8 +26,10 @@ export async function createAvatarView(canvas: HTMLCanvasElement, settings: View
     const loaded = project ? await openLocalProject(project) : await openSampleAvatar();
     const lipSync = 'manifest' in loaded ? loaded.manifest.lipSync : loaded.lipSync;
     avatar = await createMeshAvatar(canvas, { ...options, lipSync, rig: loaded.rig!, assets: loaded.assets });
+    overlays = await listOverlays(loaded.assets);
   }
   if (settings.lighting) avatar.setLighting(settings.lighting);
+  if (settings.overlays) avatar.setOverlays(settings.overlays);
   avatar.setAutoIdle(settings.idle); avatar.setAutoMotion(settings.idle);
   if (!settings.idle) avatar.setParameters(neutralParameters);
   canvas.dataset.state = 'ready';
@@ -35,7 +46,7 @@ export async function createAvatarView(canvas: HTMLCanvasElement, settings: View
   };
   const frame = (now: number) => { lastPaint = now; update(now); raf = requestAnimationFrame(frame); };
   raf = requestAnimationFrame(frame);
-  return { avatar, timing,
+  return { avatar, timing, overlays,
     paintPaused(now: number) { return now - lastPaint > 1000; },
     updateIfStalled(now: number) { if (now - previous >= 1000 / 30 - 2) update(now, false); },
     destroy() { cancelAnimationFrame(raf); avatar.destroy(); } };

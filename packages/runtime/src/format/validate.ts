@@ -111,5 +111,23 @@ export function validateAvatarFiles(files: Record<string, FileData>): string[] {
     build(sprites, 'built/sprites/sprites.json');
     layers(sprites.layers, 'built/sprites/sprites.json', 'built/sprites', rig ? [rig.image.width, rig.image.height] : undefined);
   }
+  // Optional overlay layers: { overlays: [{ name, file }] }. Unknown keys are ignored like elsewhere.
+  const overlays = json('built/overlays/overlays.json', false);
+  if (overlays && version(overlays, 'built/overlays/overlays.json')) {
+    if (!Array.isArray(overlays.overlays)) errors.push('built/overlays/overlays.json.overlays: expected an array');
+    else {
+      const seen = new Set<string>();
+      for (const [i, item] of overlays.overlays.entries()) {
+        const path = `built/overlays/overlays.json.overlays[${i}]`;
+        if (!object(item) || typeof item.name !== 'string' || !/^[A-Za-z0-9_-]+$/.test(item.name) ||
+            typeof item.file !== 'string' || !/^[A-Za-z0-9_-]+\.png$/.test(item.file)) {
+          errors.push(`${path}: expected { name, file } with safe names`); continue;
+        }
+        if (seen.has(item.name)) errors.push(`${path}.name: duplicate overlay name`);
+        seen.add(item.name);
+        image(`built/overlays/${item.file}`);
+      }
+    }
+  }
   return errors;
 }

@@ -9,4 +9,5 @@ playwright-report/
 __pycache__/
 projects/
 work/
+native/target/
 samples/**/review/

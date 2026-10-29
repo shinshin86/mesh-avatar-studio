@@ -5,7 +5,7 @@ import { setAt } from './model';
 import { type Rig, type LipSyncSettings, parseRig, validateRig } from 'mesh-avatar';
 import { Preview } from './Preview';
 import { RigHistory, downloadRig } from './history';
-import { openProjectFolder, saveLipSync, openLocalProject, copySample, localProjects, projectAction, sampleImagesAvailable, sampleSourceUrl, repositoryContext, runProjectJob, ProjectJobError, importAvatar, exportAvatar, type ProjectJob, type LocalProject, type LocalProjectEntry } from './project';
+import { openProjectFolder, saveLipSync, openLocalProject, renameProject, RenameError, copySample, localProjects, projectAction, sampleImagesAvailable, sampleSourceUrl, repositoryContext, runProjectJob, ProjectJobError, importAvatar, exportAvatar, type ProjectJob, type LocalProject, type LocalProjectEntry } from './project';
 import { ExportAvatar, ImportAvatar } from './AvatarTransfer';
 import { archiveText } from './archive-i18n';
 import { folderOpenError } from './folder-errors';
@@ -86,6 +86,14 @@ function Workspace() {
       const missing = list ? entries.filter(entry => entry.kind === 'server' && !list.some(project => project.name === entry.serverName)) : [];
       const available = entries.filter(entry => !missing.includes(entry));
       if (missing.length) { setRecent(available); saveRecent(available); setNotice({ key: 'missingRecent', path: missing.map(entry => entry.name).join(', ') }); }
+      // `npm run create` opens the editor at ?project=<name>; that project wins over the recent one.
+      const params = new URLSearchParams(location.search), requested = params.get('project');
+      if (requested !== null) {
+        params.delete('project');
+        window.history.replaceState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}${location.hash}`);
+        const project = list?.find(item => item.name === requested && item.relativePath.startsWith('projects/'));
+        if (project && !project.error && !projectOpened.current) { projectOpened.current = true; await openLocal(project); return; }
+      }
       if (readPreference(REOPEN_KEY) === '0' || !available.length || projectOpened.current) return;
       const latest = available[0];
       if (latest.kind === 'server') {
@@ -200,6 +208,29 @@ function Workspace() {
       else setError({ kind: 'invalidFolder', paths: [] });
     }
     finally { setOpening(false); }
+  };
+  const [renaming, setRenaming] = useState<{ name: string; value: string; error?: string; busy?: boolean } | null>(null);
+  const rename = async () => {
+    if (!renaming || renaming.busy || jobRef.current) return;
+    const value = renaming.value.trim(), project = projects?.find(item => item.name === renaming.name);
+    if (!project || 'error' in project) return;
+    if (value === project.name) { setRenaming(null); return; }
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(value)) { setRenaming({ ...renaming, error: t.renameInvalid }); return; }
+    setRenaming({ ...renaming, busy: true, error: undefined });
+    try {
+      const updated = await renameProject(project, value);
+      setRenaming(null);
+      if (localProject?.name === project.name) setLocalProject(updated);
+      setRecent(current => {
+        const next = current.map(entry => entry.id === `server:${project.name}`
+          ? { ...entry, id: `server:${updated.name}`, name: updated.name, serverName: updated.name, relativePath: updated.relativePath } : entry);
+        saveRecent(next); return next;
+      });
+      setProjects(await localProjects());
+    } catch (error) {
+      const reason = error instanceof RenameError ? error.reason : 'failed';
+      setRenaming(current => current && { ...current, busy: false, error: { invalid: t.renameInvalid, taken: t.renameTaken, failed: t.renameFailed }[reason] });
+    }
   };
   const saveRef = useRef<() => void>(() => undefined);
   const save = async () => {
@@ -403,11 +434,24 @@ function Workspace() {
           <div className="project-menu">{importControl}{recentControl}<p className="project-help">{t.projectHelp}</p>
             {projects && <div className="project-list" aria-label={t.localProjects}>
               {projects.length === 0 && <p>{t.noProjects}</p>}
-              {projects.map(project => <button key={project.name} className={project.error ? 'unreadable-project' : undefined} disabled={opening || !!project.error} data-testid={`project-${project.name}`} onClick={() => { void openLocal(project); }}>
-                <strong>{project.readOnly ? t.sampleProject : project.name}</strong><small>{project.relativePath}</small>
-                <small>{project.error ? <>{t.unreadableProject} ({project.error.code}) · {project.error.path}</> : <>{t.updated}: {new Date(project.updatedAt).toLocaleString(locale)}
-                  {project.hasSprites && <span className="badge">{t.drawnVariants}</span>}{project.readOnly && <span className="badge">{t.readOnly}</span>}{project.hasSource === false && <span className="badge">{sharing.playbackBadge}</span>}</>}</small>
-              </button>)}
+              {projects.map(project => renaming?.name === project.name
+                ? <form key={project.name} className="rename-project" onSubmit={event => { event.preventDefault(); void rename(); }}>
+                  <label>{t.renameLabel}<input value={renaming.value} autoFocus disabled={renaming.busy} spellCheck={false} aria-describedby="rename-hint"
+                    onChange={event => setRenaming({ ...renaming, value: event.target.value, error: undefined })}
+                    onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); setRenaming(null); } }} /></label>
+                  <small id="rename-hint">{t.renameHint}</small>
+                  {renaming.error && <small role="alert" className="rename-error">{renaming.error}</small>}
+                  <div className="rename-actions"><button type="submit" className="primary" disabled={renaming.busy}>{t.renameSave}</button><button type="button" disabled={renaming.busy} onClick={() => setRenaming(null)}>{t.renameCancel}</button></div>
+                </form>
+                : <div key={project.name} className="project-row">
+                  <button className={project.error ? 'unreadable-project' : undefined} disabled={opening || !!project.error} data-testid={`project-${project.name}`} onClick={() => { void openLocal(project); }}>
+                    <strong>{project.readOnly ? t.sampleProject : project.name}</strong><small>{project.relativePath}</small>
+                    <small>{project.error ? <>{t.unreadableProject} ({project.error.code}) · {project.error.path}</> : <>{t.updated}: {new Date(project.updatedAt).toLocaleString(locale)}
+                      {project.hasSprites && <span className="badge">{t.drawnVariants}</span>}{project.readOnly && <span className="badge">{t.readOnly}</span>}{project.hasSource === false && <span className="badge">{sharing.playbackBadge}</span>}</>}</small>
+                  </button>
+                  {!project.readOnly && !project.error && <button className="rename-button" aria-label={`${t.renameProject} ${project.name}`} title={t.renameProject}
+                    disabled={opening || !!renaming?.busy} onClick={() => setRenaming({ name: project.name, value: project.name })}><Icon name="brush" /></button>}
+                </div>)}
             </div>}
             <button onClick={() => { void chooseFile(true); }}>{t.openFolder}</button><button disabled={playbackOnly} onClick={() => { void chooseFile(false); }}>{t.openRig}</button>
           </div>

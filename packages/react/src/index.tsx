@@ -16,6 +16,8 @@ export interface MeshAvatarProps extends Omit<HTMLAttributes<MeshAvatarElement>,
   paused?: boolean;
   noIdle?: boolean;
   label?: string;
+  /** Overlay layers to show, such as glasses; names come from the avatar's built/overlays. */
+  overlays?: string[];
   onLoad?: (avatar: MeshAvatarInstance) => void;
   onError?: (error: unknown) => void;
   onMotion?: (id: string | null) => void;
@@ -26,8 +28,10 @@ const CLASS_PROP = Number(version.split('.')[0]) >= 19 ? 'className' : 'class';
 
 /** A React interface to the <mesh-avatar> element. Set its size with CSS. */
 export const MeshAvatar = forwardRef<MeshAvatarElement, MeshAvatarProps>(function MeshAvatar({
-  src, source, expression, emotion, fit, paused, noIdle, label, onLoad, onError, onMotion, className, ...html
+  src, source, expression, emotion, fit, paused, noIdle, label, overlays, onLoad, onError, onMotion, className, ...html
 }, forwardedRef) {
+  // A new array with the same names must not count as a change.
+  const overlayNames = overlays?.length ? overlays.join(' ') : undefined;
   const element = useRef<MeshAvatarElement>(null);
   const callbacks = useRef({ onLoad, onError, onMotion });
   const applied = useRef<{ source?: AvatarSource; src?: string; fit?: Fit } | null>(null);
@@ -53,7 +57,7 @@ export const MeshAvatar = forwardRef<MeshAvatarElement, MeshAvatarProps>(functio
   useLayoutEffect(() => {
     const el = element.current!;
     const previous = applied.current;
-    for (const [name, value] of Object.entries({ src, fit, expression, emotion, label })) {
+    for (const [name, value] of Object.entries({ src, fit, expression, emotion, label, overlays: overlayNames })) {
       if (value === undefined) el.removeAttribute(name);
       else el.setAttribute(name, value);
     }
@@ -71,7 +75,7 @@ export const MeshAvatar = forwardRef<MeshAvatarElement, MeshAvatarProps>(functio
       if (src === undefined) el.removeAttribute('src');
     }
     applied.current = { source, src, fit };
-  }, [src, source, expression, emotion, fit, paused, noIdle, label]);
+  }, [src, source, expression, emotion, fit, paused, noIdle, label, overlayNames]);
 
   return createElement('mesh-avatar', { ...html, [CLASS_PROP]: className, ref: element });
 });

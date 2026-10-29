@@ -56,6 +56,20 @@ summary::-webkit-details-marker { display: none; }
 .project-list { max-height: 320px; overflow: auto; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
 .project-list button { margin: 4px 0; background: #f5f7fb; }
 .project-list small { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; overflow-wrap: anywhere; }
+.project-row { display: flex; align-items: stretch; gap: 4px; }
+.project-row > button:first-child { flex: 1; min-width: 0; }
+.project-menu .project-row .rename-button { flex: 0 0 32px; width: 32px; margin: 4px 0; padding: 0; display: grid; place-items: center; color: var(--muted); background: transparent; }
+.project-menu .project-row .rename-button:hover:not(:disabled) { color: inherit; background: #f5f7fb; }
+.rename-project { margin: 4px 0; padding: 8px; background: #f5f7fb; border-radius: 6px; text-align: left; }
+.rename-project label { display: block; font-size: 12px; font-weight: 600; }
+.rename-project input { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px 8px; font-weight: 400; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.rename-project .rename-error { color: #b42318; }
+.rename-actions { display: flex; gap: 6px; margin-top: 8px; }
+.project-menu .rename-actions button { width: auto; flex: 1; margin: 0; text-align: center; border: 1px solid var(--line); }
+.project-menu .rename-actions button:not(.primary) { background: var(--surface); }
+/* .project-list button would otherwise give the primary button its pale row background */
+.project-menu .rename-actions button.primary { color: white; background: var(--accent); border-color: var(--accent); }
+.project-menu .rename-actions button.primary:hover:not(:disabled) { color: white; background: #1d4ed8; }
 .project-menu button.unreadable-project:disabled { opacity: 1; color: var(--muted); cursor: not-allowed; }
 .badge { display: inline-block; font-size: 10px; color: #395476; background: #edf3ff; border-radius: 4px; padding: 2px 4px; margin-left: 6px; }
 .recent-projects { padding: 8px; border-bottom: 1px solid var(--line); text-align: left; }
@@ -275,6 +289,7 @@ main:has(.stale) .editor-panel, main:has(.stale) .parts-panel { height: calc(100
   .preview-panel:has(#lip-tab[aria-selected="true"]) > .panel-title,
   .preview-panel:has(#lip-tab[aria-selected="true"]) > .lighting-preview,
   .preview-panel:has(#lip-tab[aria-selected="true"]) > .preview-tools,
+  .preview-panel:has(#lip-tab[aria-selected="true"]) > .overlay-tools,
   .preview-panel:has(#lip-tab[aria-selected="true"]) > .preview-tabs { flex-shrink: 0; }
   .preview-panel:has(#lip-tab[aria-selected="true"]) > .lip-sync,
   .preview-panel:has(#lip-tab[aria-selected="true"]) > .lighting-section { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
@@ -283,6 +298,10 @@ main:has(.stale) .editor-panel, main:has(.stale) .parts-panel { height: calc(100
 }
 
 .preview-tools[hidden] { display: none; }
+.overlay-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.overlay-tools button { padding: 3px 10px; border-radius: 999px; font-size: 12px; color: var(--ink); }
+.overlay-tools button[aria-pressed="true"] { color: white; background: var(--accent); border-color: var(--accent); }
+.overlay-tools button[aria-pressed="true"]:hover:not(:disabled) { color: white; background: #1d4ed8; }
 .preview-panel .lip-idle-toggle { width: 20px; height: 20px; padding: 2px; border: 0; color: var(--accent); }
 #lip-panel .lip-live { margin: 0; }
 .audio-file-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

@@ -39,6 +39,20 @@ export function Preview({ projectKey, rig, assets, lipSync, onLipSyncChange, has
   const [liveMouth, setLiveMouth] = useState(0);
   const [tab, setTab] = useState<'pose' | 'lip'>('pose');
   const [lightingOpen, setLightingOpen] = useState(false);
+  // Overlay layers (built/overlays, such as glasses) are listed from the avatar and start hidden.
+  const [overlayNames, setOverlayNames] = useState<string[]>([]);
+  const [shownOverlays, setShownOverlays] = useState<string[]>([]);
+  const shownRef = useRef(shownOverlays); shownRef.current = shownOverlays;
+  useEffect(() => {
+    let cancelled = false;
+    setOverlayNames([]); setShownOverlays([]);
+    const url = assets?.['overlays/overlays.json'];
+    if (url) fetch(url).then(response => response.json()).then(sheet => {
+      if (!cancelled && Array.isArray(sheet?.overlays)) setOverlayNames(sheet.overlays.map((item: { name?: unknown }) => item?.name).filter((name: unknown): name is string => typeof name === 'string'));
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [assets]);
+  useEffect(() => { avatar.current?.setOverlays(shownOverlays); avatar.current?.advance(0); setRevision(current => current + 1); }, [shownOverlays]);
   const skipped = skippedKanaCharacters(text).join(' ');
   const controls = useRef({ idle, stress, parameters });
   controls.current = { idle, stress, parameters };
@@ -53,6 +67,7 @@ export function Preview({ projectKey, rig, assets, lipSync, onLipSyncChange, has
         instance = value;
         avatar.current = value;
         value.setLighting(lightRef.current);
+        value.setOverlays(shownRef.current);
         const control = controls.current;
         value.setAutoIdle(control.idle && !control.stress);
         value.setAutoMotion(control.idle && !control.stress);
@@ -121,6 +136,11 @@ export function Preview({ projectKey, rig, assets, lipSync, onLipSyncChange, has
         <button className="icon-button" aria-label={idle ? t.pause : t.play} title={idle ? t.pause : t.play}
           data-testid={tab === 'pose' ? 'idle-toggle' : undefined} aria-pressed={idle} onClick={() => setIdle(current => !current)}><Icon name={idle ? 'pause' : 'play'} /></button><span>{t.idle}</span>
       </div>
+      {overlayNames.length > 0 && <div className="overlay-tools" role="group" aria-label={t.overlays} data-testid="overlay-tools">
+        <span>{t.overlays}</span>
+        {overlayNames.map(name => <button key={name} aria-pressed={shownOverlays.includes(name)} title={`${t.overlayToggle}: ${name}`}
+          onClick={() => setShownOverlays(current => current.includes(name) ? current.filter(item => item !== name) : [...current, name])}>{name}</button>)}
+      </div>}
       <div className="preview-tabs" role="tablist" aria-label={t.preview}>
         <button id="pose-tab" role="tab" aria-selected={tab === 'pose'} aria-controls="pose-panel" onClick={() => setTab('pose')}><Icon name="pose" />{t.pose}</button>
         <button id="lip-tab" role="tab" aria-selected={tab === 'lip'} aria-controls="lip-panel" onClick={() => setTab('lip')}><Icon name="mouth" />{t.lipSync}</button>

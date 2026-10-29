@@ -16,12 +16,15 @@ function sprites(names: string[]) {
   const sheet = { build: 'test', layers: Object.fromEntries(names.map(name => [name, [500, 400, 10, 10]])) };
   const images = Object.fromEntries(names.map(name => [name, { width: 10 }]));
   const grid = (rect: number[]) => ({ rest: [rect[0], rect[1]], pos: [0, 0] });
-  type Create = (...args: unknown[]) => { update(P: Record<string, number>, phys: unknown, dt: number, mood?: string | null): { eyes: boolean[] } };
+  type Create = (...args: unknown[]) => { eyesDrawn: boolean[]; update(P: Record<string, number>, phys: unknown, dt: number, mood?: string | null): { eyes: boolean[]; mouthDrawn: boolean } };
   const update = (createSpriteModule(engine, rig).createSprites as unknown as Create)(renderer, sheet, images, grid, () => new Uint8Array(1));
-  return (open: number, mood: string | null = null, dt = 1, mouthOpen = 0) => {
-    const result = update.update({ ...defaults, eyeROpen: open, eyeLOpen: open, eyeSmile: 0, eyeSmileL: 0, mouthOpen }, physics, dt, mood);
+  let mouthDrawn = false;
+  const frame = (open: number, mood: string | null = null, dt = 1, mouthOpen = 0, smile = 0, mouthForm = 0) => {
+    const result = update.update({ ...defaults, eyeROpen: open, eyeLOpen: open, eyeSmile: smile, eyeSmileL: smile, mouthOpen, mouthForm }, physics, dt, mood);
+    mouthDrawn = result.mouthDrawn;
     return { covered: result.eyes, shown: [...layers].filter(([, layer]) => layer.visible && layer.alpha > 0).map(([name]) => name).sort() };
   };
+  return Object.assign(frame, { eyesDrawn: update.eyesDrawn, mouthDrawn: () => mouthDrawn });
 }
 
 const eyes = (...kinds: string[]) => kinds.flatMap(kind => [`eyes_${kind}_0`, `eyes_${kind}_1`]);
@@ -80,4 +83,35 @@ test('without open mouth drawings the expression mouth stays while speaking', ()
   const frame = sprites(['mouth_sad']);
   expect(frame(1, 'sad', 1, 0.5).shown).toEqual(['mouth_sad']);
   expect(frame(1, 'angry', 1, 0).shown).toEqual([]);
+});
+
+test('a partial set leaves missing eye drawings to the layered eye instead of hiding it', () => {
+  const frame = sprites(eyes('closed'));
+  // without the half-closed drawing the layered eye keeps animating its own openness
+  expect(frame.eyesDrawn).toEqual([false, false]);
+  expect(frame(0.5)).toEqual({ covered: [false, false], shown: [] });
+  expect(frame(0.1)).toEqual({ covered: [true, true], shown: eyes('closed') });
+  // a smiling blink without the smiling drawing uses the closed one
+  expect(frame(0.1, null, 1, 0, 1)).toEqual({ covered: [true, true], shown: eyes('closed') });
+  expect(frame(0.5, 'angry')).toEqual({ covered: [false, false], shown: [] });
+  expect(sprites(eyes('closed', 'half')).eyesDrawn).toEqual([true, true]);
+});
+
+test('the shader mouth is turned off only while a drawing shows the mouth', () => {
+  const eyesOnly = sprites(eyes('closed', 'half'));
+  eyesOnly(1, null, 1, 0.8);
+  expect(eyesOnly.mouthDrawn()).toBe(false);
+  const some = sprites(['mouth_a']);
+  some(1, null, 1, 0);
+  expect(some.mouthDrawn()).toBe(true);
+  expect(some(1, null, 1, 0.8).shown).toEqual(['mouth_a']);
+  expect(some.mouthDrawn()).toBe(true);
+  // the い shape has no drawing here, so the shader mouth shows it
+  expect(some(1, null, 1, 0.5, 0, -1).shown).toEqual([]);
+  expect(some.mouthDrawn()).toBe(false);
+  const full = sprites(['mouth_a', 'mouth_a_half', 'mouth_i', 'mouth_o']);
+  for (const [open, form] of [[0, 0], [0.3, 0], [0.8, 0], [0.5, -1], [0.6, 1]]) {
+    full(1, null, 1, open, 0, form);
+    expect(full.mouthDrawn()).toBe(true);
+  }
 });

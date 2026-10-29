@@ -4,6 +4,9 @@ This repository contains a local editor and a data-driven WebGL mesh avatar engi
 To create an avatar from an illustration, follow [docs/agent-guide.md](docs/agent-guide.md)
 in order, including coordinate calibration, zoomed grids, overlays and pose review.
 Field meanings are in [docs/rig-fields.md](docs/rig-fields.md).
+When you change `docs/agent-guide.md` or `README.md`, update every translation
+(`docs/agent-guide.*.md`, `README.*.md`) in the same change. If a translation differs,
+the English version takes precedence.
 
 - Keep user images and all derived files in `projects/`. Never commit, upload or copy them
   outside this repository. Ask the user before sending an image to any external service.

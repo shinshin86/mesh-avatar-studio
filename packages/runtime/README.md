@@ -68,6 +68,9 @@ avatar.setVoiceLevel(0.6);
 avatar.setEmotion('happy', { playMotion: false });
 avatar.setExpression('smile');
 
+// Show optional overlay layers (such as glasses) by name; [] hides them all.
+avatar.setOverlays(['glasses']);
+
 // Apply tracked or posed parameters. Each call replaces the supplied overrides.
 avatar.setParameters({ angleX: 10, gazeX: 0.25 }, 1);
 
@@ -82,7 +85,7 @@ avatar.setParameters({});
 avatar.destroy();
 ```
 
-Emotion tags are `happy`, `sad`, `angry`, `surprised`, `relaxed` and `neutral` (or `null` to reset). Expressions are `neutral`, `smile`, `shy`, `surprise`, `halfLidded`, `angry`, `sad` and `wink`; `LIVE_EXPRESSIONS` exports that list. `PARAMS` exports the parameter IDs, ranges and defaults. Voice methods animate the avatar; your app handles audio playback.
+Emotion tags are `happy`, `sad`, `angry`, `surprised`, `relaxed` and `neutral` (or `null` to reset). Expressions are `neutral`, `smile`, `shy`, `surprise`, `halfLidded`, `angry`, `sad` and `wink`; `LIVE_EXPRESSIONS` exports that list. `PARAMS` exports the parameter IDs, ranges and defaults. Overlay names come from the avatar's optional `built/overlays/overlays.json`; unknown names are ignored. Voice methods animate the avatar; your app handles audio playback.
 
 `loadMeshAvatar` releases archives it opens on `destroy()` or load failure; when passed an existing `AvatarPackage` from `openAvatar`, the caller owns it and must call `release()` after its last user is destroyed.
 

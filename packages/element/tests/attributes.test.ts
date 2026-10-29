@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { frameSeconds, parseEmotion, parseExpression, parseFit, ReadySignal } from '../src/attributes';
+import { frameSeconds, parseEmotion, parseExpression, parseFit, parseOverlays, ReadySignal } from '../src/attributes';
 
 describe('attribute parsing', () => {
   it('reads expressions, treating a missing attribute as neutral', () => {
@@ -26,6 +26,15 @@ describe('attribute parsing', () => {
     expect(frameSeconds(1016, 1000)).toBeCloseTo(0.016);
     expect(frameSeconds(5000, 1000)).toBe(0.05);
     expect(frameSeconds(1000, 1000)).toBe(0.001);
+  });
+});
+
+describe('overlay names', () => {
+  it('come from a space-separated attribute', () => {
+    expect(parseOverlays(null)).toEqual([]);
+    expect(parseOverlays('')).toEqual([]);
+    expect(parseOverlays('glasses')).toEqual(['glasses']);
+    expect(parseOverlays('  glasses   hat ')).toEqual(['glasses', 'hat']);
   });
 });
 

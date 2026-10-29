@@ -1,5 +1,7 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { PNG } from 'pngjs';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { basename, join, resolve } from 'node:path';
 import { samplePresent, sampleSkipReason } from './sample';
 
 test.beforeEach(() => { test.skip(!samplePresent, sampleSkipReason); });
@@ -204,4 +206,56 @@ test('hidden tracking stall warns in all languages and clears when fresh frames 
   await expect(page.getByTestId('background-status')).toContainText('面部追踪已停止');
   await page.evaluate(() => { (window as Window & { freezeVideo?: boolean }).freezeVideo = false; });
   await expect(page.getByTestId('background-status')).toHaveCount(0, { timeout: 5000 });
+});
+
+test('overlay switches on the Live page reach the stream view and its OBS URL', async ({ context, page }) => {
+  const outside = await guardNetwork(context);
+  // A copy of the sample with one synthetic overlay: a full-size transparent PNG with a dark block on the face.
+  const rig = JSON.parse(await readFile(resolve('samples/miko-qipao/rig.json'), 'utf8'));
+  await mkdir(resolve('projects'), { recursive: true });
+  const directory = await mkdtemp(join(resolve('projects'), 'live-overlay-')), name = basename(directory);
+  try {
+    await cp(resolve('samples/miko-qipao'), directory, { recursive: true, filter: path => !path.includes(join(resolve('samples/miko-qipao'), 'review')) });
+    const { width, height } = rig.image, overlay = new PNG({ width, height });
+    const [x0, y0] = [Math.round(rig.face.nose.cx) - 80, Math.round(rig.face.nose.cy) - 30];
+    for (let y = y0; y < y0 + 60; y++) for (let x = x0; x < x0 + 160; x++) overlay.data.set([20, 20, 20, 255], (y * width + x) * 4);
+    await mkdir(join(directory, 'built/overlays'), { recursive: true });
+    await writeFile(join(directory, 'built/overlays/glasses.png'), PNG.sync.write(overlay));
+    await writeFile(join(directory, 'built/overlays/overlays.json'), JSON.stringify({ version: 1, overlays: [{ name: 'glasses', file: 'glasses.png' }] }));
+
+    await ready(page, `/stream.html?project=${name}&bg=green&idle=0`);
+    const live = await context.newPage(); await ready(live, `/live.html?project=${name}`);
+    const section = live.getByTestId('overlay-section'), toggle = section.getByRole('button', { name: 'glasses', exact: true });
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    const canvas = page.locator('#avatar');
+    const shot = async () => PNG.sync.read(await canvas.screenshot());
+    // Pixels the dark overlay block turns near-black; the swinging tassels are red, so they never count.
+    const dark = (image: PNG, i: number) => image.data[i] < 45 && image.data[i + 1] < 45 && image.data[i + 2] < 45;
+    const before = await shot();
+    let block: number[] = [];
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(async () => {
+      const on = await shot();
+      block = [];
+      for (let i = 0; i < on.data.length; i += 4) if (dark(on, i) && !dark(before, i)) block.push(i);
+      return block.length;
+    }).toBeGreaterThan(500);
+    const stillDark = async (page: Page) => { const image = PNG.sync.read(await page.locator('#avatar').screenshot()); return block.filter(i => dark(image, i)).length; };
+    expect(new URL(await live.locator('.obs-url').inputValue()).searchParams.get('overlays')).toBe('glasses');
+    // a stream view opened from that URL starts with the overlay shown
+    const fromUrl = await context.newPage();
+    await ready(fromUrl, `/stream.html?project=${name}&bg=green&idle=0&overlays=glasses`);
+    await expect.poll(() => stillDark(fromUrl)).toBeGreaterThan(block.length * 0.8);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect.poll(() => stillDark(page)).toBeLessThan(block.length * 0.1);
+    // the choice is remembered for the project
+    await live.reload(); await expect(live.locator('canvas[data-state="ready"]')).toBeVisible();
+    await expect(live.getByTestId('overlay-section').getByRole('button', { name: 'glasses', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    // the sample has no overlays, so the section is not shown
+    const sample = await context.newPage(); await ready(sample, '/live.html');
+    await expect(sample.getByTestId('overlay-section')).toHaveCount(0);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+  expect(outside).toEqual([]);
 });

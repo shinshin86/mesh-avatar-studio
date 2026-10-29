@@ -1,5 +1,5 @@
 import { loadMeshAvatar, parseManifest, type AvatarSource, type MeshAvatar, type LipSyncSettings } from 'mesh-avatar';
-import { DEFAULT_SRC, frameSeconds, parseEmotion, parseExpression, parseFit, ReadySignal, type Fit } from './attributes.js';
+import { DEFAULT_SRC, frameSeconds, parseEmotion, parseExpression, parseFit, parseOverlays, ReadySignal, type Fit } from './attributes.js';
 
 export { DEFAULT_SRC, EMOTIONS } from './attributes.js';
 export type { Emotion, Fit } from './attributes.js';
@@ -19,7 +19,7 @@ const Base = (typeof HTMLElement === 'undefined' ? class {} : HTMLElement) as ty
  * Animation pauses while the element is off screen, the tab is hidden or `paused` is set.
  */
 export class MeshAvatarElement extends Base {
-  static observedAttributes = ['src', 'fit', 'expression', 'emotion', 'paused', 'no-idle', 'label'];
+  static observedAttributes = ['src', 'fit', 'expression', 'emotion', 'paused', 'no-idle', 'label', 'overlays'];
 
   #canvas: HTMLCanvasElement;
   #avatar: MeshAvatar | null = null;
@@ -73,6 +73,9 @@ export class MeshAvatarElement extends Base {
   set emotion(value: string | null) { if (value === null) this.removeAttribute('emotion'); else this.setAttribute('emotion', value); }
   get paused() { return this.hasAttribute('paused'); }
   set paused(value: boolean) { this.toggleAttribute('paused', value); }
+  /** Overlay layers to show, such as glasses (the avatar's built/overlays). Kept across loads. */
+  get overlays(): string[] { return parseOverlays(this.getAttribute('overlays')); }
+  set overlays(names: string[]) { if (names.length) this.setAttribute('overlays', names.join(' ')); else this.removeAttribute('overlays'); }
 
   /** Mouth opening from the voice loudness, 0 to 1. Kept until the avatar loads. */
   setVoiceLevel(value: number) {
@@ -145,6 +148,8 @@ export class MeshAvatarElement extends Base {
       if (emotion !== undefined) avatar.setEmotion(emotion); else this.#warn(name, this.getAttribute(name));
     } else if (name === 'no-idle') {
       avatar.setAutoIdle(!this.hasAttribute('no-idle'));
+    } else if (name === 'overlays') {
+      avatar.setOverlays(this.overlays);
     }
   }
 
@@ -169,7 +174,7 @@ export class MeshAvatarElement extends Base {
       if (id !== this.#loadId) { avatar.destroy(); return; }
       this.#loading = false;
       this.#avatar = avatar;
-      for (const name of ['expression', 'emotion', 'no-idle']) {
+      for (const name of ['expression', 'emotion', 'no-idle', 'overlays']) {
         if (name !== 'emotion' || this.hasAttribute(name)) this.#apply(avatar, name);
       }
       if (this.#voiceLevel !== null) avatar.setVoiceLevel(this.#voiceLevel);

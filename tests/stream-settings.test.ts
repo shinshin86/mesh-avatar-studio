@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { backgroundColor, streamUrl, viewSettings } from '../src/live/settings';
+import { overlaysMessage } from '../src/live/overlay-protocol';
 
 test('stream defaults are transparent, contained, idle and use the bundled sample', () => {
   expect(viewSettings('')).toEqual({ project: 'sample-miko-qipao', background: 'transparent', fit: 'contain', idle: true });
@@ -27,5 +28,25 @@ test('stream avatar sources stay on the current server origin', () => {
   }
   for (const value of ['/a.mavatar', 'a.mavatar', `${origin}/a.mavatar`]) {
     expect(viewSettings(`?avatar=${encodeURIComponent(value)}`, origin).avatar).toBe(value);
+  }
+});
+
+test('overlay names round-trip through the stream URL and invalid lists are dropped', () => {
+  const settings = viewSettings('?project=mio&overlays=glasses,hat');
+  expect(settings.overlays).toEqual(['glasses', 'hat']);
+  expect(new URL(streamUrl(settings, 'http://127.0.0.1:5173')).searchParams.get('overlays')).toBe('glasses,hat');
+  expect(viewSettings('?project=mio').overlays).toBeUndefined();
+  expect(viewSettings('?project=mio&overlays=').overlays).toEqual([]);
+  expect(viewSettings('?project=mio&overlays=glasses,../x').overlays).toEqual([]);
+  expect(new URL(streamUrl({ ...settings, overlays: [] }, 'http://127.0.0.1:5173')).searchParams.has('overlays')).toBe(false);
+});
+
+test('overlay relay messages accept only a project and a short list of safe, unique names', () => {
+  expect(overlaysMessage({ project: 'mio', overlays: ['glasses', 'glasses', 'hat'] })).toEqual({ project: 'mio', overlays: ['glasses', 'hat'] });
+  expect(overlaysMessage({ project: 'mio', overlays: [] })).toEqual({ project: 'mio', overlays: [] });
+  for (const bad of [null, [], { project: 'mio' }, { project: '../x', overlays: [] }, { project: 'mio', overlays: 'glasses' },
+    { project: 'mio', overlays: ['has space'] }, { project: 'mio', overlays: [1] }, { project: 'mio', overlays: [], extra: 1 },
+    { project: 'mio', overlays: Array.from({ length: 33 }, (_, i) => `o${i}`) }]) {
+    expect(overlaysMessage(bad)).toBeNull();
   }
 });

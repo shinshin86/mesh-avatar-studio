@@ -5,17 +5,19 @@ import { loadLightingPresets, sameLighting, saveLightingPresets } from '../light
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../editor/i18n';
 import { createAvatarView } from './avatar-view';
-import { viewSettings, streamUrl, backgroundColor } from './settings';
+import { viewSettings, streamUrl, backgroundColor, loadOverlays, saveOverlays } from './settings';
 import { FacePose, type TrackingOptions } from './tracking';
 import { CameraCapture, MicrophoneCapture, type CameraState, type MicState, type BackgroundTracking } from './media';
 import { liveText } from './i18n';
 import { Icon } from '../editor/Icon';
-import { createLiveSender, receiveExpression, receiveLightingPreset, sendLighting, watchDuplicateLivePages } from './relay';
+import { createLiveSender, receiveExpression, receiveLightingPreset, sendLighting, sendOverlays, watchDuplicateLivePages } from './relay';
 import { EXPRESSION_TOKEN_PATH, LIGHTING_PRESET_PATH } from './expression-protocol';
 
 export function LiveApp() {
   const { language, setLanguage } = useI18n(), t = liveText[language];
-  const [settings, setSettings] = useState(() => { const view = viewSettings(location.search); return { ...view, lighting: view.lighting ?? loadLighting(view.project) }; });
+  const [settings, setSettings] = useState(() => { const view = viewSettings(location.search); return { ...view, lighting: view.lighting ?? loadLighting(view.project), overlays: view.overlays ?? loadOverlays(view.project) }; });
+  // Overlay layers the loaded avatar has (built/overlays), listed once it has loaded.
+  const [availableOverlays, setAvailableOverlays] = useState<string[]>([]);
   const [lightingOpen, setLightingOpen] = useState(false);
   const [presets, setPresets] = useState(() => loadLightingPresets(settings.project));
   const presetsRef = useRef(presets); presetsRef.current = presets;
@@ -36,6 +38,7 @@ export function LiveApp() {
   const camera = useRef<CameraCapture | null>(null), microphone = useRef<MicrophoneCapture | null>(null);
   const avatarRef = useRef<MeshAvatar | null>(null);
   const lightRef = useRef(settings.lighting); lightRef.current = settings.lighting;
+  const overlaysRef = useRef(settings.overlays); overlaysRef.current = settings.overlays;
   const pose = useRef(new FacePose());
   const controls = useRef({ options, gain, micState, cameraState }); controls.current = { options, gain, micState, cameraState };
   const refreshDevices = () => { void navigator.mediaDevices?.enumerateDevices().then(setDevices).catch(() => undefined); };
@@ -68,7 +71,7 @@ export function LiveApp() {
     }, (avatar, now) => {
       // An expression alone also drives the stream view, including its fade back to neutral.
       if (controls.current.cameraState === 'running' || controls.current.micState === 'micOn' || avatar.getExpression().active) send(avatar.getParameters(), now);
-    }).then(value => { if (cancelled) value.destroy(); else { view = value; avatarRef.current = value.avatar; value.avatar.setLighting(lightRef.current); value.avatar.setExpression(expressionRef.current); setViewState('ready'); } }).catch(() => { if (!cancelled) setViewState('projectError'); });
+    }).then(value => { if (cancelled) value.destroy(); else { view = value; avatarRef.current = value.avatar; value.avatar.setLighting(lightRef.current); value.avatar.setExpression(expressionRef.current); value.avatar.setOverlays(overlaysRef.current); setAvailableOverlays(value.overlays); setViewState('ready'); } }).catch(() => { if (!cancelled) setViewState('projectError'); });
     return () => { cancelled = true; clock.terminate(); view?.destroy(); avatarRef.current = null; };
   }, [settings.project, settings.fit]);
   useEffect(() => {
@@ -85,6 +88,13 @@ export function LiveApp() {
     return () => clearInterval(timer);
   }, [settings.project]);
   const changeLighting = (lighting: typeof settings.lighting) => setSettings(current => ({ ...current, lighting }));
+  useEffect(() => {
+    saveOverlays(settings.project, settings.overlays);
+    avatarRef.current?.setOverlays(settings.overlays);
+    sendOverlays(settings.project, settings.overlays);
+  }, [settings.project, settings.overlays]);
+  const toggleOverlay = (name: string) => setSettings(current => ({ ...current,
+    overlays: current.overlays.includes(name) ? current.overlays.filter(item => item !== name) : [...current.overlays, name] }));
   useEffect(() => { avatarRef.current?.setExpression(expression); }, [expression]);
   useEffect(() => watchDuplicateLivePages(settings.project, setDuplicatePage), [settings.project]);
   useEffect(() => receiveExpression(settings.project, setExpression), [settings.project]);
@@ -175,6 +185,12 @@ export function LiveApp() {
         </> : <small>{t.remoteUnavailable}</small>}
         <a href="https://github.com/shinshin86/mesh-avatar-studio/blob/main/docs/reference.md#switching-expressions-from-other-apps" target="_blank" rel="noreferrer">{t.remoteDocs}</a></div>
       </details>
+      {availableOverlays.length > 0 && <details className="live-overlays" data-testid="overlay-section" open>
+        <summary><Icon name="eye" />{t.overlays}{settings.overlays.some(name => availableOverlays.includes(name)) && <span className="overlays-on">ON</span>}</summary>
+        <div className="overlay-buttons" role="group" aria-label={t.overlays}>
+          {availableOverlays.map(name => <button key={name} type="button" aria-pressed={settings.overlays.includes(name)} onClick={() => toggleOverlay(name)}>{name}</button>)}
+        </div><small>{t.overlaysHint}</small>
+      </details>}
       <details className="live-lighting" data-testid="lighting-section" onToggle={event => setLightingOpen(event.currentTarget.open)}>
         <summary><Icon name="light" />{lightingText[language].title}{settings.lighting.enabled && <span className="lighting-on">ON</span>}</summary>
         <div className="lighting-presets"><h3>{t.presets}</h3>

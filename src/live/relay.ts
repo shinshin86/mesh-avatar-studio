@@ -2,6 +2,7 @@ import { LIGHTING_EVENT, lightingWire, lightingMessage, lightingValue } from '..
 import type { LightingSettings } from 'mesh-avatar';
 import { LIVE_EVENT, liveMessage } from './protocol';
 import { EXPRESSION_EVENT, LIGHTING_PRESET_EVENT, expressionMessage, lightingPresetMessage, type RemoteExpression } from './expression-protocol';
+import { OVERLAYS_EVENT, overlaysMessage } from './overlay-protocol';
 
 export function createLiveSender(project: string, sender = randomSender()) {
   let sent = -Infinity;
@@ -24,6 +25,16 @@ export function receiveLighting(project: string, callback: (value: LightingSetti
   const receive = (data: unknown) => { const message = lightingMessage(data); if (message?.project === project) callback(lightingValue(message)); };
   import.meta.hot?.on(LIGHTING_EVENT, receive);
   return () => import.meta.hot?.off(LIGHTING_EVENT, receive);
+}
+
+export function sendOverlays(project: string, overlays: string[]) {
+  const message = overlaysMessage({ project, overlays });
+  if (message) import.meta.hot?.send(OVERLAYS_EVENT, message);
+}
+export function receiveOverlays(project: string, callback: (overlays: string[]) => void) {
+  const receive = (data: unknown) => { const message = overlaysMessage(data); if (message?.project === project) callback(message.overlays); };
+  import.meta.hot?.on(OVERLAYS_EVENT, receive);
+  return () => import.meta.hot?.off(OVERLAYS_EVENT, receive);
 }
 
 /** Expressions sent from other apps; a message without a project applies to every Live page. */

@@ -1,0 +1,22 @@
+[workspace]
+members = ["crates/mesh-avatar-core", "crates/mesh-avatar-wgpu", "crates/mesh-avatar-ffi", "apps/mesh-avatar-desktop"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+publish = false
+
+[workspace.dependencies]
+mesh-avatar-core = { path = "crates/mesh-avatar-core" }
+mesh-avatar-wgpu = { path = "crates/mesh-avatar-wgpu" }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+png = "0.17"
+zip = { version = "2", default-features = false }
+wgpu = "27"
+pollster = "0.4"
+bytemuck = { version = "1", features = ["derive"] }
+winit = "0.30"

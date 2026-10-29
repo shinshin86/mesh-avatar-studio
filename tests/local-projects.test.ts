@@ -258,3 +258,29 @@ test('sample copies reserve unused names, carry edits and built assets, and reje
   expect((await call('/__studio/copy-sample', 'POST', edited)).status).toBe(400);
   expect((await call('/__studio/projects/miko-qipao-copy-3/rig.json')).status).toBe(404);
 });
+
+test('renames a project folder and its manifest name, and refuses bad, taken or protected names', async () => {
+  await writeFile(resolve(root, 'projects/nova/avatar.json'), JSON.stringify({ format: 'mesh-avatar', version: 1, name: 'nova', author: 'Artist' }));
+  const renamed = await call('/__studio/projects/nova/rename', 'POST', { name: 'mio' });
+  expect(renamed.status).toBe(200);
+  expect(JSON.parse(renamed.body)).toMatchObject({ name: 'mio', relativePath: 'projects/mio', hasSprites: true });
+  expect(JSON.parse(await readFile(resolve(root, 'projects/mio/avatar.json'), 'utf8'))).toEqual({ format: 'mesh-avatar', version: 1, name: 'mio', author: 'Artist' });
+  expect((await call('/__studio/projects/nova/rig.json')).status).toBe(404);
+  expect((await call('/__studio/projects/mio/rig.json')).status).toBe(200);
+  expect(JSON.parse((await call('/__studio/projects')).body).map((project: { name: string }) => project.name)).toContain('mio');
+
+  // a display name chosen in the manifest stays as it is
+  await writeFile(resolve(root, 'projects/mio/avatar.json'), JSON.stringify({ format: 'mesh-avatar', version: 1, name: 'Mio Chan' }));
+  expect((await call('/__studio/projects/mio/rename', 'POST', { name: 'mio-2' })).status).toBe(200);
+  expect(JSON.parse(await readFile(resolve(root, 'projects/mio-2/avatar.json'), 'utf8')).name).toBe('Mio Chan');
+
+  await mkdir(resolve(root, 'projects/taken'), { recursive: true });
+  for (const [body, status] of [[{ name: 'taken' }, 409], [{ name: '.hidden' }, 400], [{ name: '../escape' }, 400], [{ name: 'has space' }, 400],
+    [{ name: '' }, 400], [{ name: 'sample-miko-qipao' }, 400], [{}, 400]] as const) {
+    expect((await call('/__studio/projects/mio-2/rename', 'POST', body)).status).toBe(status);
+  }
+  expect((await call('/__studio/projects/mio-2/rename', 'POST', { name: 'mio-2' })).status).toBe(200);
+  expect((await call('/__studio/projects/sample-miko-qipao/rename', 'POST', { name: 'mine' })).status).toBe(403);
+  expect((await call('/__studio/projects/missing/rename', 'POST', { name: 'found' })).status).toBe(404);
+  expect(JSON.parse((await call('/__studio/projects')).body).map((project: { name: string }) => project.name)).toEqual(expect.arrayContaining(['mio-2']));
+});

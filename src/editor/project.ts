@@ -156,6 +156,17 @@ export async function projectAction(project: LocalProject, action: 'rig' | 'reve
   return response.json();
 }
 
+export class RenameError extends Error {
+  constructor(readonly reason: 'invalid' | 'taken' | 'failed') { super(`Rename ${reason}.`); }
+}
+/** Renames the project folder (and its manifest name); resolves with the project under the new name. */
+export async function renameProject(project: LocalProject, name: string): Promise<LocalProject> {
+  const response = await fetch(`${baseUrl(project)}rename`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+  const result = await response.json().catch(() => ({}));
+  if (response.ok) return result;
+  throw new RenameError(response.status === 400 ? 'invalid' : response.status === 409 && /exists/.test(result.error ?? '') ? 'taken' : 'failed');
+}
+
 export function sampleImagesAvailable(): Promise<boolean> {
   return Promise.all([sampleSourceUrl, `${sampleBase}built/base.png`].map(url => new Promise<boolean>(resolve => {
     const image = new Image();

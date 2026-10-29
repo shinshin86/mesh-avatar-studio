@@ -64,6 +64,7 @@ export function FilePreview() {
 | `paused` | `boolean` | Pause animation; defaults to `false` |
 | `noIdle` | `boolean` | Disable automatic idle motion; defaults to `false` |
 | `label` | `string` | Accessible canvas label; defaults to `Avatar` |
+| `overlays` | `string[]` | Overlay layers to show, such as `['glasses']`; none by default. Names come from the avatar's `built/overlays/overlays.json` |
 | `onLoad` | `(avatar: MeshAvatarInstance) => void` | Avatar loaded and ready |
 | `onError` | `(error: unknown) => void` | Loading failed; the element is empty until a successful load |
 | `onMotion` | `(id: string \| null) => void` | Motion changed |

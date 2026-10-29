@@ -9,6 +9,8 @@ import { readAvatarFolder } from '../tools/avatar-files.mjs';
 import { mediapipeAssets } from '../src/server/mediapipe-assets';
 
 const fromHere = (path: string) => fileURLToPath(new URL(path, import.meta.url));
+// Forward slashes on every platform, as Vite matches deny patterns against normalized paths.
+const repository = fromHere('..').replace(/\\/g, '/').replace(/\/$/, '');
 const base = '/mesh-avatar-studio/';
 // External mesh-avatar-element embeds use this path as their default src; keep it stable.
 const avatarFile = 'miko.mavatar';
@@ -83,7 +85,10 @@ export default defineConfig({
     host: '127.0.0.1',
     fs: {
       // Only the packed avatar is served; raw sample and private project files stay local.
-      deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/samples/**', '**/projects/**', '**/work/**', '**/reference/**'],
+      // The folders are anchored to this repository: "**/projects/**" would also match a
+      // checkout that itself lives under a folder named projects/ and deny every page.
+      deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**',
+        ...['samples', 'projects', 'work', 'reference'].map(folder => `${repository}/${folder}/**`)],
     },
   },
   preview: { host: '127.0.0.1' },

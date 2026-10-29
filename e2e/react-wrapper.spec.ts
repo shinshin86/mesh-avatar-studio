@@ -41,14 +41,14 @@ test('loads only the supplied src and forwards HTML props and ref', async ({ pag
 
 test('updates and removes controlled attributes', async ({ page }) => {
   await open(page);
-  await page.evaluate(src => window.harness.update({ src, expression: 'smile', emotion: 'happy', noIdle: true, paused: true, label: 'Miko' }), sample);
+  await page.evaluate(src => window.harness.update({ src, expression: 'smile', emotion: 'happy', noIdle: true, paused: true, label: 'Miko', overlays: ['glasses', 'hat'] }), sample);
   const el = page.locator('mesh-avatar');
-  for (const [name, value] of Object.entries({ expression: 'smile', emotion: 'happy', 'no-idle': '', paused: '', label: 'Miko' })) {
+  for (const [name, value] of Object.entries({ expression: 'smile', emotion: 'happy', 'no-idle': '', paused: '', label: 'Miko', overlays: 'glasses hat' })) {
     await expect(el).toHaveAttribute(name, value);
   }
   expect(await page.evaluate(() => window.harness.ref.current!.avatar!.getExpression().name)).toBe('smile');
   await page.evaluate(src => window.harness.update({ src }), sample);
-  for (const name of ['expression', 'emotion', 'no-idle', 'paused', 'label']) await expect(el).not.toHaveAttribute(name);
+  for (const name of ['expression', 'emotion', 'no-idle', 'paused', 'label', 'overlays']) await expect(el).not.toHaveAttribute(name);
   expect(await page.evaluate(() => window.harness.ref.current!.avatar!.getExpression().name)).toBe('neutral');
 });
 

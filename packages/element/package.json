@@ -1,6 +1,6 @@
 {
   "name": "mesh-avatar-element",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "license": "MIT",
   "description": "A <mesh-avatar> custom element: put a Mesh Avatar Studio avatar on any web page with one tag.",
@@ -46,6 +46,6 @@
     "./standalone": "./dist/standalone.js"
   },
   "dependencies": {
-    "mesh-avatar": "^0.3.0"
+    "mesh-avatar": "^0.4.0"
   }
 }

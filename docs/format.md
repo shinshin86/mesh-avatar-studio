@@ -20,6 +20,9 @@ built/
   sprites/                     optional drawn eye and mouth variants
     sprites.json               sprite rectangles
     <name>.png                 one image for every entry in sprites.json.layers
+  overlays/                    optional overlay layers (glasses and other accessories)
+    overlays.json              overlay names and image files
+    <file>.png                 one full-size image for every entry in overlays.json.overlays
 source.png                     optional original illustration; needed for editing
 thumbnail.png                  optional preview image
 ```
@@ -27,7 +30,8 @@ thumbnail.png                  optional preview image
 `base.png` and `hairmask.png` are required even when they have no rectangle entry in
 `layers.json`. Hand and accessory layers are required only when the rig contains those
 parts. The entire `sprites/` directory can be absent. The renderer then animates the
-generated eye layers and procedural mouth without drawn variants.
+generated eye layers and procedural mouth without drawn variants. The `overlays/`
+directory is optional as well; without it the avatar renders exactly as before.
 
 Readers ignore unknown files and unknown JSON keys. A project may also contain drafts,
 source variants, masks and review images; these are not required for playback.
@@ -169,6 +173,36 @@ expression or emotion tag is active; while speaking, the open mouth drawings are
 them. Without these drawings, those expressions look as before.
 Otherwise the original base drawing provides the closed mouth.
 
+## Overlay layers: `built/overlays/overlays.json`
+
+Overlay layers are optional full-size drawings, such as glasses, that an app shows or
+hides by name with `setOverlays`. The metadata contains `version` and `overlays`.
+`version` is `1` (or omitted). `overlays` is an array of `{ name, file }` entries:
+
+```json
+{
+  "overlays": [
+    { "name": "glasses", "file": "glasses.png" }
+  ],
+  "version": 1
+}
+```
+
+`name` and the file stem use letters, digits, `_` and `-`; `file` ends in `.png`, and
+names must be unique. Each image lives under `built/overlays/`, is the same size as
+`base.png` and is drawn in source-image coordinates, transparent outside the accessory.
+The runtime meshes only the opaque area (plus a few pixels of padding), so a small
+accessory stays cheap to animate.
+
+All overlays start hidden. `setOverlays(['glasses'])` shows the listed overlays and hides
+the others; unknown names are ignored, and `setOverlays([])` hides them all. Hidden
+overlays are not deformed. Overlays are drawn above the drawn eye and mouth variants and
+below the tassels and hand, and follow the head and body like the base drawing. Eyebrow,
+jaw and hair movement do not move them.
+
+Runtimes that do not know overlays ignore the directory, so an avatar with overlays still
+plays on them without the accessories.
+
 ## Archive rules and compatibility
 
 A `.mavatar` file is a ZIP with stored entries (compression method 0), UTF-8 names and
@@ -178,7 +212,7 @@ segments or use backslashes. Importers reject archives with more than 200 entrie
 any entry larger than 64 MB.
 
 Missing `avatar.json` is allowed only for folders. Missing `version` is allowed only
-in `layers.json` and `sprites.json`, where it means `1`. `rig.json` and any present
+in `layers.json`, `sprites.json` and `overlays.json`, where it means `1`. `rig.json` and any present
 `avatar.json` must specify version `1`. Readers reject unsupported versions with an
 error identifying the file and version, such as
 `built/layers.json.version: unsupported version 2 (expected 1)`.
@@ -229,7 +263,7 @@ are archives; URL paths ending in `.mavatar` are fetched as archives. Other URLs
 folders. Relative URLs resolve against the current page. An existing package is
 returned unchanged. For folders, `rigFile` selects the rig filename (default
 `rig.json`), and `version` adds a `v` query parameter to metadata and image URLs.
-Optional manifest or sprite metadata may be absent; other HTTP errors are reported.
+Optional manifest, sprite or overlay metadata may be absent; other HTTP errors are reported.
 Folder images remain URLs and are read by the renderer.
 
 The returned package contains `manifest`, validated `rig`, an `assets` URL map and

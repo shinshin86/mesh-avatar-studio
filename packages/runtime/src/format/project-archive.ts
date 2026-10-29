@@ -9,7 +9,7 @@ export async function packProjectAvatar(
   read: (paths: Set<string>) => Promise<Files>,
   { name, includeSource = true, lipSync }: { name: string; includeSource?: boolean; lipSync?: LipSyncSettings },
 ): Promise<Uint8Array> {
-  const wanted = new Set(['avatar.json', 'rig.json', 'built/layers.json', 'built/sprites/sprites.json']);
+  const wanted = new Set(['avatar.json', 'rig.json', 'built/layers.json', 'built/sprites/sprites.json', 'built/overlays/overlays.json']);
   const metadata = await read(wanted);
   const json = (path: string) => {
     try { return JSON.parse(new TextDecoder().decode(metadata[path])); }
@@ -26,6 +26,13 @@ export async function packProjectAvatar(
     for (const layer of Object.keys(json(path)?.layers ?? {})) {
       if (!/^[A-Za-z0-9_-]+$/.test(layer)) throw new Error(`${path}.layers.${layer}: invalid layer name`);
       wanted.add(`${prefix}${layer}.png`);
+    }
+  }
+  if (metadata['built/overlays/overlays.json']) {
+    const overlays = json('built/overlays/overlays.json')?.overlays;
+    for (const item of Array.isArray(overlays) ? overlays : []) {
+      if (typeof item?.file !== 'string' || !/^[A-Za-z0-9_-]+\.png$/.test(item.file)) throw new Error('built/overlays/overlays.json: invalid overlay file name');
+      wanted.add(`built/overlays/${item.file}`);
     }
   }
   const files = await read(wanted);

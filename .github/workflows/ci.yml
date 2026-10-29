@@ -71,3 +71,72 @@ jobs:
 
       - name: Test agent tools
         run: uv run tools/test_agent_tools.py
+
+  native:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: native
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check embedded motion data matches the JS runtime
+        run: node conformance/sync-motion-data.mjs --check
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Lint
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Check core for WASM
+        run: cargo check -p mesh-avatar-core --target wasm32-unknown-unknown
+
+      - name: Lint optional renderer
+        run: cargo clippy -p mesh-avatar-ffi --all-targets --features render -- -D warnings
+
+      - name: Test optional renderer
+        run: cargo test -p mesh-avatar-ffi --features render
+
+      - name: Install pinned C header generator
+        run: cargo install cbindgen --version 0.29.4 --locked --root target/header-tools
+
+      - name: Check generated C header
+        run: bash conformance/ffi-header.sh --check
+
+      - name: Build C ABI libraries
+        run: cargo build --release -p mesh-avatar-ffi
+
+      - name: Build and run C example
+        run: make -C examples/c run
+
+      - name: Build optional C renderer
+        run: cargo build --release -p mesh-avatar-ffi --features render
+
+      - name: Build and run headless C renderer example
+        run: make -C examples/c run-render
+
+      - name: Build and run terminal C renderer example
+        run: |
+          make -C examples/c terminal
+          COLUMNS=100 LINES=30 target/ffi-terminal-example ../samples/miko-qipao 30 > /dev/null

@@ -25,7 +25,8 @@
     "pack-avatar": "node --experimental-strip-types tools/pack-avatar.mjs",
     "render-poses": "node --experimental-strip-types tools/render-poses.mjs",
     "quality": "node --experimental-strip-types tools/quality.mjs",
-    "doctor": "node tools/doctor.mjs"
+    "doctor": "node tools/doctor.mjs",
+    "create": "node tools/create.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.21",

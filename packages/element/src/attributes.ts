@@ -25,6 +25,11 @@ export function parseFit(value: string | null): Fit | undefined {
   return value === 'contain' || value === 'cover' ? value : undefined;
 }
 
+/** Overlay layer names from a space-separated attribute; none when it is missing or empty. */
+export function parseOverlays(value: string | null): string[] {
+  return value ? value.split(/\s+/).filter(Boolean) : [];
+}
+
 /** Seconds since the previous frame, limited like the runtime's own loop. */
 export function frameSeconds(now: number, previous: number) {
   return Math.min(0.05, Math.max(0.001, (now - previous) / 1000));

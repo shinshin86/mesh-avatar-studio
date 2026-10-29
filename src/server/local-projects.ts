@@ -10,11 +10,13 @@ import { validateRig, unpackAvatar, validateAvatarFiles, parseManifest } from '.
 import { packProjectAvatar } from '../../packages/runtime/src/format/project-archive';
 import { checkEntryName } from '../../packages/runtime/src/format/zip';
 import type { LocalProject, LocalProjectEntry } from '../project-types';
-import { decodeVariants, JobError, projectJob, runTool, variantState, VARIANTS, type Runner } from './project-jobs';
+import { decodeVariants, JobError, projectJob, renameResilient, runTool, variantState, VARIANTS, type Runner } from './project-jobs';
 
 const SAMPLE = 'sample-miko-qipao';
 const displayPath = (path: string) => path === homedir() ? '~' : path.startsWith(`${homedir()}${sep}`) ? `~${path.slice(homedir().length)}` : path;
 const safeName = /^[A-Za-z0-9._-]+$/;
+// New project names follow tools/new-project.py: no leading dot, so never hidden or a job folder.
+const projectName = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 class HttpError extends Error { constructor(public status: number, message: string) { super(message); } }
 const inside = (base: string, path: string) => { const rel = relative(base, path); return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel)); };
 function fileSystemError(root: string, error: unknown, fallback = 'projects') {
@@ -283,6 +285,32 @@ export function localProjectMiddleware(root: string, reveal = revealFolder, runn
       const name = parts[1], path = await folder(name), tail = parts.slice(2);
       if (req.method === 'POST' && tail.length === 1 && tail[0] === 'reveal') {
         await reveal(path); json(200, { path }); return;
+      }
+      if (req.method === 'POST' && tail.length === 1 && tail[0] === 'rename') {
+        if (name === SAMPLE) throw new HttpError(403, 'The sample is read-only.');
+        const body = await readBody(req), next = body?.name;
+        if (typeof next !== 'string' || !projectName.test(next) || next === SAMPLE) throw new HttpError(400, 'Use letters, digits, hyphens or underscores, starting with a letter or digit.');
+        if (next === name) { json(200, await info(name)); return; }
+        const target = resolve(base, next);
+        // On a case-insensitive disk a change of case finds the project itself, which is fine.
+        if (await exists(target) && await realpath(target) !== path) throw new HttpError(409, 'A project with this name already exists.');
+        if (saving.has(path)) throw new HttpError(409, 'A project operation is already in progress.');
+        saving.add(path);
+        try {
+          await renameResilient(path, target);
+          // The manifest carries the avatar's name into exported archives, so it follows the folder.
+          const manifest = resolve(target, 'avatar.json');
+          if (await exists(manifest)) {
+            const raw = JSON.parse(await readFile(await checked(target, manifest), 'utf8'));
+            if (raw && typeof raw === 'object' && !Array.isArray(raw) && raw.name === name) {
+              const temporary = resolve(target, `.avatar-${randomUUID()}.tmp`);
+              try { await writeFile(temporary, JSON.stringify({ ...raw, name: next }, null, 2) + '\n', { flag: 'wx' }); await rename(temporary, manifest); }
+              finally { await unlink(temporary).catch(() => undefined); }
+            }
+          }
+          json(200, await info(next));
+        } finally { saving.delete(path); }
+        return;
       }
       if (req.method === 'GET' && tail.length === 1 && tail[0] === 'variants') {
         const manifest = resolve(path, 'built/sprites/sprites.json'); if (await exists(manifest)) await checked(path, manifest);

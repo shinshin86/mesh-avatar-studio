@@ -1,5 +1,20 @@
 # mesh-avatar
 
+## 0.4.0
+
+### Minor Changes
+
+- 9d752c1: Add optional overlay layers: full-size accessory drawings such as glasses, listed in `built/overlays/overlays.json` and switched by name with `setOverlays`. Only their opaque area is meshed, and hidden overlays are not deformed. Avatars without overlays render as before, and older runtimes ignore the directory. `validateAvatarFiles`, `openAvatar` and project packing read, check and include the overlay files.
+
+## 0.3.1
+
+### Patch Changes
+
+- 9e3001b: Avatars with only some drawn eye or mouth variants no longer lose their eyes or mouth. A
+  missing half-closed eye now uses the layered eye, a missing smiling eye uses the closed one,
+  and a mouth shape without a drawing uses the shader mouth. Avatars with all variants, or none,
+  render exactly as before.
+
 ## 0.3.0
 
 ### Minor Changes
