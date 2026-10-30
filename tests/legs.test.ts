@@ -201,3 +201,39 @@ test('planted motion uses held transfers without consuming additional random val
   expect(Math.max(...values)).toBeLessThan(0.701);
   expect(values.slice(300).filter(v => Math.abs(v) > 0.69).length / 600).toBeGreaterThan(0.25);
 });
+
+test('optional zero twist preserves every legacy point; yaw counterturns shoulders, stabilizes the head and keeps feet fixed', () => {
+  const body={...fixture.body,chest:{...fixture.body.chest,cy:450}},head={...fixture.head,pivotX:512,pivotY:300,weightBand:[250,320]};
+  const plain=createLegs(legs,body,head)!,zero=createLegs({...legs,twist:0},body,head)!,twisted=createLegs({...legs,twist:6},body,head)!;
+  let maximum=0;
+  for(let f=0;f<600;f++){
+    const P={weightShift:.7*Math.sin(f/60*Math.PI*2/5),bodyAngleX:0};
+    for(const m of [plain,zero,twisted])m.step(P,1/60);
+    const headOffsets:number[][]=[];
+    for(const y of [200,320,450,540,600,680,1000,1235,1400])for(const x of [420,512,600]){
+      const a=[x,y],b=[x,y],c=[x,y];plain.apply(a,x,y,plain.weights(x,y),P);zero.apply(b,x,y,zero.weights(x,y),P);twisted.apply(c,x,y,twisted.weights(x,y),P);expect(b).toEqual(a);if(y===200)headOffsets.push(c.map((v,i)=>v-a[i]));if(y>=1235)expect(c).toEqual([x,y]);
+    }
+    // The head may follow the IK pelvis correction, but yaw must not change its frontal shape.
+    for(const offset of headOffsets)for(let i=0;i<2;i++)expect(offset[i]).toBeCloseTo(headOffsets[0][i],10);
+    maximum=Math.max(maximum,Math.abs(twisted.frame(P).twist!.pelvis));expect(twisted.frame(P).twist!.head).toBe(0);
+  }
+  expect(maximum*180/Math.PI).toBeGreaterThan(3);expect(maximum*180/Math.PI).toBeLessThan(6.1);
+  for(let f=0;f<300;f++)twisted.step({weightShift:.7},1/60);
+  const F=twisted.frame({weightShift:.7});expect(F.twist!.pelvis*180/Math.PI).toBeCloseTo(1.68,2);expect(F.twist!.shoulder*F.twist!.pelvis).toBeLessThan(0);
+  const invalid=rigWithLegs();invalid.legs!.twist=16;expect(validateRig(invalid).join()).toContain('twist');
+});
+
+test('yaw angular acceleration drives a stationary-waist pendulum through projected anchors without an extra travelling-wave force', async () => {
+  const {createCloth}=await import('../packages/runtime/src/engine/cloth.js');
+  const r=rigWithLegs();Object.assign(r.legs!,{shift:0,tilt:0,bend:0,bob:0,twist:6});
+  r.cloth=[{name:'test',outline:[[430,580],[590,580],[600,750],[420,750]],waist:[[450,590],[570,590]],hem:[[430,750],[590,750]],columns:5,rows:5,wind:0,cohesion:0}];
+  const engine=createRig(r),{Cloth,garments}=createCloth(engine,r),cloth=new Cloth();let maximum=0,acceleration=0;
+  for(let f=0;f<600;f++){
+    const P={...defaults,weightShift:f<30?0:.7};engine.stepBody(P,1/60);cloth.step(P,1/60,phys);
+    maximum=Math.max(maximum,...garments[0].angle.map(Math.abs));acceleration=Math.max(acceleration,Math.abs(engine.legs!.frame(P).twist!.acceleration));
+  }
+  expect(acceleration).toBeGreaterThan(.1);expect(maximum).toBeGreaterThan(.0005);
+  expect(Math.max(...garments[0].angle.map(Math.abs))).toBeLessThan(.0001);
+  // Projection is symmetric in source depth; it creates one coherent drive, not column phase offsets.
+  expect(garments[0].angle[0]).toBeCloseTo(garments[0].angle[4],4);
+});

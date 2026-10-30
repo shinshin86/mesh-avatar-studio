@@ -2,7 +2,9 @@
 // Link masses are proportional to their lengths; both halves have the same
 // fabric density. Rendered links retain their source lengths.
 
-import { CLOTH_DEFAULTS, checkClothTuning } from './cloth-tuning.js';
+import { clothGrid, sampleLine } from './cloth-grid.js';
+import { pendulumSystem, stepPendulum } from './cloth-pendulum.js';
+import { CLOTH_DEFAULTS, CLOTH_OPTIONAL_DEFAULTS, checkClothTuning } from './cloth-tuning.js';
 
 /** Evenly spaced points (by arc length) along a polyline. */
 function resample(line, n) {
@@ -36,7 +38,8 @@ export function createCloth(engine, rig) {
   const inertiaLength = 0.8;
 
   const garments = (rig.cloth ?? []).map(c => {
-    const cols = c.columns ?? 8, rows = c.rows ?? 5;
+    const grid = clothGrid(c);
+    const cols = grid.custom ? grid.cols : (c.columns ?? 8), rows = grid.custom ? grid.rows : (c.rows ?? 5);
     const top = resample(c.waist, cols), bot = resample(c.hem, cols);
     const rest = new Float64Array(rows * cols * 2);
     for (let r = 0; r < rows; r++) for (let k = 0; k < cols; k++) {
@@ -44,10 +47,12 @@ export function createCloth(engine, rig) {
       rest[i] = top[k][0] + (bot[k][0] - top[k][0]) * v;
       rest[i + 1] = top[k][1] + (bot[k][1] - top[k][1]) * v;
     }
+    if (grid.custom) rest.set(grid.rest);
     return {
+      grid, pendulums: /** @type {ReturnType<typeof pendulumSystem>[]} */ ([]), systemKey: null,
       c, gravity: 9.80665 / (c.scale === undefined ? metersPerPixel : c.scale / 1000),
-      tuning: Object.fromEntries(Object.entries(CLOTH_DEFAULTS).map(([key, value]) => [key, c[key] ?? value])),
-      cols, rows, rest, top, weights: top.map(([x, y]) => baseWeights(x, y, 0)),
+      tuning: Object.fromEntries(Object.entries({ ...CLOTH_DEFAULTS, ...CLOTH_OPTIONAL_DEFAULTS }).map(([key, value]) => [key, c[key] ?? value])),
+      cols, rows, rest, top: grid.custom ? grid.top : top, weights: (grid.custom ? grid.top : top).map(([x, y]) => baseWeights(x, y, 0)),
       target: new Float64Array(rest.length), previous: null, pivotVelocity: new Float64Array(cols * 2),
       angle: new Float64Array(cols), angularVelocity: new Float64Array(cols),
       lowerAngle: new Float64Array(cols), lowerAngularVelocity: new Float64Array(cols),
@@ -75,16 +80,26 @@ export function createCloth(engine, rig) {
         s -= (fx * ty - fy * tx) / det;
         t -= (sx * fy - sy * fx) / det;
       }
-      const miss = Math.max(0, -s, s - 1) + Math.max(0, -t, t - 1);
+      let miss = Math.max(0, -s, s - 1) + Math.max(0, -t, t - 1);
+      if (g.grid.custom) {
+        const u = Math.max(0, Math.min(1, s)), v = Math.max(0, Math.min(1, t));
+        const px = ax * (1 - u) * (1 - v) + bx * u * (1 - v) + cx * u * v + dx * (1 - u) * v;
+        const py = ay * (1 - u) * (1 - v) + by * u * (1 - v) + cy * u * v + dy * (1 - u) * v;
+        miss = Math.hypot(px - x, py - y);
+      }
       if (!best || miss < best.miss) best = { q, s, t, miss };
     }
-    best.s = Math.min(4, Math.max(-3, best.s));
-    best.t = Math.min(4, Math.max(-3, best.t));
+    best.s = Math.min(g.grid.custom ? 1 : 4, Math.max(g.grid.custom ? 0 : -3, best.s));
+    best.t = Math.min(g.grid.custom ? 1 : 4, Math.max(g.grid.custom ? 0 : -3, best.t));
+    if (g.grid.custom) {
+      const point = [0, 0]; place(g.rest, best, point);
+      best.offset = [x - point[0], y - point[1]];
+    }
     return best;
   }
   function place(p, loc, out) {
     const { q, s, t } = loc, w = [(1 - s) * (1 - t), s * (1 - t), s * t, (1 - s) * t];
-    out[0] = 0; out[1] = 0;
+    out[0] = loc.offset?.[0] ?? 0; out[1] = loc.offset?.[1] ?? 0;
     for (let j = 0; j < 4; j++) { out[0] += p[q[j]] * w[j]; out[1] += p[q[j] + 1] * w[j]; }
     return out;
   }
@@ -119,7 +134,7 @@ export function createCloth(engine, rig) {
       const a = [0, 0];
       for (const g of garments) {
         const { cols, rows, rest, target, out, angle, angularVelocity, lowerAngle, lowerAngularVelocity, bounce, bounceVelocity } = g;
-        const { stiffness, damping, max, swing, follow, cohesion, wind, responseGain } = g.tuning;
+        const { stiffness, damping, max, swing, follow, cohesion, wind, responseGain, tierGain, highModeDamping } = g.tuning;
         const gain = this.gain * (responseGain ?? 1);
         const pivots = new Float64Array(cols * 2), renderPivots = new Float64Array(cols * 2), acceleration = new Float64Array(cols * 2);
         for (let k = 0; k < cols; k++) {
@@ -145,6 +160,63 @@ export function createCloth(engine, rig) {
         g.previous = pivots;
         const frequencyMultiplier = swing * Math.sqrt(stiffness);
         const verticalOmega = 2 * Math.PI * TUNE.bounceHz;
+        if (g.grid.custom) {
+          const key = `${frequencyMultiplier}:${damping}:${highModeDamping}`;
+          if (g.systemKey !== key) {
+            const previous = g.pendulums;
+            g.pendulums = g.grid.lengths.map((length, k) => {
+              const js = g.grid.joints[k];
+              const state = pendulumSystem(js.slice(1).map((v, j) => (v - js[j]) * length * inertiaLength), g.gravity * frequencyMultiplier ** 2, TUNE.zeta * damping, highModeDamping);
+              if (previous[k]) { state.angles = previous[k].angles; state.velocities = previous[k].velocities; }
+              return state;
+            });
+            g.systemKey = key;
+          }
+          // Resolve the highest normal mode as well as the shortest geometric link.
+          const highest = Math.max(...g.pendulums.flatMap(p => p.frequencies));
+          const count = Math.max(sub, Math.ceil(elapsed * highest * 32)), step = elapsed / count;
+          for (let n = 0; n < count; n++) {
+            const t = this.time + (n + 1) * step;
+            const breeze = (Math.sin(t * 1.1) * 0.6 + Math.sin(t * 2.3) * 0.4) * max * wind;
+            for (let k = 0; k < cols; k++) {
+              const ay = acceleration[k * 2 + 1], effectiveGravity = Math.max(g.gravity * 0.1, g.gravity - ay);
+              const ax = Math.max(-8 * g.gravity, Math.min(8 * g.gravity, acceleration[k * 2])) - effectiveGravity * breeze / g.grid.lengths[k];
+              stepPendulum(g.pendulums[k], step, ax, effectiveGravity / g.gravity);
+              bounceVelocity[k] += (-(verticalOmega ** 2) * bounce[k] - 2 * verticalOmega * bounceVelocity[k] - ay * 0.15) * step;
+              bounce[k] += bounceVelocity[k] * step;
+            }
+          }
+          for (let pass = 0; elapsed > 0 && pass < cohesion; pass++) for (const field of ['angles', 'velocities']) {
+            const previous = g.pendulums.map(p => [...p[field]]);
+            g.pendulums.forEach((p, k) => { p[field] = previous[k].map((v, j) => 0.5 * v + 0.25 * (previous[Math.max(0, k - 1)][j] + previous[Math.min(cols - 1, k + 1)][j])); });
+          }
+          const renderCustom = (destination, anchors, renderGain, bendGain = 1) => {
+            for (let k = 0; k < cols; k++) {
+              const js = g.grid.joints[k], seam = g.grid.seams[k], length = g.grid.lengths[k];
+              const vertical = max * 0.1 * Math.tanh(bounce[k] * renderGain / (max * 0.1));
+              const limit = 2 * Math.asin(Math.min(0.95, (max - Math.abs(vertical)) / (2 * length)));
+              const root = g.pendulums[k].angles[0];
+              const angles = g.pendulums[k].angles.map(v => {
+                const displayed = bendGain === 1 ? v : root + (v - root) * bendGain;
+                return limit * Math.tanh(displayed * renderGain / limit);
+              });
+              const joints = [Array.from(anchors.slice(k * 2, k * 2 + 2))];
+              for (let j = 0; j < angles.length; j++) {
+                const a = sampleLine(seam, js[j]), b = sampleLine(seam, js[j + 1]), x = b[0] - a[0], y = b[1] - a[1], theta = angles[j];
+                joints.push([joints[j][0] + x * Math.cos(theta) + y * Math.sin(theta), joints[j][1] - x * Math.sin(theta) + y * Math.cos(theta)]);
+              }
+              for (let r = 0; r < rows; r++) {
+                const v = g.grid.fractions[k][r]; let j = 0; while (j < angles.length - 1 && v > js[j + 1] + 1e-9) j++;
+                const a = sampleLine(seam, js[j]), b = sampleLine(seam, v), u = (v - js[j]) / (js[j + 1] - js[j]);
+                const theta = angles[j] * (1 - 0.1 * (1 - follow) * (1 - u)), x = b[0] - a[0], y = b[1] - a[1], i = (r * cols + k) * 2;
+                destination[i] = joints[j][0] + x * Math.cos(theta) + y * Math.sin(theta);
+                destination[i + 1] = joints[j][1] - x * Math.sin(theta) + y * Math.cos(theta) + vertical * v;
+              }
+            }
+          };
+          renderCustom(g.physicalOut, pivots, 1); renderCustom(out, renderPivots, gain, tierGain);
+          continue;
+        }
         for (let n = 0; n < sub; n++) {
           const t = this.time + (n + 1) * h;
           // One coherent breeze for the whole sheet, never a travelling wave.

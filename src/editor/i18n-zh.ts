@@ -111,10 +111,11 @@ export const partsZh: Record<PartGroup, [string, string, string]> = {
 };
 
 export const fieldsZh: Record<string, string> = {
-  spine: '脊柱稳定', bob: '换重心下沉 (px)', responseGain: '布料夸张倍率 (1 = 物理)',
+  twist: '骨盆扭转上限 (度)', spine: '脊柱稳定', bob: '换重心下沉 (px)', responseGain: '布料夸张倍率 (1 = 物理)',
   pelvis: '骨盆', left: '图像左腿', right: '图像右腿', hip: '髋关节', knee: '膝盖', ankle: '脚踝',
   shift: '横向位移 (px)', tilt: '骨盆倾角 (rad)', bend: '膝盖弯曲量 (px)',
   scale: '图像比例 (mm/px)', swing: '频率倍率', stiffness: '刚度倍率', damping: '阻尼倍率', follow: '列刚性', cohesion: '横向平滑次数',
+  seams: '褶皱与缝线', tiers: '层间接缝', addSeam: '添加缝线', addTier: '添加层间接缝', deleteLine: '删除线条',
   wind: '风力', waist: '腰线', hem: '下摆线', columns: '列数', rows: '行数', clothCell: '布料网格间距',
   image: '原图', width: '宽度', height: '高度', name: '名称',
   center: '中心', pivot: '支点', rx: '横向半径', ry: '纵向半径',

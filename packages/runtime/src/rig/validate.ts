@@ -1,3 +1,4 @@
+import { clothGrid } from '../engine/cloth-grid.js';
 import type { Rig } from './types';
 
 type Check = (value: unknown, path: string, errors: string[]) => void;
@@ -79,12 +80,12 @@ const schema = (draft: boolean) => object({
     fingerYBand: band, pinBand: band }),
   cloth: array(object({ name: string, outline: polygon, waist: line, hem: line,
     columns: integer, rows: integer, stiffness: positive, damping: positive, max: positive,
-    responseGain: positive, swing: positive, follow: unit, cohesion, wind: nonnegative,
+    tierGain: positive, highModeDamping: positive, responseGain: positive, swing: positive, follow: unit, cohesion, wind: nonnegative,
     behind: (v, p, e) => { if (typeof v !== 'boolean') e.push(`${p}: expected a boolean`); },
-    parent: string, scale: positive }, ['responseGain', 'columns', 'rows', 'stiffness', 'damping', 'max', 'swing', 'follow', 'cohesion', 'wind', 'behind', 'parent', 'scale'])),
-  legs: object({ spine: unit, bob: nonnegative, pelvis: point, shift: nonnegative, tilt: nonnegative, bend: nonnegative,
+    parent: string, scale: positive, seams: array(line, 0, 64), tiers: array(line, 0, 8) }, ['tierGain', 'highModeDamping', 'seams', 'tiers', 'responseGain', 'columns', 'rows', 'stiffness', 'damping', 'max', 'swing', 'follow', 'cohesion', 'wind', 'behind', 'parent', 'scale'])),
+  legs: object({ spine: unit, bob: nonnegative, twist: nonnegative, pelvis: point, shift: nonnegative, tilt: nonnegative, bend: nonnegative,
     band, split: line, left: object({ hip: point, knee: point, ankle: point }),
-    right: object({ hip: point, knee: point, ankle: point }) }, ['spine', 'bob']),
+    right: object({ hip: point, knee: point, ankle: point }) }, ['spine', 'bob', 'twist']),
   mesh: object({ baseCell: integer, fine: object({ x0: wholeNumber, x1: wholeNumber,
     y0: wholeNumber, y1: wholeNumber, cell: integer }), handCell: integer,
     tasselCell: integer, eyeBallCell: integer, eyeCell: integer, spriteCell: integer,
@@ -124,6 +125,7 @@ export function validateRig(value: unknown, options: { draft?: boolean } = {}): 
   }
   const clothNames = new Set<string>();
   if (rig.legs) {
+    if ((rig.legs.twist ?? 0) > 15) errors.push('rig.legs.twist: must be between 0 and 15 degrees');
     const legs = rig.legs;
     for (const side of ['left', 'right'] as const) {
       const b = legs[side];
@@ -140,6 +142,11 @@ export function validateRig(value: unknown, options: { draft?: boolean } = {}): 
       errors.push(`rig.cloth[${i}].parent: must name an earlier cloth entry`);
     if ((cloth.columns ?? 2) < 2 || (cloth.rows ?? 2) < 2)
       errors.push(`rig.cloth[${i}]: columns and rows must be at least 2`);
+    if (cloth.seams?.length === 1) errors.push(`rig.cloth[${i}].seams: at least two columns required`);
+    if (cloth.seams?.length || cloth.tiers?.length) {
+      if (cloth.seams?.some(s => s.some((p, j) => j > 0 && p[1] <= s[j - 1][1]))) errors.push(`rig.cloth[${i}].seams: y must increase from waist to hem`);
+      try { clothGrid(cloth); } catch (error) { errors.push(`rig.cloth[${i}]: ${error instanceof Error ? error.message : String(error)}`); }
+    }
     clothNames.add(cloth.name);
   }
   return errors;

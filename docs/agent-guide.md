@@ -221,6 +221,17 @@ skirt entry. Depth controls drawing order; parent controls motion, independently
 For planted feet, optionally set `body.hip: { "shift": 20, "band": [900, 1400] }`,
 adjusting these example coordinates to the illustration. `mesh.clothCell` defaults to 8.
 
+Optionally trace `seams` from waist to hem in left-to-right order and `tiers`
+across the columns, following the drawn folds and ruffle joins. Every tier must
+cross every column once, in waist-to-hem order, without crossing columns or
+inverting grid cells. Nonempty seams/tiers use coupled N-link pendulums; their
+absence retains the two-link solver. In Studio's **Cloth** inspector, add/delete
+lines and edit vertices (drag, double-click an edge to add, Alt-click a vertex to
+remove). Motion-grid edits do not require rebuilding layers. Start `tierGain` and
+`highModeDamping` at `1`; the former exaggerates relative bending only in the
+rendered grid, while the latter changes damping above the lowest mode. Review
+lag, overshoot and settling after each adjustment.
+
 Validate the draft before rebuilding:
 
 ```sh
@@ -258,6 +269,12 @@ crotch, knees, ankles and any garment attachments at full resolution: feet must
 stay planted, knees must bend smoothly without reversing and the split must not
 produce a tear or overlap. The solver preserves bone lengths in 3D, so their
 projected lengths can shorten. Also check body sway and head movement together.
+
+For optional pelvis yaw, start `twist` at 3–6 degrees (allowed range `0..15`).
+Check that the shoulders partly counterturn, the head remains frontal, and feet
+and garment attachments stay connected during transfer and holds. Omitted or
+zero twist preserves the existing output. Studio exposes this under **Legs**;
+it does not require rebuilding layers.
 
 In Studio, select **Legs**, align the pelvis and joint handles, and edit the split
 vertices (double-click an edge to add a point; Alt-click a vertex to remove

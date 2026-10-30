@@ -39,6 +39,13 @@ test('empty cloth is a no-op and default tuning matches explicit defaults', () =
   const a = simulation(), b = simulation({ ...CLOTH_DEFAULTS, wind: 0 });
   for (const s of [0, 20, -10, 0]) { a.step(s, 30); b.step(s, 30); }
   expect(a.cloth.grids[0].nodes).toEqual(b.cloth.grids[0].nodes);
+  const emptyFields = simulation({}, [{ ...garment(), seams: [], tiers: [] }]);
+  const legacy = simulation(); emptyFields.step(5, 30); legacy.step(5, 30);
+  expect(emptyFields.cloth.grids[0].nodes).toEqual(legacy.cloth.grids[0].nodes);
+  // A short/degenerate legacy column was valid before optional topology existed.
+  const short = garment(); short.hem = structuredClone(short.waist);
+  const old = simulation({}, [short]); expect(validateRig(old.rig)).toEqual([]); old.step();
+  expect(old.garments[0].out.every(Number.isFinite)).toBe(true);
 });
 
 test('no-wind cloth converges to rest and is deterministic through motion and release', () => {
@@ -194,4 +201,61 @@ test('parent exaggeration does not feed back into child dynamics', () => {
     expect(b.garments[g].lowerAngle).toEqual(a.garments[g].lowerAngle);
     expect(b.garments[g].physicalOut).toEqual(a.garments[g].physicalOut);
   }
+});
+
+test('seams follow source polylines; tiers define three unequal physical links', () => {
+  const part = { ...garment(), seams: [[[0, 0], [-5, 40], [0, 100]], [[100, 0], [110, 40], [100, 120]]], tiers: [[[-20, 25], [120, 25]], [[-20, 70], [120, 70]]] } as Cloth;
+  const s = simulation({ wind: 0, cohesion: 0 }, [part]); s.step();
+  const g = s.garments[0]; expect(g.cols).toBe(2); expect(g.pendulums[0].angles).toHaveLength(3);
+  expect(g.grid.lengths[1]).toBeGreaterThan(g.grid.lengths[0]);
+  for (const y of [25, 70]) expect(Math.min(...Array.from({ length: g.rows }, (_, r) => Math.abs(g.rest[(r * g.cols) * 2 + 1] - y)))).toBeLessThan(1e-10);
+  for (let i = 0; i < g.out.length; i++) expect(g.out[i]).toBeCloseTo(g.rest[i], 10);
+  const signature = layerSignature(s.rig); const handle = buildOverlay(s.rig).handles.find(h => h.id === 'cloth.0.tiers.0.0')!;
+  expect(handle.vertex?.closed).toBe(false); expect(layerSignature(moveHandle(s.rig, handle, [-21, 24]))).toBe(signature);
+  expect(validateRig(s.rig)).toEqual([]);
+  s.rig.cloth![0].tiers!.reverse(); expect(validateRig(s.rig).join()).toContain('ordered');
+});
+
+test('N-link modal damping dissipates free energy and resolves short links', async () => {
+  const { pendulumSystem, pendulumEnergy, stepPendulum } = await import('../packages/runtime/src/engine/cloth-pendulum.js');
+  for (const lengths of [[40, 40], [70, 25, 5], [45, 20, 15, 10]]) {
+    const s = pendulumSystem(lengths, 4903.325, 0.25); s.angles = lengths.map((_, i) => 0.12 * (i % 2 ? -1 : 1));
+    let energy = pendulumEnergy(s); const initial = energy;
+    for (let i = 0; i < 2400; i++) { stepPendulum(s, 1 / 480); const next = pendulumEnergy(s); expect(next).toBeLessThanOrEqual(energy + initial * 1e-12); energy = next; }
+    expect(energy).toBeLessThan(initial * 0.001); expect(s.angles.every(Number.isFinite)).toBe(true);
+  }
+  const s = pendulumSystem([40, 40], 4903.325, 0.25);
+  expect(s.frequencies[0]).toBeCloseTo(Math.sqrt(4903.325 / 40 * (2 - Math.SQRT2)) / (2 * Math.PI), 10);
+});
+
+test('curved custom grids keep extrapolated source vertices unchanged at rest', () => {
+  const c = { ...garment(), seams: [[[0, 0], [-10, 50], [0, 100]], [[100, 0], [110, 50], [100, 100]]] } as Cloth;
+  const s = simulation({}, [c]); const mesh = { rest: new Float64Array([-40, -20, 140, 120, 50, 60]), pos: new Float64Array(6) };
+  s.cloth.attach('skirt', mesh); s.step(); s.cloth.deform();
+  for (let i = 0; i < mesh.rest.length; i++) expect(mesh.pos[i]).toBeCloseTo(mesh.rest[i], 10);
+});
+
+test('tier gain exaggerates relative bending only and never changes physical/child states', () => {
+  const parts: Cloth[] = [{ ...garment(), tiers: [[[0, 30], [100, 30]], [[0, 70], [100, 70]]] }, { ...garment(), name: 'tail', parent: 'skirt', waist: [[0, 100], [100, 100]], hem: [[0, 200], [100, 200]] }];
+  const a=simulation({wind:0,cohesion:0},parts), b=simulation({wind:0,cohesion:0,tierGain:3},parts), explicit=simulation({wind:0,cohesion:0,tierGain:1,highModeDamping:1},parts);
+  let difference=0;
+  for(let f=0;f<120;f++) { const x=f<20?0:8; a.step(x);b.step(x);explicit.step(x);
+    for(let i=0;i<2;i++)expect(b.garments[i].physicalOut).toEqual(a.garments[i].physicalOut);
+    expect(explicit.garments[0].out).toEqual(a.garments[0].out);
+    const g=a.garments[0],h=b.garments[0];expect(h.out[2*g.cols]).toBeCloseTo(g.out[2*g.cols],12);
+    difference=Math.max(difference,...h.out.map((v,i)=>Math.abs(v-g.out[i])));
+  }
+  expect(difference).toBeGreaterThan(.1);
+  expect(()=>b.cloth.setTuning(null,{tierGain:0})).toThrow();expect(()=>b.cloth.setTuning(null,{highModeDamping:-1})).toThrow();
+});
+
+test('high-mode damping leaves mode one unchanged and reduces damping of the remaining modes', async () => {
+  const {pendulumSystem,solve}=await import('../packages/runtime/src/engine/cloth-pendulum.js');
+  const a=pendulumSystem([50,30,20],4903.325,.25), b=pendulumSystem([50,30,20],4903.325,.25,.48);
+  expect(b.frequencies).toEqual(a.frequencies);
+  // trace(M^-1 C) is the sum of 2*zeta*omega over all modal damping rates.
+  const rate=(s:typeof a)=>s.damping.reduce((sum:number,_row:number[],i:number)=>sum+solve(s.coefficient,s.damping.map((r:number[])=>r[i]))[i],0);
+  const omega:number[]=a.frequencies.map((f:number)=>f*2*Math.PI);
+  expect(rate(a)).toBeCloseTo(.5*omega.reduce((s,v)=>s+v,0),8);
+  expect(rate(b)).toBeCloseTo(.5*(omega[0]+.48*(omega[1]+omega[2])),8);
 });

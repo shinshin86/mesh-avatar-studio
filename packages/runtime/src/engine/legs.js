@@ -19,7 +19,7 @@ function boneMatrix(a, b, targetA, targetB) {
 const transform = (p, m) => [m[0] * p[0] + m[1] * p[1] + m[4], m[2] * p[0] + m[3] * p[1] + m[5]];
 
 /** Optional planted, two-bone legs. All coordinates are in source pixels. */
-export const LEG_DEFAULTS = Object.freeze({ spine: 0.7, bob: 2 });
+export const LEG_DEFAULTS = Object.freeze({ spine: 0.7, bob: 2, twist: 0 });
 
 /** @param {{pivotX:number, pivotY:number, weightBand:number[]}|null} [head] */
 export function createLegs(legs, body, head = null) {
@@ -34,12 +34,24 @@ export function createLegs(legs, body, head = null) {
     const cross = dx * (leg.knee[1] - leg.hip[1]) - dy * (leg.knee[0] - leg.hip[0]);
     return { ...leg, u, v, depth, lateral: cross / Math.hypot(dx, dy), side: Math.sign(cross) || (i ? 1 : -1) };
   });
+  const hasTwist = (legs.twist ?? 0) > 0, maxYaw = (legs.twist ?? 0) * Math.PI / 180;
+  const pelvisRadius = Math.max(1, ...bones.map(b => Math.abs(b.hip[0] - legs.pelvis[0]) * 1.35));
+  const shoulderRadius = Math.max(body.chest.rx, ...body.shoulders.map(s => Math.abs(s.cx - body.chest.cx) + s.rx));
+  const yaw = [0, 0], yawVelocity = [0, 0]; let yawAcceleration = 0;
+  // Smooth front-surface depth: finite slope at the silhouette, unlike a sphere rim.
+  const yawOffset = (x, center, radius, angle) => {
+    const dx = x - center, front = Math.max(0, 1 - (dx / radius) ** 2);
+    return dx * (Math.cos(angle) - 1) + radius * 0.75 * front * front * Math.sin(angle);
+  };
   const drive = [0, 0, 0], velocity = [0, 0, 0];
   let bob = 0, bobVelocity = 0, lastWeight = 0, version = 0, previousVersion;
   function step(P, dt) {
     const ws = clamp(P.weightShift ?? 0, -1, 1);
     const time = Math.min(Math.max(dt, 0), 0.05);
+    const previousYawVelocity = yawVelocity[0];
+    const targetYaw = hasTwist ? maxYaw * clamp(0.4 * ws + (time ? 0.6 * Math.tanh((ws - lastWeight) / time) : 0), -1, 1) : 0;
     if (!time) {
+      if (hasTwist) { yaw.fill(targetYaw); yawVelocity.fill(0); yawAcceleration = 0; }
       drive.fill(ws); velocity.fill(0); bob = 0; bobVelocity = 0;
     } else {
       const targetBob = (legs.bob ?? LEG_DEFAULTS.bob) * Math.min(1, Math.abs(ws - lastWeight) / time / 1.5);
@@ -52,10 +64,16 @@ export function createLegs(legs, body, head = null) {
           velocity[i] += (24 * 24 * (target - drive[i]) - 2 * 0.9 * 24 * velocity[i]) * h;
           drive[i] += velocity[i] * h;
         }
+        if (hasTwist) for (let i = 0; i < 2; i++) {
+          const target = i ? yaw[0] : targetYaw;
+          yawVelocity[i] += (14 * 14 * (target - yaw[i]) - 2 * 0.95 * 14 * yawVelocity[i]) * h;
+          yaw[i] += yawVelocity[i] * h;
+        }
         bobVelocity += (24 * 24 * (targetBob - bob) - 2 * 0.9 * 24 * bobVelocity) * h;
         bob += bobVelocity * h;
       }
     }
+    if (hasTwist && time) yawAcceleration = (yawVelocity[0] - previousYawVelocity) / time;
     lastWeight = ws; version++;
   }
   const ankleY = Math.min(...bones.map(b => b.ankle[1]));
@@ -65,7 +83,9 @@ export function createLegs(legs, body, head = null) {
     if (ws === previousShift && bx === previousBody && version === previousVersion) return cached;
     previousShift = ws; previousBody = bx; previousVersion = version;
     const angle = -legs.tilt * ws, shift = legs.shift * ws + bx / 10 * (body.hip?.shift ?? legs.shift);
-    const pelvisPoint = p => { const q = rotate(p, legs.pelvis, angle); q[0] += shift; return q; };
+    const pelvisYaw = hasTwist ? (version ? yaw[0] : maxYaw * 0.4 * ws) : 0;
+    const shoulderYaw = hasTwist ? -(1 - (legs.spine ?? LEG_DEFAULTS.spine)) * (version ? yaw[1] : pelvisYaw) : 0;
+    const pelvisPoint = p => { const q = rotate(p, legs.pelvis, angle); if (hasTwist) q[0] += yawOffset(p[0], legs.pelvis[0], pelvisRadius, pelvisYaw); q[0] += shift; return q; };
     const hips = bones.map(b => pelvisPoint(b.hip));
     // Only the free leg gets an extra inward offset. Quadratic onset keeps the
     // neutral derivative continuous; most flexion goes towards the camera (z).
@@ -85,7 +105,7 @@ export function createLegs(legs, body, head = null) {
     }
     const solved = bones.map((b, i) => {
       const hip = [hips[i][0], hips[i][1] + drop], ankle = b.ankle;
-      if (!ws && !bx && !bob) return { hip: b.hip, knee: b.knee, ankle,
+      if (!ws && !bx && !bob && !pelvisYaw) return { hip: b.hip, knee: b.knee, ankle,
         hip3: [...b.hip, 0], knee3: [...b.knee, b.depth], ankle3: [...ankle, 0],
         upper: [1, 0, 0, 1, 0, 0], lower: [1, 0, 0, 1, 0, 0] };
       const dx = ankle[0] - hip[0], dy = ankle[1] - hip[1], d = Math.hypot(dx, dy);
@@ -98,6 +118,7 @@ export function createLegs(legs, body, head = null) {
         upper: boneMatrix(b.hip, b.knee, hip, knee), lower: boneMatrix(b.knee, b.ankle, knee, ankle) };
     });
     cached = { ws, bx, angle, shift, drop, bones: solved,
+      ...(hasTwist && { twist: { pelvis: pelvisYaw, shoulder: shoulderYaw, head: 0, acceleration: yawAcceleration } }),
       trunk: { spine: drive[0], chest: drive[1], head: drive[2], bob } };
     return cached;
   }
@@ -120,7 +141,7 @@ export function createLegs(legs, body, head = null) {
   }
   function apply(p, _x, y, w, P) {
     const F = frame(P);
-    if (!F.ws && !F.bx && !F.trunk.chest && !F.trunk.head && !bob) return;
+    if (!F.ws && !F.bx && !F.trunk.chest && !F.trunk.head && !bob && !F.twist?.pelvis && !F.twist?.shoulder) return;
     const pivot = [legs.pelvis[0] + F.shift, legs.pelvis[1] + F.drop];
     const upper = 1 - smooth(Math.min(body.chest.cy, legs.pelvis[1] - 1), legs.pelvis[1], y);
     const spineBlend = 1 - smooth(...legs.band, y);
@@ -144,6 +165,15 @@ export function createLegs(legs, body, head = null) {
       const correction = -legs.tilt * (1 - rejection) * F.trunk.head * weight;
       const q = rotate(counter, center, correction);
       counter[0] = q[0] + legs.shift * 1.12 * (F.trunk.head - F.trunk.chest) * weight; counter[1] = q[1];
+    }
+    if (hasTwist) {
+      const waistY = body.chest.cy + Math.max(40, (legs.pelvis[1] - body.chest.cy) * 0.5);
+      const blend = smooth(body.chest.cy, waistY, y);
+      const angle = F.twist.shoulder + (F.twist.pelvis - F.twist.shoulder) * blend;
+      const center = body.chest.cx + (legs.pelvis[0] - body.chest.cx) * blend;
+      const radius = shoulderRadius + (pelvisRadius - shoulderRadius) * blend;
+      const headRejection = head ? smooth(...head.weightBand, y) : 1;
+      counter[0] += yawOffset(_x, center, radius, angle) * headRejection;
     }
     let dx = 0, dy = 0;
     bones.forEach((_b, i) => {

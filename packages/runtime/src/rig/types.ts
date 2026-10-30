@@ -27,6 +27,10 @@ export interface Accessory {
 /** Optional garment that swings with the body (for example a skirt). */
 export interface ClothTuning {
   responseGain?: number;
+  /** Display-only exaggeration of link angles relative to the uppermost link. */
+  tierGain?: number;
+  /** Damping ratio multiplier for modes above the lowest mode (default 1). */
+  highModeDamping?: number;
   swing: number;
   stiffness: number;
   damping: number;
@@ -42,6 +46,10 @@ export interface Cloth extends Partial<ClothTuning> {
   outline: Point[];
   waist: Point[];
   hem: Point[];
+  /** Ordered waist-to-hem polylines; columns follow their source arc lengths. */
+  seams?: Point[][];
+  /** Ordered cross-column seam lines; each defines a pendulum joint. */
+  tiers?: Point[][];
   columns?: number;
   rows?: number;
   behind?: boolean;
@@ -69,6 +77,8 @@ export interface Leg { hip: Point; knee: Point; ankle: Point }
 export interface Legs {
   spine?: number;
   bob?: number;
+  /** Maximum pelvis yaw in degrees, 0..15; absent/zero preserves the old projection. */
+  twist?: number;
   pelvis: Point;
   shift: number;
   tilt: number;

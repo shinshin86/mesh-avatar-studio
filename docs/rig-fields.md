@@ -162,13 +162,17 @@ Coordinates are source-image pixels, with x increasing right and y increasing do
 | `cloth[*].outline` | Cutout polygon, at least three points, enclosing all ruffles and tails belonging to this garment. Changing it requires rebuilding layers. |
 | `cloth[*].waist` | Upper attachment polyline, at least two points, from image-left to right. Follows the body or parent garment. |
 | `cloth[*].hem` | Lower polyline, at least two points, from image-left to right. Cover the full width of the cloth, including projecting ruffles. |
+| `cloth[*].seams` | Optional waist-to-hem column polylines, ordered image-left to right; empty uses the waist/hem grid. Supply 2–64 lines with at least two points each and strictly increasing y. Nonempty seams override `columns`; lengths follow the source polylines. |
+| `cloth[*].tiers` | Optional array of 0–8 cross-column joint polylines, ordered waist to hem. Each line has at least two points and crosses every column exactly once. With N tiers there are N+1 coupled links; empty uses two links split at half the source length. |
 | `cloth[*].scale` | Optional positive image scale, millimetres per source pixel. If omitted, infer 0.8m from mean hip-to-ankle length when `legs` exists; otherwise assume image height represents 1.6m. Supply this for cropped or unusually proportioned art. |
-| `cloth[*].columns`, `rows` | Integer grid node counts, both at least `2`; defaults `8`, `5`. |
+| `cloth[*].columns`, `rows` | Integer grid node counts, both at least `2`; defaults `8`, `5`. With seams/tiers, `rows` is a minimum: the grid includes every tier joint and at least two subdivisions per link. |
 | `cloth[*].responseGain` | Positive rendered-response exaggeration; default `1` (physical). `1.6` amplifies cloth angles only. Child solvers use the unexaggerated parent grid, while visible attachments follow the exaggerated grid. |
+| `cloth[*].tierGain` | Positive render-only multiplier on each link's angle relative to the uppermost link; default `1`. Applies only when seams or tiers are nonempty. Changes visible bending without changing physical states, frequencies or child solver input. |
+| `cloth[*].highModeDamping` | Positive damping-ratio multiplier for modes above the lowest-frequency mode; default `1`. Applies only when seams or tiers are nonempty. Below `1` lets higher modes oscillate longer; the lowest mode keeps `0.25 × damping`. |
 | `cloth[*].swing` | Positive multiplier on the physical pendulum frequency; default `1`. A value of `1` uses the source scale, column length and gravity. |
-| `cloth[*].stiffness` | Positive restoring-force multiplier; default `1`. Effective angular frequency is `√(g / (0.8L)) × swing × √stiffness`, with g and L in source-pixel units. |
-| `cloth[*].damping` | Positive damping multiplier; default `1`. Effective angular damping ratio is `0.25 × damping`; larger values suppress oscillations. |
-| `cloth[*].follow` | Column rigidity, `0..1`; default `0.85`. At `1` each of the two links is rigid; lower values add up to 10% within-link quadratic bend, without a delayed row chain. |
+| `cloth[*].stiffness` | Positive restoring-force multiplier; default `1`. Modal frequencies scale by `swing × √stiffness`, using effective link lengths of `0.8` times their source lengths. |
+| `cloth[*].damping` | Positive damping multiplier; default `1`. Base small-angle damping ratio is `0.25 × damping`; larger values suppress oscillations. `highModeDamping` can further scale higher modes in the seams/tiers solver. |
+| `cloth[*].follow` | Column rigidity, `0..1`; default `0.85`. At `1` each link is rigid; lower values add up to 10% within-link quadratic bend, without a delayed row chain. |
 | `cloth[*].cohesion` | Integer smoothing passes over column angles and angular velocities, `0..8`; default `3`. |
 | `cloth[*].wind` | Nonnegative coherent breeze strength as a fraction of `max`; default `0.05`, `0` disables wind. All columns receive the same phase. |
 | `cloth[*].max` | Positive soft limit on grid displacement from the body-carried shape, px; default `20`. Limits rotation at the hem and reserves up to 10% for weak vertical bounce. Extrapolated mesh points outside the grid can move farther. |
@@ -178,13 +182,28 @@ Coordinates are source-image pixels, with x increasing right and y increasing do
 | `body.hip.band` | Increasing source-y range over which sideways body travel fades to zero. Existing rigs without `hip` keep their original deformation. |
 | `mesh.clothCell` | Positive integer garment render-mesh spacing, px; default `8`. Independent of cloth grid node counts. |
 
-Each column has two equal-length pendulum links, driven by the attachment's
-horizontal acceleration. Gravity is 9.80665m/s², converted to source pixels.
+Without seams or tiers, each column retains its existing two equal-length pendulum
+links. Nonempty seams or tiers use an N-link serial pendulum, with link lengths
+measured along each source column between tier intersections. Without explicit
+seams, columns interpolate the waist and hem. Validation rejects crossed or inverted
+grid cells, columns shorter than 1 source pixel, missing or repeated tier crossings,
+and tier intersections that are not ordered waist to hem. Adjacent intersections,
+including the endpoints, must be separated by at least 0.001 of the column length.
+
+Columns are driven by the attachment's horizontal acceleration, including motion
+from pelvis yaw. Gravity is 9.80665m/s², converted to source pixels.
 Each link uses an effective length of 0.8 times its source length, between a uniform rigid strip
 (2L/3) and a tip-heavy point mass (L), approximating a ruffled hem.
 Upward attachment acceleration increases apparent gravity; source y points down,
 so the implementation uses `g - accelerationY`. The angle is relative to the world
-rest shape, so the cloth retains its hanging orientation as the pelvis tilts. The two absolute angles are solved together using the equal-mass double-pendulum mass matrix, gravity and Coriolis forces. Link masses are proportional to their equal half-lengths. Rayleigh damping sets both small-angle modes to `0.25 × damping`; their frequencies follow the link lengths rather than hand-tuned rows. Each rendered link retains its length, with a small within-link bend controlled by `follow`.
+rest shape, so the cloth retains its hanging orientation as the pelvis tilts.
+Absolute link angles are solved together using the pendulum mass matrix, gravity
+and Coriolis forces, with endpoint masses proportional to link lengths. The legacy
+equal-length two-link solver uses Rayleigh damping for both small-angle modes.
+The seams/tiers solver uses modal damping to set every small-angle mode to
+`0.25 × damping`, with `highModeDamping` applied above the lowest mode. Frequencies
+follow link lengths rather than hand-tuned rows. Each rendered link retains its
+length, with a small within-link bend controlled by `follow`.
 Each link endpoint retains its distance from that link's pivot; a separate weak, critically damped vertical response can change it slightly during vertical acceleration. Parent
 accelerations are evaluated on the parent's unexaggerated physical grid; visible attachments follow its rendered grid. No additional
 random samples are used.
@@ -194,6 +213,9 @@ tuning fields above. A `null` name applies to all garments; a string applies onl
 that name. Updates take effect on the next simulation step without resetting velocity,
 changing the rig or rebuilding layers. Invalid values or an unknown name throw a
 `RangeError`. Studio edits update the rig and are included when saving it.
+In Studio's **Cloth** inspector, add or delete seam and tier lines, drag their
+vertices, double-click edges to add vertices, or Alt-click vertices to remove them.
+These motion-grid edits do not require rebuilding image layers; outline edits do.
 The element exposes this method through `element.avatar` / `await element.ready`;
 React exposes the same element through its ref and the runtime through `onLoad`.
 
@@ -207,6 +229,7 @@ supports the image-right leg. For rigs with `legs`, idle weight transfer uses a 
 | --- | --- |
 | `legs.spine` | Optional stabilization fraction `0..1`, default `0.7`; the upper torso retains a small opposite pelvic inclination of `1 - spine`, blended through the spine. Chest and head follow serial springs rather than a rigid translating trunk. |
 | `legs.bob` | Optional nonnegative extra pelvis dip in source px, default `2`; driven by transfer speed and returning to zero during a hold. Included in the planted-foot IK. |
+| `legs.twist` | Optional pelvis yaw limit in degrees, `0..15`; absent or `0` preserves the existing output. Weight transfer drives yaw, with a small residual during holds. Shoulders partly counterturn according to `spine`, the head stays frontal, and feet stay fixed. |
 | `legs.pelvis` | Bone rotation centre `[x,y]` in source pixels. |
 | `legs.shift` | Nonnegative sideways travel in px at full weight transfer. |
 | `legs.tilt` | Nonnegative pelvic tilt in radians at full transfer; the free side lowers. |
@@ -228,8 +251,8 @@ Vertices at and below the higher ankle stay exactly fixed. Cloth attachments fol
 the pelvis through the usual base deformer, with their existing lag.
 
 Studio exposes the pelvis and joint handles, an editable split polyline, and the
-shift, tilt, bend and band fields under **Legs**. These edits recalculate weights
-without marking image layers stale. Pause idle motion to test the **Weight shift**
+shift, tilt, bend, band and optional twist fields under **Legs**. These edits
+recalculate weights without marking image layers stale. Pause idle motion to test the **Weight shift**
 slider, then save the rig to persist the geometry and tuning.
 
 `render-poses` adds `weight-left`, `weight-right` at `±0.6`, plus
