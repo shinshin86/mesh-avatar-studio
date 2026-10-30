@@ -260,69 +260,138 @@ test('overlay switches on the Live page reach the stream view and its OBS URL', 
   expect(outside).toEqual([]);
 });
 
-test('optional body tracking loads lazily, maps movement, calibrates and returns smoothly to face/idle', async ({ context, page }, testInfo) => {
+test('optional body and arm tracking maps mirrored joints, calibrates and releases hidden sides to idle', async ({ context, page }, testInfo) => {
+  test.setTimeout(60_000);
   const outside = await guardNetwork(context), errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
-  await syntheticMedia(page);
-  await page.addInitScript(() => {
-    const NativeWorker = window.Worker;
-    const stats = { poses: 0, closed: 0, results: 0 };
-    Object.assign(window, { bodyWorkerStats: stats });
-    window.Worker = class extends NativeWorker {
-      constructor(url: string | URL, options?: WorkerOptions) {
-        super(url, options); this.addEventListener('message', ({ data }) => {
-          if (!data || typeof data.type !== 'string') return;
-          if(data.type === 'pose-test') stats.poses++;
-          if(data.type === 'pose-close-test') stats.closed++;
-          if(data.type === 'result') stats.results++;
-        });
-      }
+  const project = await mkdtemp(resolve('projects/e2e-tracked-arms-'));
+  try {
+    await cp(resolve('samples/miko-qipao/built'), join(project, 'built'), { recursive: true });
+    const rig = JSON.parse(await readFile(resolve('samples/miko-qipao/rig.json'), 'utf8'));
+    rig.arms = {
+      left: { shoulder: [250, 650], elbow: [200, 800], wrist: [150, 950], split: [[265, 680], [235, 800], [200, 1030]] },
+      right: { shoulder: [1004, 650], elbow: [1054, 800], wrist: [1104, 950], split: [[989, 680], [1019, 800], [1054, 1030]] },
     };
-  });
-  await context.route('**/mediapipe/vision_bundle.js', route => route.fulfill({contentType:'application/javascript', body: `
-    self.exports.FilesetResolver={forVisionTasks:async()=>({})};
-    self.exports.FaceLandmarker={createFromOptions:async()=>({close(){},setOptions:async()=>{},detectForVideo(){
-      const a=(self.bodyTestClosed?34:24)*Math.PI/180,c=Math.cos(a),s=Math.sin(a);return {faceLandmarks:[[]],faceBlendshapes:[],facialTransformationMatrixes:[{data:[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1]}]};
-    }})};
-    self.exports.PoseLandmarker={createFromOptions:async()=>{let calls=0;return {close(){self.bodyTestClosed=true;self.postMessage({type:'pose-close-test'});},setOptions:async()=>{},detectForVideo(){
-      calls++;self.postMessage({type:'pose-test'});const shift=calls>2?.1:0;
-      const l=Array.from({length:33},()=>({x:.5,y:.5,visibility:0,presence:1}));
-      l[11]={x:.35+shift,y:.3,visibility:1,presence:1};l[12]={x:.65+shift,y:.3,visibility:1,presence:1};return {landmarks:[l]};
-    }};}};` }));
-  await ready(page, '/live.html');
-  const toggle=page.getByTestId('body-tracking-toggle'); await expect(toggle).not.toBeChecked();
-  await page.getByRole('checkbox',{name:'Mirror',exact:true}).uncheck();
-  await page.getByRole('button',{name:'Start camera',exact:true}).click();
-  await expect(page.getByTestId('tracking-status')).toHaveAttribute('data-state','tracking');
-  const stats=()=>page.evaluate(()=> (window as Window & {bodyWorkerStats?: {poses:number;closed:number;results:number}}).bodyWorkerStats!);
-  await expect.poll(async()=>(await stats()).results).toBeGreaterThan(5); expect((await stats()).poses).toBe(0);
-  const nextParams=()=>page.evaluate(async()=>{
-    const path='/src/live/relay.ts';const {receiveLiveParameters}=await import(path);
-    return new Promise<Record<string,number>>(resolve=>{const off=receiveLiveParameters((d:{params:Record<string,number>})=>{off();resolve(d.params);});});
-  });
-  await toggle.check();
-  await expect.poll(async()=>(await nextParams()).weightShift).toBeGreaterThan(.35);
-  await expect.poll(async()=>(await nextParams()).bodyAngleX).toBeGreaterThan(6);
-  expect((await nextParams()).bodyAngleX).toBeLessThan(7);
-  const s=await stats();expect(s.poses).toBeLessThan(s.results*.6);
-  await page.getByRole('button',{name:'Calibrate',exact:true}).click();
-  await expect.poll(async()=>Math.abs((await nextParams()).bodyAngleX)).toBeLessThan(.5);
-  await page.evaluate(async()=>{
-    const path='/src/live/relay.ts';const {receiveLiveParameters}=await import(path);
-    const values: {t:number;value:number}[]=[];Object.assign(window,{bodyReturnValues:values});const start=performance.now();
-    receiveLiveParameters((d:{params:Record<string,number>})=>{if(performance.now()-start<2000)values.push({t:performance.now()-start,value:d.params.weightShift});});
-  });
-  await toggle.uncheck();await expect.poll(async()=>(await stats()).closed).toBe(1);
-  await expect.poll(async()=>(await nextParams()).bodyAngleX).toBeGreaterThan(1.8);
-  // Body values hold for 500 ms after the last pose, then fade; record past both under a slow page.
-  await expect.poll(()=>page.evaluate(()=> (window as Window & {bodyReturnValues?:{t:number}[]}).bodyReturnValues!.at(-1)?.t ?? 0)).toBeGreaterThan(1900);
-  const fade=await page.evaluate(()=> (window as Window & {bodyReturnValues?:{t:number;value:number}[]}).bodyReturnValues!);
-  expect(fade.length).toBeGreaterThan(3);expect(Math.max(...fade.map(x=>Math.abs(x.value)))).toBeGreaterThan(.02);
-  expect(Math.max(...fade.slice(1).map((x,i)=>Math.abs(x.value-fade[i].value)))).toBeLessThan(.45);
-  await page.screenshot({path:testInfo.outputPath('body-controls-en.png')});
-  await page.getByRole('button',{name:'日本語',exact:true}).click();await expect(page.getByRole('checkbox',{name:'体の動きを認識',exact:true})).toBeVisible();
-  await page.screenshot({path:testInfo.outputPath('body-controls-ja.png')});
-  await page.getByRole('button',{name:'简体中文',exact:true}).click();await expect(page.getByRole('checkbox',{name:'追踪身体动作',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'停止摄像头',exact:true}).click();
-  expect(errors).toEqual([]);expect(outside).toEqual([]);
+    rig.legs = { pelvis: [627, 900], band: [700, 940], shift: 12, tilt: .04, bend: 4,
+      left: { hip: [570, 930], knee: [560, 1080], ankle: [550, 1210] },
+      right: { hip: [680, 930], knee: [690, 1080], ankle: [700, 1210] }, split: [[627, 950], [627, 1250]] };
+    await writeFile(join(project, 'rig.json'), JSON.stringify(rig));
+    await syntheticMedia(page);
+    await page.addInitScript(() => {
+      const NativeWorker = window.Worker;
+      const stats = { poses: 0, closed: 0, results: 0, mode: '' };
+      Object.assign(window, { bodyWorkerStats: stats });
+      window.Worker = class extends NativeWorker {
+        constructor(url: string | URL, options?: WorkerOptions) {
+          super(url, options);
+          if (String(url).includes('tracking-worker')) Object.assign(window, { bodyTestWorker: this });
+          this.addEventListener('message', ({ data }) => {
+            if (!data || typeof data.type !== 'string') return;
+            if (data.type === 'pose-test') { stats.poses++; stats.mode = data.mode; }
+            if (data.type === 'pose-close-test') stats.closed++;
+            if (data.type === 'result') stats.results++;
+          });
+        }
+      };
+    });
+    await context.route('**/mediapipe/vision_bundle.js', route => route.fulfill({ contentType: 'application/javascript', body: `
+      let mode='neutral';self.addEventListener('message',({data})=>{if(data.type==='body-test')mode=data.mode;});
+      self.exports.FilesetResolver={forVisionTasks:async()=>({})};
+      self.exports.FaceLandmarker={createFromOptions:async()=>({close(){},setOptions:async()=>{},detectForVideo(){
+        const a=(self.bodyTestClosed?34:24)*Math.PI/180,c=Math.cos(a),s=Math.sin(a);return {faceLandmarks:[[]],faceBlendshapes:[],facialTransformationMatrixes:[{data:[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1]}]};
+      }})};
+      self.exports.PoseLandmarker={createFromOptions:async()=>({close(){self.bodyTestClosed=true;self.postMessage({type:'pose-close-test'});},setOptions:async()=>{},detectForVideo(){
+        self.postMessage({type:'pose-test',mode});if(mode==='lost')return {landmarks:[]};
+        const moved=mode!=='neutral',shift=moved?.1:0,point=(x,y,visibility=1)=>({x,y,visibility,presence:1});
+        const l=Array.from({length:33},()=>point(.5,.5,0));l[11]=point(.65+shift,.3);l[12]=point(.35+shift,.3);
+        for(let i=0;i<2;i++){
+          const sign=i===0?1:-1,a=(moved&&i===0?30:0)*Math.PI/180,b=a-(moved&&i===0?90:0)*Math.PI/180;
+          const s=l[11+i],e=point(s.x+Math.sin(a)*.2/(4/3),s.y+Math.cos(a)*.2);
+          l[13+i]=e;l[15+i]=point(e.x+Math.sin(b)*.2/(4/3),e.y+Math.cos(b)*.2);
+        }
+        if(mode==='wrist-hidden')l[15].visibility=0;
+        if(mode==='elbow-hidden')l[13].visibility=0;
+        return {landmarks:[l]};
+      }})};` }));
+    await ready(page, `/live.html?project=${basename(project)}`);
+    await expect(page.getByTestId('body-follows')).toHaveText('Follows: upper body · legs · arms');
+    await expect(page.getByTestId('body-missing')).toHaveCount(0);
+    // Inspect actual tracking weights so loss tests wait for state instead of wall time
+    // or a particular random idle pose.
+    await page.evaluate(async () => {
+      const path = '/src/live/tracking.ts'; const { FacePose } = await import(path);
+      const sample = FacePose.prototype.sample;
+      FacePose.prototype.sample = function (...args: unknown[]) {
+        const result = sample.apply(this, args); Object.assign(window, { bodyTrackingSample: result }); return result;
+      };
+    });
+    const sample = () => page.evaluate(() => (window as Window & { bodyTrackingSample?: { params: Record<string, number>; parameterWeights: Record<string, number> } }).bodyTrackingSample!);
+    const stats = () => page.evaluate(() => (window as Window & { bodyWorkerStats?: { poses: number; closed: number; results: number; mode: string } }).bodyWorkerStats!);
+    const mode = async (value: string) => {
+      await page.evaluate(mode => (window as Window & { bodyTestWorker?: Worker }).bodyTestWorker!.postMessage({ type: 'body-test', mode }), value);
+      await expect.poll(async () => (await stats()).mode).toBe(value);
+    };
+    const nextParams = () => page.evaluate(async () => {
+      const path = '/src/live/relay.ts'; const { receiveLiveParameters } = await import(path);
+      return new Promise<Record<string, number>>(resolve => { const off = receiveLiveParameters((d: { params: Record<string, number> }) => { off(); resolve(d.params); }); });
+    });
+    const toggle = page.getByTestId('body-tracking-toggle'); await expect(toggle).not.toBeChecked();
+    const mirror = page.getByRole('checkbox', { name: 'Mirror', exact: true }); await mirror.uncheck();
+    await page.getByRole('button', { name: 'Start camera', exact: true }).click();
+    await expect(page.getByTestId('tracking-status')).toHaveAttribute('data-state', 'tracking');
+    await expect.poll(async () => (await stats()).results).toBeGreaterThan(5); expect((await stats()).poses).toBe(0);
+    await toggle.check();
+    await expect.poll(async () => (await sample()).parameterWeights.armSwingR ?? 0).toBeGreaterThan(.9);
+    await mode('move');
+    await expect.poll(async () => (await nextParams()).bodyAngleX).toBeGreaterThan(6);
+    await expect.poll(async () => (await nextParams()).armSwingR).toBeGreaterThan(.6);
+    await expect.poll(async () => (await nextParams()).elbowBendR).toBeGreaterThan(.5);
+    expect((await nextParams()).elbowBendR).toBeLessThan(.65);
+    const count = await stats(); expect(count.poses).toBeLessThan(count.results * .6);
+    await mirror.check();
+    await expect.poll(async () => (await nextParams()).armSwingL).toBeGreaterThan(.6);
+    await expect.poll(async () => Math.abs((await nextParams()).armSwingR)).toBeLessThan(.1);
+    await mirror.uncheck(); await mode('wrist-hidden');
+    await expect.poll(async () => (await sample()).parameterWeights.elbowBendR).toBeUndefined();
+    expect((await nextParams()).armSwingR).toBeGreaterThan(.6);
+    expect((await sample()).parameterWeights.armSwingL).toBeGreaterThan(.9);
+    await mode('elbow-hidden');
+    await expect.poll(async () => (await sample()).parameterWeights.armSwingR).toBeUndefined();
+    expect((await sample()).parameterWeights.armSwingL).toBeGreaterThan(.9);
+    await mode('move');
+    await expect.poll(async () => (await sample()).parameterWeights.elbowBendR ?? 0).toBeGreaterThan(.9);
+    await page.getByRole('button', { name: 'Calibrate', exact: true }).click();
+    await expect.poll(async () => Math.abs((await nextParams()).bodyAngleX)).toBeLessThan(.5);
+    await expect.poll(async () => Math.abs((await nextParams()).armSwingR)).toBeLessThan(.05);
+    await expect.poll(async () => (await nextParams()).elbowBendR).toBeLessThan(.05);
+    await mode('lost');
+    await expect.poll(async () => (await sample()).parameterWeights.armSwingL).toBeUndefined();
+    await mode('neutral');
+    await expect.poll(async () => (await sample()).parameterWeights.armSwingL ?? 0).toBeGreaterThan(.9);
+    await page.evaluate(async () => {
+      const path = '/src/live/relay.ts'; const { receiveLiveParameters } = await import(path);
+      const values: number[] = [];
+      Object.assign(window, { bodyReturnValues: values, bodyReturnOff: receiveLiveParameters((d: { params: Record<string, number> }) => { if (values.length < 500) values.push(d.params.weightShift); }) });
+    });
+    await toggle.uncheck(); await expect.poll(async () => (await stats()).closed).toBe(1);
+    await expect.poll(async () => (await sample()).parameterWeights.weightShift).toBeUndefined();
+    await expect.poll(async () => (await sample()).parameterWeights.armSwingL).toBeUndefined();
+    const fade = await page.evaluate(() => {
+      const w = window as Window & { bodyReturnValues?: number[]; bodyReturnOff?: () => void }; w.bodyReturnOff!(); return w.bodyReturnValues!;
+    });
+    expect(fade.length).toBeGreaterThan(3);
+    expect(Math.max(...fade.slice(1).map((x, i) => Math.abs(x - fade[i])))).toBeLessThan(.45);
+    await page.screenshot({ path: testInfo.outputPath('body-controls-en.png') });
+    await page.getByRole('button', { name: '日本語', exact: true }).click();
+    await expect(page.getByTestId('body-follows')).toHaveText('追従する部位: 上半身 · 脚 · 腕');
+    await page.screenshot({ path: testInfo.outputPath('body-controls-ja.png') });
+    await page.getByRole('button', { name: '简体中文', exact: true }).click();
+    await expect(page.getByTestId('body-follows')).toHaveText('跟随部位: 上半身 · 腿部 · 手臂');
+    await page.screenshot({ path: testInfo.outputPath('body-controls-zh.png') });
+    await page.getByRole('button', { name: '停止摄像头', exact: true }).click();
+    await ready(page, '/live.html');
+    await expect(page.getByTestId('body-follows')).toHaveText('跟随部位: 上半身');
+    await expect(page.getByTestId('body-missing')).toContainText('腿部 · 手臂');
+    expect(errors).toEqual([]); expect(outside).toEqual([]);
+  } finally { await rm(project, { recursive: true, force: true }); }
 });

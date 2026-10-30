@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
-import { BodyPose, readBody, mapBody, type BodyResult } from '../src/live/body-tracking';
+import { ArmPose, BodyPose, readArm, readBody, mapBody, type BodyResult } from '../src/live/body-tracking';
 import { FacePose, type FaceResult } from '../src/live/tracking';
 const options = { mirror: false, sensitivity: 1, smoothing: 0, bodyTracking: true };
 const point = (x: number, y: number, visibility = 1) => ({ x, y, visibility, presence: 1 });
@@ -62,7 +62,7 @@ test('body-on budget uses amortized total, two bad windows, trial improvement an
   const fast = budget(); for(let i=0;i<200;i++) expect(fast.sample(20,i%2===0,i*34)).toBeNull();
 });
 
-test('worker leaves Pose unloaded when off, runs every second frame when on, returns only four numeric joints and closes frames', async () => {
+test('worker leaves Pose unloaded when off, runs every second frame when on, returns eight numeric joints and closes frames', async () => {
   const { createContext, runInContext } = await import('node:vm');
   let poseLoads=0, poseCalls=0, closes=0, poseCloses=0, clock=0, rejectPose=false;
   const messages: {type:string; result?:{body?:BodyResult}}[]=[];
@@ -72,7 +72,7 @@ test('worker leaves Pose unloaded when off, runs every second frame when on, ret
     if(url.endsWith('tracking-budget.js')) runInContext(readFileSync('src/live/tracking-budget.js','utf8'),context);
     else self.exports={ FilesetResolver:{forVisionTasks:async()=>({})},
       FaceLandmarker:{createFromOptions:async()=>({setOptions:async()=>{},detectForVideo:()=>face()})},
-      PoseLandmarker:{createFromOptions:async()=>{poseLoads++;if(rejectPose)throw new Error('optional model unavailable');return {close:()=>poseCloses++,setOptions:async()=>{},detectForVideo:()=>{poseCalls++;return {landmarks:[Array.from({length:33},()=>point(.5,.4))]};}};} } };
+      PoseLandmarker:{createFromOptions:async()=>{poseLoads++;if(rejectPose)throw new Error('optional model unavailable');return {close:()=>poseCloses++,setOptions:async()=>{},detectForVideo:()=>{poseCalls++;return {landmarks:[Array.from({length:33},(_, i)=>point(i / 100,.4))]};}};} } };
   };
   runInContext(readFileSync('src/live/tracking-worker.js','utf8'),context);
   const send=self.onmessage as (event:{data:Record<string,unknown>})=>Promise<void>;
@@ -82,8 +82,13 @@ test('worker leaves Pose unloaded when off, runs every second frame when on, ret
   await send({data:{type:'body',enabled:true}});for(let i=0;i<8;i++)await frame();
   expect(poseLoads).toBe(1);expect(poseCalls).toBe(4);expect(closes).toBe(10);
   const bodyMessages=messages.filter(m=>m.type==='result'&&m.result?.body);
-  expect(bodyMessages).toHaveLength(4);expect(Object.keys(bodyMessages[0].result!.body!)).toEqual(['shoulders','hips','aspect']);
+  expect(bodyMessages).toHaveLength(4);expect(Object.keys(bodyMessages[0].result!.body!)).toEqual(['shoulders','hips','elbows','wrists','aspect']);
   expect(bodyMessages[0].result!.body!.shoulders).toHaveLength(2);expect(bodyMessages[0].result!.body!.hips).toHaveLength(2);
+  const joints = bodyMessages[0].result!.body!;
+  expect(joints.elbows?.map(p => p.x)).toEqual([.13, .14]); expect(joints.wrists?.map(p => p.x)).toEqual([.15, .16]);
+  for (const pair of [joints.shoulders, joints.hips, joints.elbows!, joints.wrists!]) for (const p of pair) {
+    expect(Object.keys(p)).toEqual(['x', 'y', 'visibility', 'presence']); expect(Object.values(p).every(v => typeof v === 'number')).toBe(true);
+  }
   await send({data:{type:'body',enabled:false}});await frame();expect(poseCloses).toBe(1);expect(poseCalls).toBe(4);expect(closes).toBe(11);
   rejectPose=true;await send({data:{type:'body',enabled:true}});await frame();expect(poseLoads).toBe(2);expect(messages.filter(m=>m.type==='result').at(-1)?.result?.body).toBeNull();
   expect(messages.filter(m=>m.type==='error')).toEqual([]);
@@ -100,7 +105,7 @@ test('body-off waits for an in-flight CPU trial before closing the model and res
     if(url.endsWith('tracking-budget.js')) self.TrackingBudget=class { reset(){} sample(){return 'tryCPU';} };
     else self.exports={FilesetResolver:{forVisionTasks:async()=>({})},
       FaceLandmarker:{createFromOptions:async()=>({detectForVideo:()=>face(),setOptions:async(o:{baseOptions:{delegate:string}})=>{const d=o.baseOptions.delegate;if(d==='CPU'){enterCPU();await cpuRelease;}delegates.push(d);}})},
-      PoseLandmarker:{createFromOptions:async()=>({close:()=>closed++,setOptions:async()=>{},detectForVideo:()=>({landmarks:[Array.from({length:33},()=>point(.5,.4))]})})}};
+      PoseLandmarker:{createFromOptions:async()=>({close:()=>closed++,setOptions:async()=>{},detectForVideo:()=>({landmarks:[Array.from({length:33},(_, i)=>point(i / 100,.4))]})})}};
   };
   runInContext(readFileSync('src/live/tracking-worker.js','utf8'),context);
   const send=self.onmessage as(e:{data:Record<string,unknown>})=>Promise<void>;
@@ -109,4 +114,96 @@ test('body-off waits for an in-flight CPU trial before closing the model and res
   await cpuEntered;const off=send({data:{type:'body',enabled:false}});await Promise.resolve();await Promise.resolve();expect(closed).toBe(0);
   releaseCPU();await frame;await off;
   expect(delegates).toEqual(['CPU','GPU']);expect(closed).toBe(1);expect(frameClosed).toBe(1);expect(messages.filter(m=>m.type==='error')).toEqual([]);
+});
+
+const armOptions = { ...options, armsTracking: true };
+/** Anatomical left is camera-image right before mirroring. */
+function armsBody(left = 0, right = 0, bendLeft = 0, bendRight = 0): BodyResult {
+  const result = body(); result.shoulders.reverse();
+  result.elbows = [point(0, 0), point(0, 0)]; result.wrists = [point(0, 0), point(0, 0)];
+  for (const [i, angle] of [left, right].entries()) {
+    const sign = i === 0 ? 1 : -1, upper = angle * sign * Math.PI / 180;
+    const lower = upper - sign * [bendLeft, bendRight][i] * Math.PI / 180;
+    const shoulder = result.shoulders[i];
+    const elbow = point(shoulder.x + Math.sin(upper) * .2 / result.aspect, shoulder.y + Math.cos(upper) * .2);
+    result.elbows[i] = elbow;
+    result.wrists[i] = point(elbow.x + Math.sin(lower) * .2 / result.aspect, elbow.y + Math.cos(lower) * .2);
+  }
+  return result;
+}
+test('arm geometry corrects aspect and torso roll; raw sides map to image sides with and without Mirror', () => {
+  const pose = new ArmPose(); pose.update(armsBody(), 0); pose.sample(0, 1, armOptions);
+  pose.update(armsBody(45, -22.5, 90), 10);
+  expect(readArm(armsBody(45, 0, 90), 0)).toMatchObject({ upper: 45 });
+  expect(readArm(armsBody(45, 0, 90), 0)!.bend).toBeCloseTo(90);
+  const normal = pose.sample(10, 1, armOptions);
+  expect(normal.params.armSwingR).toBeCloseTo(1); expect(normal.params.armSwingL).toBeCloseTo(-.5);
+  expect(normal.params.elbowBendR).toBeCloseTo(.6); expect(normal.params.elbowBendL).toBe(0);
+  const mirrored = pose.sample(10, 1, { ...armOptions, mirror: true });
+  expect(mirrored.params.armSwingL).toBe(normal.params.armSwingR);
+  expect(mirrored.params.armSwingR).toBe(normal.params.armSwingL);
+  expect(mirrored.params.elbowBendL).toBe(normal.params.elbowBendR);
+  expect(pose.sample(10, 1, { ...armOptions, sensitivity: .5 }).params.armSwingR).toBeCloseTo(.5);
+  expect(pose.sample(10, 1, { ...armOptions, sensitivity: 2 }).params.elbowBendR).toBe(.75);
+  pose.update(armsBody(110, 0, 0), 20); expect(pose.sample(20, 1, armOptions).params.armSwingR).toBe(1);
+  // Rotate the whole torso and arm together; local upper-arm angle stays neutral.
+  const rotated = armsBody(), center = { x: .5, y: .3 }, angle = .2;
+  for (const pair of [rotated.shoulders, rotated.elbows!, rotated.wrists!]) for (const p of pair) {
+    const x = (p.x - center.x) * rotated.aspect, y = p.y - center.y;
+    p.x = center.x + (x * Math.cos(angle) - y * Math.sin(angle)) / rotated.aspect;
+    p.y = center.y + x * Math.sin(angle) + y * Math.cos(angle);
+  }
+  expect(readArm(rotated, 0)!.upper).toBeCloseTo(0, 10);
+});
+test('arm visibility holds for 500 ms and fades over 200 ms independently by side and joint', () => {
+  const pose = new ArmPose(); pose.update(armsBody(), 0); pose.sample(0, 2, armOptions);
+  pose.update(armsBody(45, 20, 90, 30), 10); pose.sample(10, 2, armOptions);
+  const partial = armsBody(45, 20, 90, 30); partial.wrists![0].visibility = .1; partial.elbows![1].presence = .1;
+  pose.update(partial, 400);
+  const held = pose.sample(500, .01, armOptions); expect(held.weights.elbowBendR).toBeGreaterThan(.99);
+  const faded = pose.sample(511, .2, armOptions);
+  expect(faded.weights.armSwingR).toBeGreaterThan(.99);
+  expect(faded.weights.elbowBendR).toBeCloseTo(Math.exp(-1), 3);
+  expect(faded.weights.armSwingL).toBeCloseTo(Math.exp(-1), 3);
+  expect(faded.weights.elbowBendL).toBeCloseTo(Math.exp(-1), 3);
+  const bad = armsBody(); bad.elbows![0].x = NaN; bad.wrists![1] = { ...bad.elbows![1] };
+  expect(readArm(bad, 0)).toBeNull(); expect(readArm(bad, 1)?.bend).toBeUndefined();
+  for (let i = 0; i < 100; i++) pose.sample(1000 + i * 16, .016, armOptions);
+  expect(pose.sample(3000, .1, armOptions).params).toEqual({});
+});
+test('arm calibration resets visible channels and late wrists start at neutral; smoothing is time based', () => {
+  const pose = new ArmPose(), initial = armsBody(); delete initial.wrists;
+  pose.update(initial, 0); pose.sample(0, 1, armOptions);
+  pose.update(armsBody(30, 0, 60), 10);
+  expect(pose.sample(10, 1, armOptions).params.elbowBendR).toBe(0);
+  pose.update(armsBody(45, 0, 90), 20);
+  expect(pose.sample(20, 1, armOptions).params.elbowBendR).toBeCloseTo(.2);
+  expect(pose.calibrate(20)).toBe(true);
+  const zero = pose.sample(20, 1, armOptions).params;
+  expect(Object.values(zero).every(v => v === 0)).toBe(true);
+  pose.update(armsBody(45, 0, 30), 30); expect(pose.sample(30, 1, armOptions).params.elbowBendR).toBe(0);
+  const run = (steps: number) => {
+    const p = new ArmPose(); p.update(armsBody(), 0); p.sample(0, 1, armOptions); p.update(armsBody(45), 1);
+    let result = p.sample(1, 0, { ...armOptions, smoothing: .8 });
+    for (let i = 0; i < steps; i++) result = p.sample(1, .1 / steps, { ...armOptions, smoothing: .8 });
+    return result.params.armSwingR;
+  };
+  expect(run(1)).toBeCloseTo(run(2), 12); expect(run(1)).toBeGreaterThan(0); expect(run(1)).toBeLessThan(1);
+  pose.reset(); expect(pose.calibrate(40)).toBe(false); expect(pose.sample(40, 1, armOptions).params).toEqual({});
+});
+test('FacePose forwards arm weights to idle without double fading; unsupported avatars retain legacy output', () => {
+  const a = new FacePose(), b = new FacePose();
+  a.update(face(armsBody()), 0); b.update(face(body()), 0);
+  expect(a.sample(0, .2, options)).toEqual(b.sample(0, .2, options));
+  a.sample(0, 2, armOptions);
+  a.update(face(armsBody(45, 0, 90)), 10);
+  const tracked = a.sample(10, 2, armOptions);
+  expect(tracked.params.elbowBendR).toBeCloseTo(.6); expect(tracked.parameterWeights.armSwingR).toBeGreaterThan(.99);
+  const lost = a.sample(511, .2, armOptions);
+  expect(lost.weight * lost.parameterWeights.armSwingR).toBeCloseTo(Math.exp(-1), 3);
+  a.calibrate(511); // stale arms lose their old neutral on recalibration
+  a.update(face(armsBody(20, 0, 40)), 600);
+  expect(a.sample(600, 1, armOptions).params.armSwingR).toBe(0);
+  const disabled = a.sample(601, .2, { ...armOptions, bodyTracking: false });
+  expect(disabled.parameterWeights.armSwingR).toBeLessThan(1);
 });

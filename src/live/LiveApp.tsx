@@ -18,6 +18,8 @@ export function LiveApp() {
   const [settings, setSettings] = useState(() => { const view = viewSettings(location.search); return { ...view, lighting: view.lighting ?? loadLighting(view.project), overlays: view.overlays ?? loadOverlays(view.project) }; });
   // Overlay layers the loaded avatar has (built/overlays), listed once it has loaded.
   const [availableOverlays, setAvailableOverlays] = useState<string[]>([]);
+  const [support, setSupport] = useState<{ legs: boolean; arms: boolean } | null>(null);
+  const supportRef = useRef(support); supportRef.current = support;
   const [lightingOpen, setLightingOpen] = useState(false);
   const [presets, setPresets] = useState(() => loadLightingPresets(settings.project));
   const presetsRef = useRef(presets); presetsRef.current = presets;
@@ -60,9 +62,9 @@ export function LiveApp() {
       setBackgroundStatus(camera.current?.backgroundStatus(document.visibilityState === 'hidden' || !!view?.paintPaused(now), now) ?? null);
     };
     const send = createLiveSender(settings.project);
-    setViewState('loading');
+    setViewState('loading'); setSupport(null); supportRef.current = null;
     void createAvatarView(canvas.current!, settings, (avatar, now, dt) => {
-      const control = controls.current, sampled = pose.current.sample(now, dt, control.options);
+      const control = controls.current, sampled = pose.current.sample(now, dt, { ...control.options, armsTracking: supportRef.current?.arms ?? false });
       setTracking(sampled.tracking);
       avatar.setAutoIdle(!sampled.tracking); avatar.setAutoMotion(!sampled.tracking);
       avatar.setParameters(sampled.params, sampled.weight, sampled.parameterWeights);
@@ -71,7 +73,7 @@ export function LiveApp() {
     }, (avatar, now) => {
       // An expression alone also drives the stream view, including its fade back to neutral.
       if (controls.current.cameraState === 'running' || controls.current.micState === 'micOn' || avatar.getExpression().active) send(avatar.getParameters(), now);
-    }).then(value => { if (cancelled) value.destroy(); else { view = value; avatarRef.current = value.avatar; value.avatar.setLighting(lightRef.current); value.avatar.setExpression(expressionRef.current); value.avatar.setOverlays(overlaysRef.current); setAvailableOverlays(value.overlays); setViewState('ready'); } }).catch(() => { if (!cancelled) setViewState('projectError'); });
+    }).then(value => { if (cancelled) value.destroy(); else { view = value; avatarRef.current = value.avatar; value.avatar.setLighting(lightRef.current); value.avatar.setExpression(expressionRef.current); value.avatar.setOverlays(overlaysRef.current); setAvailableOverlays(value.overlays); supportRef.current = value.support; setSupport(value.support); setViewState('ready'); } }).catch(() => { if (!cancelled) setViewState('projectError'); });
     return () => { cancelled = true; clock.terminate(); view?.destroy(); avatarRef.current = null; };
   }, [settings.project, settings.fit]);
   useEffect(() => {
@@ -133,6 +135,8 @@ export function LiveApp() {
   const cameraActive = cameraState === 'starting' || cameraState === 'running';
   const micActive = micState === 'micStarting' || micState === 'micOn';
   const url = streamUrl(settings, location.origin);
+  const followed = support ? [t.upperBody, ...(support.legs ? [t.legs] : []), ...(support.arms ? [t.arms] : [])] : [];
+  const missing = support ? [...(!support.legs ? [t.legs] : []), ...(!support.arms ? [t.arms] : [])] : [];
   const status = cameraState === 'running' ? tracking ? 'tracking' : 'lost' : cameraState;
   return <main className="live-app">
     <header className="live-header"><div><a href="/">{t.back}</a><h1>Mesh Avatar Studio <span>{t.title}</span></h1></div>
@@ -154,7 +158,11 @@ export function LiveApp() {
         <small>{calibrated ? t.calibrated : t.calibrateHint}</small>
         <label className="live-check"><input data-testid="body-tracking-toggle" type="checkbox" checked={!!options.bodyTracking} onChange={event => {
           const enabled = event.target.checked; setOptions(current => ({ ...current, bodyTracking: enabled })); camera.current?.setBodyTracking(enabled);
-        }} />{t.bodyTracking}</label><small>{t.bodyTrackingHint}</small>
+        }} />{t.bodyTracking}</label>
+        {support && <div className="live-body-support" data-testid="body-support">
+          <small data-testid="body-follows">{t.follows}: {followed.join(' · ')}</small>
+          {missing.length > 0 && <small data-testid="body-missing">{t.missingParts.replace('{parts}', missing.join(' · '))}</small>}
+        </div>}<small>{t.bodyTrackingHint}</small>
         <label className="live-check"><input type="checkbox" checked={options.mirror} onChange={event => setOptions(current => ({ ...current, mirror: event.target.checked }))} />{t.mirror}</label>
         <label>{t.sensitivity}<input type="range" min="0.25" max="2" step="0.05" value={options.sensitivity} onChange={event => setOptions(current => ({ ...current, sensitivity: Number(event.target.value) }))} /></label>
         <label>{t.smoothing}<input type="range" min="0" max="1" step="0.05" value={options.smoothing} onChange={event => setOptions(current => ({ ...current, smoothing: Number(event.target.value) }))} /></label>

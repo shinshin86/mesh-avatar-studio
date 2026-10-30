@@ -1,7 +1,11 @@
 import type { TrackingOptions } from './tracking';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
 export interface BodyPoint { x: number; y: number; visibility: number; presence?: number }
-export interface BodyResult { shoulders: [BodyPoint, BodyPoint]; hips: [BodyPoint, BodyPoint]; aspect: number }
+/** Joint pairs retain MediaPipe anatomical left/right order, before mirroring. */
+export interface BodyResult {
+  shoulders: [BodyPoint, BodyPoint]; hips: [BodyPoint, BodyPoint]; aspect: number;
+  elbows?: [BodyPoint, BodyPoint]; wrists?: [BodyPoint, BodyPoint];
+}
 export interface BodyNeutral { shoulderX: number; width: number; roll: number; hipX?: number }
 const usable = (p: BodyPoint, threshold: number) => p && [p.x, p.y, p.visibility, p.presence ?? 1].every(Number.isFinite) && p.visibility >= threshold && (p.presence ?? 1) >= 0.5;
 export function readBody(body: BodyResult | null | undefined): BodyNeutral | null {
@@ -47,5 +51,82 @@ export class BodyPose {
       for (const key of ['bodyAngleX', 'bodyAngleZ', 'weightShift'] as const) this.params[key] += (target[key] - this.params[key]) * a;
     }
     return { active, weight: this.weight, params: { ...this.params } };
+  }
+}
+
+interface ArmAngles { upper: number; bend?: number }
+/** Image-plane angles, aspect corrected and relative to the torso inclination. */
+export function readArm(body: BodyResult | null, side: number, roll = readBody(body)?.roll ?? 0): ArmAngles | null {
+  if (!body || !Number.isFinite(body.aspect) || body.aspect <= 0) return null;
+  const shoulder = body.shoulders?.[side], elbow = body.elbows?.[side], wrist = body.wrists?.[side];
+  if (!shoulder || !elbow || !usable(shoulder, 0.55) || !usable(elbow, 0.55)) return null;
+  const ux = (elbow.x - shoulder.x) * body.aspect, uy = elbow.y - shoulder.y;
+  const length = Math.hypot(ux, uy);
+  if (length < 0.02) return null;
+  const upper = Math.atan2(ux, uy) * 180 / Math.PI + roll;
+  if (!wrist || !usable(wrist, 0.55)) return { upper };
+  const vx = (wrist.x - elbow.x) * body.aspect, vy = wrist.y - elbow.y, forearm = Math.hypot(vx, vy);
+  if (forearm < 0.02) return { upper };
+  return { upper, bend: Math.acos(clamp((ux * vx + uy * vy) / (length * forearm), -1, 1)) * 180 / Math.PI };
+}
+interface ArmChannel { value: number; neutral: number | null; seen: number; weight: number; param: number }
+const channel = (): ArmChannel => ({ value: 0, neutral: null, seen: -Infinity, weight: 0, param: 0 });
+const angleDelta = (value: number, neutral: number) => ((value - neutral + 540) % 360) - 180;
+/** Independent upper-arm and elbow channels let a hidden wrist release only the bend. */
+export class ArmPose {
+  private sides = [ [channel(), channel()], [channel(), channel()] ];
+  private roll = 0;
+  update(body: BodyResult | null, now: number) {
+    this.roll = readBody(body)?.roll ?? this.roll;
+    this.sides.forEach((channels, side) => {
+      const angles = readArm(body, side, this.roll);
+      for (const [i, value] of [angles?.upper, angles?.bend].entries()) {
+        if (value === undefined) continue;
+        const c = channels[i]; c.value = value; c.seen = now;
+        if (c.neutral === null) c.neutral = value;
+      }
+    });
+  }
+  calibrate(now: number) {
+    let available = false;
+    for (const channels of this.sides) for (const c of channels) {
+      const visible = now - c.seen <= 500;
+      c.neutral = visible ? c.value : null; c.param = 0;
+      if (!visible) c.weight = 0;
+      available ||= visible;
+    }
+    return available;
+  }
+  reset() { this.sides = [[channel(), channel()], [channel(), channel()]]; this.roll = 0; }
+  sample(now: number, dt: number, options: TrackingOptions) {
+    const params: Record<string, number> = {}, weights: Record<string, number> = {};
+    let active = false;
+    const fade = 1 - Math.exp(-Math.max(0, dt) / 0.2);
+    const tau = clamp(options.smoothing, 0, 1) * 0.25;
+    const smooth = tau <= 0 ? 1 : 1 - Math.exp(-Math.max(0, dt) / tau);
+    const gain = clamp(options.sensitivity, 0.25, 2);
+    for (const [side, channels] of this.sides.entries()) {
+      // Raw anatomical left is camera-image right. Mirror swaps its destination,
+      // while outward swing retains its sign on both sides.
+      const imageSide = (options.mirror ? side === 0 : side === 1) ? 'L' : 'R';
+      for (const [i, c] of channels.entries()) {
+        const visible = !!options.bodyTracking && !!options.armsTracking && c.neutral !== null && now - c.seen <= 500;
+        active ||= visible;
+        c.weight += ((visible ? 1 : 0) - c.weight) * fade;
+        if (!visible && c.weight < 0.005) c.weight = 0;
+        if (visible) {
+          const target = i === 0
+            ? clamp(angleDelta(c.value, c.neutral!) * (side === 0 ? 1 : -1) * gain / 45, -1, 1)
+            // A clearly bent (90 degree) elbow maps to 0.6 at normal sensitivity.
+            : clamp((c.value - c.neutral!) * gain / 150, 0, 0.75);
+          c.param += (target - c.param) * smooth;
+        }
+        if (c.weight > 0) {
+          const key = `${i === 0 ? 'armSwing' : 'elbowBend'}${imageSide}`;
+          params[key] = c.param; weights[key] = c.weight;
+        }
+      }
+    }
+    return { active, params, weights };
   }
 }

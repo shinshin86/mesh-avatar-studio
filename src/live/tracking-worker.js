@@ -69,7 +69,7 @@ async function handleMessage({ data }) {
           faceLandmarks: result.faceLandmarks.length ? [[]] : [],
           faceBlendshapes: result.faceBlendshapes,
           facialTransformationMatrixes: result.facialTransformationMatrixes,
-          ...(bodyEnabled && (!pose || poseRan) ? { body: landmarks?.length >= 25 ? { shoulders: [point(11), point(12)], hips: [point(23), point(24)], aspect: (data.frame.displayWidth || data.frame.width) / (data.frame.displayHeight || data.frame.height) } : null } : {}),
+          ...(bodyEnabled && (!pose || poseRan) ? { body: landmarks?.length >= 25 ? { shoulders: [point(11), point(12)], hips: [point(23), point(24)], elbows: [point(13), point(14)], wrists: [point(15), point(16)], aspect: (data.frame.displayWidth || data.frame.width) / (data.frame.displayHeight || data.frame.height) } : null } : {}),
         } });
         // Some worker GPU backends initialize but run too slowly. Ignore warm-up, then
         // try CPU if sustained inference alone cannot meet the 15 fps target.
