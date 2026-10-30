@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
-import { ArmPose, BodyPose, readArm, readBody, mapBody, type BodyResult } from '../src/live/body-tracking';
+import { ArmPose, BodyPose, BODY_DEAD_ZONE, softDeadZone, readArm, readBody, mapBody, type BodyResult } from '../src/live/body-tracking';
 import { FacePose, type FaceResult } from '../src/live/tracking';
 const options = { mirror: false, sensitivity: 1, smoothing: 0, bodyTracking: true };
 const point = (x: number, y: number, visibility = 1) => ({ x, y, visibility, presence: 1 });
@@ -12,23 +12,25 @@ test('shoulder displacement/tilt map independently, hips take weight priority, m
   const zero = readBody(body())!;
   const shifted = readBody(body(.06, -.03))!;
   const normal = mapBody(shifted, zero, options), mirror = mapBody(shifted, zero, { ...options, mirror: true });
-  expect(normal.bodyAngleX).toBeCloseTo(4); expect(normal.weightShift).toBeCloseTo(-.14);
+  expect(normal.bodyAngleX).toBeCloseTo(3.2); expect(normal.weightShift).toBeCloseTo(-.084);
   expect(mirror.bodyAngleX).toBeCloseTo(-normal.bodyAngleX); expect(mirror.weightShift).toBeCloseTo(-normal.weightShift);
-  expect(mapBody(shifted, zero, { ...options, sensitivity: 2 }).bodyAngleX).toBeCloseTo(8);
+  expect(mapBody(shifted, zero, { ...options, sensitivity: 2 }).bodyAngleX).toBeCloseTo(6.4);
   expect(mapBody(readBody(body(1))!, zero, options).bodyAngleX).toBe(10);
-  const seated = mapBody(readBody(body(.06, -.03, false))!, zero, options); expect(seated.weightShift).toBeCloseTo(.28);
+  const seated = mapBody(readBody(body(.06, -.03, false))!, zero, options); expect(seated.weightShift).toBe(0);
   const tilted = body(); tilted.shoulders[1].y += .04;
-  expect(mapBody(readBody(tilted)!, zero, options).bodyAngleZ).toBeGreaterThan(5);
-  expect(mapBody(readBody(tilted)!, zero, { ...options, mirror: true }).bodyAngleZ).toBeLessThan(-5);
+  expect(mapBody(readBody(tilted)!, zero, options).bodyAngleZ).toBeGreaterThan(3);
+  expect(mapBody(readBody(tilted)!, zero, { ...options, mirror: true }).bodyAngleZ).toBeLessThan(-3);
   tilted.shoulders[0].visibility = .1; expect(readBody(tilted)).toBeNull();
   tilted.shoulders[0].visibility = 1; tilted.shoulders[0].x = NaN; expect(readBody(tilted)).toBeNull();
 });
 test('body neutral calibration, stale/lost/off fade, and late hip visibility stay continuous', () => {
   const pose = new BodyPose(); pose.update(body(), 0); pose.sample(0, .2, options); pose.update(body(.06, .06, false), 10);
-  expect(pose.sample(10, .2, options).params.weightShift).toBeCloseTo(.28);
+  expect(pose.sample(10, .2, options).params.weightShift).toBe(0);
   pose.calibrate(10); expect(pose.sample(10, .2, options).params.bodyAngleX).toBe(0);
   pose.update(body(.09, .09), 20); const active = pose.sample(20, .2, options);
-  expect(active.params.weightShift).toBeCloseTo(.14);
+  expect(active.params.weightShift).toBe(0); // first visible hips establish their own neutral
+  pose.update(body(.12, .12), 30);
+  expect(pose.sample(30, .2, options).params.weightShift).toBeCloseTo(.084);
   pose.reset();
   const off = pose.sample(21, .016, { ...options, bodyTracking: false }); expect(off.weight).toBeLessThan(active.weight); expect(off.weight).toBeGreaterThan(0);
   expect(pose.sample(600, .016, options).active).toBe(false);
@@ -39,8 +41,8 @@ test('face-only output stays identical when body is off; body overrides rather t
   const a = new FacePose(), b = new FacePose(); a.update(face(body()), 0); b.update(face(), 0);
   expect(a.sample(1, .016, { ...options, bodyTracking: false })).toEqual(b.sample(1, .016, { ...options, bodyTracking: false }));
   a.sample(1, 1, options); const turned=face(body(.06)); const yaw=Math.PI/6;turned.facialTransformationMatrixes[0].data=[Math.cos(yaw),0,-Math.sin(yaw),0,0,1,0,0,Math.sin(yaw),0,Math.cos(yaw),0,0,0,0,1];a.update(turned, 10); const active = a.sample(10, 1, options);
-  expect(active.params.bodyAngleX).toBeCloseTo(4, 1); expect(active.parameterWeights.weightShift).toBeGreaterThan(.99);
-  const lost = a.sample(600, .016, options); expect(lost.parameterWeights.weightShift).toBeGreaterThan(0); expect(lost.parameterWeights.weightShift).toBeLessThan(1);
+  expect(active.params.bodyAngleX).toBeCloseTo(3.2, 1); expect(active.parameterWeights.weightShift).toBeGreaterThan(.99);
+  const lost = a.sample(600, .016, options); expect(lost.parameterWeights.weightShift).toBeGreaterThan(0); expect(lost.weight * lost.parameterWeights.weightShift).toBeLessThan(1);
   for (let i = 0; i < 100; i++) a.sample(700+i*16, .016, options);
   expect(a.sample(3000,.016,options).params.weightShift).toBeUndefined();
 });
@@ -206,4 +208,99 @@ test('FacePose forwards arm weights to idle without double fading; unsupported a
   expect(a.sample(600, 1, armOptions).params.armSwingR).toBe(0);
   const disabled = a.sample(601, .2, { ...armOptions, bodyTracking: false });
   expect(disabled.parameterWeights.armSwingR).toBeLessThan(1);
+});
+
+
+test('body dead zones are zero for jitter, odd, continuous and have a smooth onset', () => {
+  for (const zone of Object.values(BODY_DEAD_ZONE)) {
+    for (const v of [-zone, -zone / 2, 0, zone / 2, zone]) expect(softDeadZone(v, zone)).toBe(0);
+    for (const v of [zone * 1.1, zone * 1.5, zone * 2, zone * 3]) expect(softDeadZone(-v, zone)).toBeCloseTo(-softDeadZone(v, zone), 12);
+    const epsilon = zone * 1e-4;
+    expect(softDeadZone(zone + epsilon, zone)).toBeLessThan(epsilon * .001);
+    expect(Math.abs(softDeadZone(2 * zone + epsilon, zone) - softDeadZone(2 * zone - epsilon, zone))).toBeLessThan(epsilon * 2.01);
+  }
+  const zero = readBody(body())!, noisy = body(.005, .005); noisy.shoulders[0].y -= .005;
+  expect(mapBody(readBody(noisy)!, zero, options)).toEqual({ bodyAngleX: 0, bodyAngleZ: 0, weightShift: 0 });
+});
+
+test('arm raises and elbow bends cannot turn correlated shoulder errors into torso or skirt targets', () => {
+  for (const armsTracking of [false, true]) for (const mirror of [false, true]) {
+    const pose = new FacePose(), controls = { ...options, armsTracking, mirror, smoothing: .35 };
+    pose.update(face(armsBody()), 0); const baseline = pose.sample(0, 5, controls);
+    let latest = baseline;
+    // Ramp slowly so an implementation that learns the shoulder error before
+    // recognizing the arm pose is also exercised, then hold the raised arm.
+    for (let f = 1; f <= 180; f++) {
+      const t = Math.min(1, f / 60), shifted = armsBody(60 * t, 0, 60 * t);
+      shifted.shoulders[0].x += .01 * t; shifted.shoulders[0].y -= .02 * t;
+      pose.update(face(shifted), f * 16);
+      latest = pose.sample(f * 16, .016, controls);
+      expect(Math.abs(latest.params.bodyAngleX)).toBeLessThan(.05);
+      expect(Math.abs(latest.params.bodyAngleZ)).toBeLessThan(.05);
+      expect(latest.params.weightShift).toBe(0);
+      expect(latest.weight).toBe(baseline.weight);
+      expect(latest.parameterWeights.weightShift).toBeCloseTo(baseline.parameterWeights.weightShift, 8);
+    }
+    if (armsTracking) expect(Math.max(Math.abs(latest.params.armSwingL), Math.abs(latest.params.armSwingR))).toBeGreaterThan(.9);
+    else expect(latest.params.armSwingL).toBeUndefined();
+  }
+});
+
+test('real torso lean remains tracked and visible hips can corroborate lean during arm motion', () => {
+  for (const raising of [false, true]) {
+    const pose = new FacePose(); pose.update(face(armsBody()), 0); pose.sample(0, 2, armOptions);
+    const lean = armsBody(raising ? 60 : 0);
+    for (const pair of [lean.shoulders, lean.hips, lean.elbows!, lean.wrists!]) for (const p of pair) p.x += .09;
+    pose.update(face(lean), 10);
+    const result = pose.sample(10, 2, armOptions);
+    expect(result.params.bodyAngleX).toBeCloseTo(5.2, 2);
+    expect(result.params.weightShift).toBeCloseTo(.364, 2);
+    expect(result.parameterWeights.weightShift).toBeGreaterThan(.99);
+  }
+  // A whole-body roll with hanging arms must not be treated as an arm raise.
+  const pose = new FacePose(); pose.update(face(armsBody()), 0); pose.sample(0, 2, armOptions);
+  const roll = armsBody(), angle = .15, center = { x: .5, y: .5 };
+  for (const pair of [roll.shoulders, roll.hips, roll.elbows!, roll.wrists!]) for (const p of pair) {
+    const x = (p.x - center.x) * roll.aspect, y = p.y - center.y;
+    p.x = center.x + (x * Math.cos(angle) - y * Math.sin(angle)) / roll.aspect;
+    p.y = center.y + x * Math.sin(angle) + y * Math.cos(angle);
+  }
+  pose.update(face(roll), 10); expect(pose.sample(10, 2, armOptions).params.bodyAngleZ).toBeGreaterThan(6);
+});
+
+test('hidden hips release only weightShift to idle; late hips never inherit the shoulder offset', () => {
+  const pose = new FacePose(); pose.update(face(body()), 0); pose.sample(0, 5, options);
+  pose.update(face(body(.09)), 10); const active = pose.sample(10, 1, options);
+  expect(active.params.weightShift).toBeGreaterThan(.35);
+  for (let f = 1; f <= 200; f++) {
+    const now = 10 + f * 16;
+    pose.update(face(body(.09, 0, false)), now);
+    const result = pose.sample(now, .016, options);
+    expect(result.params.bodyAngleX).toBeGreaterThan(5);
+    expect(result.weight).toBe(1);
+    if (f === 25) expect(result.parameterWeights.weightShift).toBeGreaterThan(.99);
+    if (f === 45) expect(result.parameterWeights.weightShift).toBeGreaterThan(.1);
+  }
+  const lost = pose.sample(3220, .016, options);
+  expect(lost.params.weightShift).toBeUndefined(); expect(lost.parameterWeights.weightShift).toBeUndefined();
+  const seated = new FacePose(); seated.update(face(body(0, 0, false)), 0); seated.sample(0, 1, options);
+  seated.update(face(body(.09, 0, false)), 10);
+  expect(seated.sample(10, 1, options).params.weightShift).toBeUndefined();
+  seated.update(face(body(.09, .09)), 20);
+  expect(seated.sample(20, 1, options).params.weightShift).toBe(0);
+});
+
+test('arm guarding holds an already tracked lean without changing its tracking weight', () => {
+  const pose = new FacePose(); pose.update(face(armsBody()), 0); pose.sample(0, 5, armOptions);
+  const lean = armsBody(); for (const pair of [lean.shoulders, lean.hips, lean.elbows!, lean.wrists!]) for (const p of pair) p.x += .09;
+  pose.update(face(lean), 10); const before = pose.sample(10, 5, armOptions);
+  const raised = armsBody(60, 0, 90);
+  for (const pair of [raised.shoulders, raised.elbows!, raised.wrists!]) for (const p of pair) p.x += .09;
+  raised.shoulders[0].y -= .02;
+  // Hips stay visible at their real, already tracked lean.
+  for (const p of raised.hips) p.x += .09;
+  pose.update(face(raised), 20); const after = pose.sample(20, 1, armOptions);
+  expect(after.params.bodyAngleX).toBeCloseTo(before.params.bodyAngleX, 2);
+  expect(after.params.bodyAngleZ).toBeCloseTo(before.params.bodyAngleZ, 6);
+  expect(after.parameterWeights.weightShift).toBeCloseTo(before.parameterWeights.weightShift, 6);
 });

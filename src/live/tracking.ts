@@ -82,7 +82,7 @@ export class FacePose {
   reset() { this.body.reset(); this.arms.reset(); this.face = null; this.neutral = null; this.seen = -Infinity; }
   sample(now: number, dt: number, options: TrackingOptions) {
     this.bodyEnabled = !!options.bodyTracking;
-    const body = this.body.sample(now, dt, options);
+    const body = this.body.sample(now, dt, options, this.arms.activity(now));
     const arms = this.arms.sample(now, dt, options);
     const tracking = !!this.face && now - this.seen <= 500;
     const target = tracking ? mapFace(this.face!, this.neutral, options) : faceNeutral;
@@ -93,15 +93,15 @@ export class FacePose {
     const params = { ...this.params };
     if (body.weight > 0) {
       for (const key of ['bodyAngleX', 'bodyAngleZ'] as const) params[key] += (body.params[key] - params[key]) * body.weight;
-      params.weightShift = body.params.weightShift;
     }
+    if (body.hipWeight > 0) params.weightShift = body.params.weightShift;
     Object.assign(params, arms.params);
     const weight = body.active || arms.active ? 1 : this.weight;
     // Runtime multiplies global and individual weights. Preserve each arm channel's
     // own fade even when the face and torso are fading at the same time.
     const armWeights = Object.fromEntries(Object.entries(arms.weights).map(([key, value]) => [key, weight > 0 ? clamp(value / weight) : 0]));
     return { tracking: tracking || body.active || arms.active, params, weight,
-      parameterWeights: { ...(body.weight > 0 ? { weightShift: body.weight } : {}), ...armWeights } as Record<string, number> };
+      parameterWeights: { ...(body.hipWeight > 0 ? { weightShift: weight > 0 ? clamp(body.hipWeight / weight) : 0 } : {}), ...armWeights } as Record<string, number> };
   }
 }
 export function rmsLevel(samples: Float32Array, gain: number): number {

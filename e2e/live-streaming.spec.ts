@@ -302,13 +302,16 @@ test('optional body and arm tracking maps mirrored joints, calibrates and releas
       }})};
       self.exports.PoseLandmarker={createFromOptions:async()=>({close(){self.bodyTestClosed=true;self.postMessage({type:'pose-close-test'});},setOptions:async()=>{},detectForVideo(){
         self.postMessage({type:'pose-test',mode});if(mode==='lost')return {landmarks:[]};
-        const moved=mode!=='neutral',shift=moved?.1:0,point=(x,y,visibility=1)=>({x,y,visibility,presence:1});
+        const moved=mode!=='neutral',armOnly=['arm-only','hips-hidden'].includes(mode),shift=moved&&!armOnly?.1:0,point=(x,y,visibility=1)=>({x,y,visibility,presence:1});
         const l=Array.from({length:33},()=>point(.5,.5,0));l[11]=point(.65+shift,.3);l[12]=point(.35+shift,.3);
+        l[23]=point(.6+shift,.7);l[24]=point(.4+shift,.7);
         for(let i=0;i<2;i++){
-          const sign=i===0?1:-1,a=(moved&&i===0?30:0)*Math.PI/180,b=a-(moved&&i===0?90:0)*Math.PI/180;
+          const sign=i===0?1:-1,a=(moved&&i===0?(armOnly?60:30):0)*Math.PI/180,b=a-(moved&&i===0?90:0)*Math.PI/180;
           const s=l[11+i],e=point(s.x+Math.sin(a)*.2/(4/3),s.y+Math.cos(a)*.2);
           l[13+i]=e;l[15+i]=point(e.x+Math.sin(b)*.2/(4/3),e.y+Math.cos(b)*.2);
         }
+        if(armOnly){l[11].x+=.01;l[11].y-=.02;}
+        if(mode==='hips-hidden'){l[23].visibility=0;l[24].visibility=0;}
         if(mode==='wrist-hidden')l[15].visibility=0;
         if(mode==='elbow-hidden')l[13].visibility=0;
         return {landmarks:[l]};
@@ -342,8 +345,19 @@ test('optional body and arm tracking maps mirrored joints, calibrates and releas
     await expect.poll(async () => (await stats()).results).toBeGreaterThan(5); expect((await stats()).poses).toBe(0);
     await toggle.check();
     await expect.poll(async () => (await sample()).parameterWeights.armSwingR ?? 0).toBeGreaterThan(.9);
+    await mode('arm-only');
+    await expect.poll(async () => (await nextParams()).armSwingR).toBeGreaterThan(.9);
+    await expect.poll(async () => Math.abs((await nextParams()).bodyAngleX)).toBeLessThan(.05);
+    await expect.poll(async () => Math.abs((await nextParams()).bodyAngleZ)).toBeLessThan(.05);
+    expect(Math.abs((await nextParams()).weightShift)).toBeLessThan(.01);
+    expect((await sample()).parameterWeights.weightShift).toBeGreaterThan(.99);
+    await mode('hips-hidden');
+    await expect.poll(async () => (await sample()).parameterWeights.weightShift).toBeUndefined();
+    expect(Math.abs((await sample()).params.bodyAngleX)).toBeLessThan(.05);
+    await mode('neutral');
+    await expect.poll(async () => (await sample()).parameterWeights.weightShift ?? 0).toBeGreaterThan(.99);
     await mode('move');
-    await expect.poll(async () => (await nextParams()).bodyAngleX).toBeGreaterThan(6);
+    await expect.poll(async () => (await nextParams()).bodyAngleX).toBeGreaterThan(5);
     await expect.poll(async () => (await nextParams()).armSwingR).toBeGreaterThan(.6);
     await expect.poll(async () => (await nextParams()).elbowBendR).toBeGreaterThan(.5);
     expect((await nextParams()).elbowBendR).toBeLessThan(.65);
