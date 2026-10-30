@@ -310,10 +310,12 @@ test('optional body tracking loads lazily, maps movement, calibrates and returns
   await page.evaluate(async()=>{
     const path='/src/live/relay.ts';const {receiveLiveParameters}=await import(path);
     const values: {t:number;value:number}[]=[];Object.assign(window,{bodyReturnValues:values});const start=performance.now();
-    receiveLiveParameters((d:{params:Record<string,number>})=>{if(performance.now()-start<600)values.push({t:performance.now()-start,value:d.params.weightShift});});
+    receiveLiveParameters((d:{params:Record<string,number>})=>{if(performance.now()-start<2000)values.push({t:performance.now()-start,value:d.params.weightShift});});
   });
   await toggle.uncheck();await expect.poll(async()=>(await stats()).closed).toBe(1);
   await expect.poll(async()=>(await nextParams()).bodyAngleX).toBeGreaterThan(1.8);
+  // Body values hold for 500 ms after the last pose, then fade; record past both under a slow page.
+  await expect.poll(()=>page.evaluate(()=> (window as Window & {bodyReturnValues?:{t:number}[]}).bodyReturnValues!.at(-1)?.t ?? 0)).toBeGreaterThan(1900);
   const fade=await page.evaluate(()=> (window as Window & {bodyReturnValues?:{t:number;value:number}[]}).bodyReturnValues!);
   expect(fade.length).toBeGreaterThan(3);expect(Math.max(...fade.map(x=>Math.abs(x.value)))).toBeGreaterThan(.02);
   expect(Math.max(...fade.slice(1).map((x,i)=>Math.abs(x.value-fade[i].value)))).toBeLessThan(.45);
