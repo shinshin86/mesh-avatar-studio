@@ -259,3 +259,49 @@ slider, then save the rig to persist the geometry and tuning.
 `weight-shift-0..9` over one five-second cycle when `legs` is present.
 
 For planted rigs, the chest drive lags the pelvis by approximately 0.1–0.2s; head stabilization follows one spring later and preserves intentional head gestures. Independent idle body noise is reduced to 35% without changing random-number consumption.
+
+
+## Optional hanging arms
+
+Use `arms` for front-facing, hanging arms separated from the body by a transparent gap.
+Omit it for arms touching or in front of the torso, hands on hips, crossed arms, and
+bust-up illustrations. This is a small deformation of the original drawing; it does
+not reconstruct hidden skin or clothing, raise the arms, or resolve cloth collisions.
+Without `arms`, the avatar keeps its existing deformation. The native runtime currently
+ignores `arms` and its parameters; use the WebGL runtime for this feature.
+
+| Field | Meaning |
+| --- | --- |
+| `arms.left`, `arms.right` | Image-left and image-right arms. Each has the source-pixel points `shoulder`, `elbow`, `wrist` and its own `split` polyline. All points must be inside the image, with shoulder y < elbow y < wrist y. |
+| `arms.left.shoulder`, `arms.right.shoulder` | Upper-arm pivot `[x,y]`, inside the sleeve near the armpit. Motion fades to zero at the shoulder to keep the sleeve attached. |
+| `arms.left.elbow`, `arms.right.elbow` | Elbow pivot `[x,y]`. Upper arm and forearm motion blend around this joint. |
+| `arms.left.wrist`, `arms.right.wrist` | Wrist `[x,y]`; the hand follows the forearm. |
+| `arms.left.split`, `arms.right.split` | At least two source points with strictly increasing y, tracing the transparent gap from just below the armpit to below the fingertips. The left split must be to the right of its elbow and wrist; the right split must be to their left. With cloth cutouts, check the actual `base_cloth.png` gap too. Keep the line clear of visible arm pixels and allow room for mesh cells around narrow gaps. |
+| `arms.swing` | Optional upper-arm rotation limit in degrees, `0..10`, default `4`. |
+| `arms.bend` | Optional additional elbow flexion limit in degrees, `0..12`, default `6`. Negative flexion is not allowed. |
+| `arms.inward` | Optional `0..1` fraction of the swing limit allowed towards the body, default `0.4`. |
+
+New parameters, all defaulting to `0`, are `armSwingL` / `armSwingR` (`-1..1`, positive
+outwards) and `elbowBendL` / `elbowBendR` (`0..1`). L/R refer to the image sides. The
+existing `armAngle` / `handAngle` parameters still control the separate chin-hand rig.
+Zero arm parameters add exactly zero deformation. During idle, arms partly counter the
+torso inclination with a damped delay and a small breathing motion.
+
+In Studio, **Body → Arms** exposes both joint chains, editable split lines and tuning.
+Joint, split and tuning edits recalculate weights without rebuilding image layers.
+The four arm pose sliders appear only when `arms` is set. **Full-body support** lists
+Legs / Arms / Cloth as set or not set; parts not set keep the standard motion.
+
+Live shows which body parts the loaded avatar supports. **Track body movement** follows
+visible elbows and wrists relative to the calibrated posture. Mirror swaps their image
+sides. Each hidden elbow releases that side, while a hidden wrist releases only elbow
+bend: hold the last pose for 500 ms, then fade to idle with a 200 ms time constant.
+A 90-degree extra elbow bend maps to about `0.6` at normal sensitivity, with a camera
+tracking cap of `0.75`. Tracking uses image-plane angles, so depth-only movement may
+not produce the same response. Calibrate with relaxed, visible arms.
+
+`render-poses` adds `arms-out`, `arms-in`, `elbows-bent`, `arm-left`, `arm-right`,
+`arms-body-left`, `arms-body-right`, `arm-cycle-0..9` and `arm-idle-0..10` when `arms`
+is present. Inspect sleeves, elbows, wrists and skirt edges in every frame. Reduce
+`swing`, `bend` or `inward` if the hand enters clothing; segmentation remnants in
+cut-out cloth must be corrected in the artwork rather than by increasing motion.

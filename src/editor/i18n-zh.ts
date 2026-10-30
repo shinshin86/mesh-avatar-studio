@@ -18,6 +18,8 @@ export const uiZh = {
   savedTo: '已保存到', saveError: '项目保存失败。编辑内容仍保留在页面中，请重试。', revealError: '无法打开项目文件夹。', copyError: '无法复制路径。',
   help: '使用帮助', close: '关闭帮助', language: '界面语言', english: 'English', japanese: '日本語', chinese: '简体中文', enCode: 'EN', jaCode: 'JA', zhCode: '中文',
   parts: '部件', faceSection: '面部', hairSection: '头发与饰品', bodySection: '身体', advanced: '高级设置',
+  fullBodySupport: '全身支持情况', supportSet: '已设置', supportNotSet: '未设置', supportHint: '未设置的部位保持默认动作。', supportLegs: '双腿', supportArms: '手臂', supportCloth: '衣物',
+  armSwingL: '图像左臂摆动', armSwingR: '图像右臂摆动', elbowBendL: '图像左肘弯曲', elbowBendR: '图像右肘弯曲',
   notPresent: '当前绑定中没有此部件', show: '显示辅助线', hide: '隐藏辅助线', showAll: '全部显示', hideAll: '全部隐藏',
   source: '原图与绑定', canvas: '绑定编辑画布', fit: '适应画布', zoom: '缩放', zoomOut: '缩小', zoomIn: '放大', actualSize: '恢复到 100%', fitPart: '定位选中部件', wheelMode: '鼠标滚轮', wheelAuto: '缩放', wheelPan: '滚动平移',
   pickHint: '选择左侧部件，或点击图上的控制点', dragHint: '拖动控制点调整位置',
@@ -94,6 +96,7 @@ export const workflowZh: typeof workflowEn = {
 };
 
 export const partsZh: Record<PartGroup, [string, string, string]> = {
+  arms: ['手臂', '自然下垂手臂的小幅动作。', '仅用于手臂与身体之间有透明间隙的图片。设置图像左右的肩、肘、腕关节，在两侧间隙中描出分界线。'],
   legs: ['双腿', '双脚固定时的重心转移。', '设置骨盆及图像左右的髋、膝、踝关节，描出双腿分界线，再检查左右重心转移。'],
   cloth: ['布料', '裙摆和垂布的摆动。', '调整腰线与下摆控制点，再调整频率、阻尼和风力。'],
   head: ['头部转动', '转头或倾斜时跟随动作的区域。', '把中心放在面部中央，椭圆应覆盖包括头发在内的整个头部。'],

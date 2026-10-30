@@ -116,6 +116,27 @@ class AgentToolsTest(unittest.TestCase):
         Image.new("RGB", (100, 100)).save(wrong)
         self.assertEqual(self.cli("new-project", wrong, name, "--force").returncode, 1)
 
+    def test_arms_overlay_includes_bones_joint_points_and_split(self):
+        overlay = module("overlay")
+        self.rig["view"] = {"gazeCenter": [50, 10]}
+        self.rig["arms"] = {
+            "left": {"shoulder": [25, 30], "elbow": [20, 50], "wrist": [15, 70], "split": [[30, 40], [25, 80]]},
+            "right": {"shoulder": [75, 30], "elbow": [80, 50], "wrist": [85, 70], "split": [[70, 40], [75, 80]]},
+        }
+        shapes = {path: points for group, path, points, _ in overlay.geometry(self.rig) if group == "arms"}
+        for side in ("left", "right"):
+            arm = self.rig["arms"][side]
+            self.assertEqual(shapes[f"arms.{side}.bones"], [arm["shoulder"], arm["elbow"], arm["wrist"]])
+            self.assertEqual(shapes[f"arms.{side}.split"], arm["split"])
+            for joint in ("shoulder", "elbow", "wrist"):
+                self.assertEqual(shapes[f"arms.{side}.{joint}"], [arm[joint]])
+        (self.project / "rig.json").write_text(json.dumps(self.rig))
+        output = self.project / "arms-overlay.png"
+        result = self.cli("overlay", self.project, "--part", "arms", "--out", output)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with Image.open(output) as image:
+            self.assertEqual(image.size, (100, 100))
+
     def test_variants_cover_only_regions_and_missing_variants_are_clean(self):
         eyes, mouth = edit_masks(self.rig, (100, 100))
         self.assertEqual(int(eyes[0][30, 20]), 1)

@@ -26,6 +26,8 @@ const en = {
   savedTo: 'Saved to', saveError: 'Could not save the project. Your edits are still in the editor; try again.', revealError: 'Could not open the project folder.', copyError: 'Could not copy the path.',
   help: 'Help', close: 'Close help', language: 'Language', english: 'English', japanese: '日本語', chinese: '简体中文', enCode: 'EN', jaCode: 'JA', zhCode: '中文',
   parts: 'Parts', faceSection: 'Face', hairSection: 'Hair & accessories', bodySection: 'Body', advanced: 'Advanced',
+  fullBodySupport: 'Full-body support', supportSet: 'Set', supportNotSet: 'Not set', supportHint: 'Parts not set keep the standard motion.', supportLegs: 'Legs', supportArms: 'Arms', supportCloth: 'Cloth',
+  armSwingL: 'Image-left arm swing', armSwingR: 'Image-right arm swing', elbowBendL: 'Image-left elbow bend', elbowBendR: 'Image-right elbow bend',
   notPresent: 'Not in this rig', show: 'Show overlay', hide: 'Hide overlay', showAll: 'Show all', hideAll: 'Hide all',
   source: 'Source & rig', canvas: 'Rig editor canvas', fit: 'Fit', zoom: 'Zoom', zoomOut: 'Zoom out', zoomIn: 'Zoom in', actualSize: 'Reset to 100%', fitPart: 'Fit selected part', wheelMode: 'Mouse wheel', wheelAuto: 'Zoom', wheelPan: 'Scroll to pan',
   pickHint: 'Pick a part on the left, or click a dot', dragHint: 'Drag dots to move them',
@@ -74,6 +76,8 @@ const ja: typeof en = {
   savedTo: '保存しました:', saveError: 'プロジェクトを保存できませんでした。編集内容は画面に残っています。もう一度お試しください。', revealError: 'プロジェクトのフォルダを開けませんでした。', copyError: 'パスをコピーできませんでした。',
   help: 'ヘルプ', close: 'ヘルプを閉じる', language: '言語', english: '英語', japanese: '日本語', chinese: '简体中文', enCode: '英語', jaCode: '日本語', zhCode: '中文',
   parts: 'パーツ', faceSection: '顔', hairSection: '髪・飾り', bodySection: '体', advanced: '詳細設定',
+  fullBodySupport: '全身の対応状況', supportSet: '設定済み', supportNotSet: '未設定', supportHint: '未設定の部位は通常の動きのままです。', supportLegs: '脚', supportArms: '腕', supportCloth: '布',
+  armSwingL: '画像左の腕の振り', armSwingR: '画像右の腕の振り', elbowBendL: '画像左の肘の曲げ', elbowBendR: '画像右の肘の曲げ',
   notPresent: 'この設定にはありません', show: 'ガイドを表示', hide: 'ガイドを非表示', showAll: 'すべて表示', hideAll: 'すべて非表示',
   source: '元画像と動く範囲', canvas: '動く範囲の編集キャンバス', fit: '全体表示', zoom: '表示倍率', zoomOut: '縮小', zoomIn: '拡大', actualSize: '100% に戻す', fitPart: '選択中のパーツに合わせる', wheelMode: 'マウスのホイール', wheelAuto: '拡大・縮小', wheelPan: 'スクロールで移動',
   pickHint: '左のパーツか、画像の点を選んでください', dragHint: '点をドラッグして位置を調整',
@@ -106,10 +110,11 @@ const ja: typeof en = {
 };
 const zh: typeof en = { ...workflowZh, ...uiZh };
 export const dictionaries = { en, ja, zh };
-export type PartGroup = 'head' | 'eyes' | 'mouth' | 'face' | 'cheeks' | 'strands' | 'buns' | 'accessories' | 'body' | 'hand' | 'legs' | 'cloth' | 'mesh' | 'view';
+export type PartGroup = 'head' | 'eyes' | 'mouth' | 'face' | 'cheeks' | 'strands' | 'buns' | 'accessories' | 'body' | 'hand' | 'legs' | 'arms' | 'cloth' | 'mesh' | 'view';
 const partText: Record<Language, Record<PartGroup, [string, string, string]>> = {
   zh: partsZh,
   en: {
+    arms: ['Arms', 'Small motions of hanging arms.', 'Use only when a transparent gap separates the arms from the body. Place image-left/right shoulder, elbow and wrist joints and trace each boundary in the gap.'],
     legs: ['Legs', 'Planted feet and weight transfer.', 'Place the pelvis and image-left/right hip, knee and ankle joints. Trace the split between the legs, then test both weight-shift directions.'],
     cloth: ['Cloth', 'Skirts and draped fabric.', 'Place the waist and hem handles, then adjust swing, damping and wind.'],
     head: ['Head turn', 'Area that moves when the face turns or tilts.', 'Place the centre in the middle of the face; the circle should cover the whole head including hair.'],
@@ -126,6 +131,7 @@ const partText: Record<Language, Record<PartGroup, [string, string, string]>> = 
     view: ['Framing', 'Preview margins.', 'Adjust the margins so the head and accessories stay inside the preview.'],
   },
   ja: {
+    arms: ['腕', '体から離して下ろした腕の小さな動き。', '腕と胴体の間に透明な隙間がある画像に使います。画像左右の肩・肘・手首を合わせ、それぞれの隙間に境界線を置いてください。'],
     legs: ['脚・体重移動', '足を接地させたまま体重を移す動き。', '骨盤と画像左右の股関節・膝・足首を合わせ、脚の境界線を置いてから左右の体重移動を確認してください。'],
     cloth: ['布・スカート', 'スカートや垂れ布の揺れ。', '腰と裾の点を合わせ、周期・減衰・風の強さを調整してください。'],
     head: ['頭の向き', '顔を振ったり傾けたりするときに動く範囲。', '中心を顔の真ん中に置き、円が髪を含む頭全体を覆うように調整してください。'],
@@ -177,6 +183,11 @@ const fieldText: Record<string, [string, string]> = {
   eyeCell: ['Eye cell size', '目の格子幅'], spriteCell: ['Drawing cell size', '差し替え画像の格子幅'],
   padTop: ['Top margin', '上の余白'], padSide: ['Side margin', '左右の余白'], gazeCenter: ['Gaze centre', '視線の中心'], start: ['Start', '始点'], end: ['End', '終点'],
 };
+const armFieldText: Record<Language, Record<string, string>> = {
+  en: { left: 'Image-left arm', right: 'Image-right arm', shoulder: 'Shoulder', split: 'Arm boundary', swing: 'Upper-arm swing limit (degrees)', bend: 'Elbow bend limit (degrees)', inward: 'Inward swing fraction' },
+  ja: { left: '画像左の腕', right: '画像右の腕', shoulder: '肩', split: '腕の境界線', swing: '上腕の振りの上限 (度)', bend: '肘の曲げの上限 (度)', inward: '内側に振れる割合' },
+  zh: { left: '图像左臂', right: '图像右臂', shoulder: '肩关节', split: '手臂分界线', swing: '上臂摆动上限 (度)', bend: '手肘弯曲上限 (度)', inward: '向内摆动比例' },
+};
 export function fieldTitle(path: string, language: Language) {
   const t = dictionaries[language];
   const parts = partText[language];
@@ -188,6 +199,7 @@ export function fieldTitle(path: string, language: Language) {
       if (key === 'accessories') return t.accessory;
       if (key in parts) return parts[key as PartGroup][0];
     }
+    if (path.startsWith('arms.') && armFieldText[language][key]) return armFieldText[language][key];
     if (key === 'split' && path.startsWith('legs.')) return { en: 'Leg boundary', ja: '脚の境界線', zh: '双腿分界线' }[language];
     return language === 'zh' ? fieldsZh[key] ?? key : fieldText[key]?.[language === 'en' ? 0 : 1] ?? key;
   }).join(' · ');

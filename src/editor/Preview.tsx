@@ -18,6 +18,12 @@ const sliders = [
   { id: 'weightShift', label: 'weightShift', min: -1, max: 1, def: 0 },
   { id: 'bodyAngleZ', label: 'bodyTilt', min: -10, max: 10, def: 0 },
 ] as const;
+const armSliders = [
+  { id: 'armSwingL', label: 'armSwingL', min: -1, max: 1, def: 0 },
+  { id: 'armSwingR', label: 'armSwingR', min: -1, max: 1, def: 0 },
+  { id: 'elbowBendL', label: 'elbowBendL', min: 0, max: 1, def: 0 },
+  { id: 'elbowBendR', label: 'elbowBendR', min: 0, max: 1, def: 0 },
+] as const;
 type Vowel = 'a' | 'i' | 'u' | 'e' | 'o' | 'n';
 type Lip = { kind: 'hold'; vowel: Vowel } | { kind: 'text'; text: string; speed: number; loop: boolean; source: 'user' | 'sample' } | null;
 export function Preview({ projectKey, rig, assets, lipSync, onLipSyncChange, hasMouthSprites, onDrawMouth }: { projectKey: string; rig: Rig; assets?: Record<string, string>; lipSync?: AudioSettings; onLipSyncChange(value: AudioSettings): void; hasMouthSprites: boolean; onDrawMouth?: () => void }) {
@@ -147,7 +153,7 @@ export function Preview({ projectKey, rig, assets, lipSync, onLipSyncChange, has
       </div>
       <div className="pose-test" id="pose-panel" role="tabpanel" aria-labelledby="pose-tab" hidden={tab !== 'pose'}>
       <div className="sliders">
-        {sliders.map(slider => (
+        {(rig.arms ? [...sliders, ...armSliders] : sliders).map(slider => (
           <label key={slider.id}>{t[slider.label]}
             <input type="range" aria-label={t[slider.label]} min={slider.min} max={slider.max} step="0.05"
               disabled={slider.id === 'mouthOpen' && lip !== null}

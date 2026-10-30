@@ -286,6 +286,48 @@ over a five-second cycle: a 0.9-second smooth S transition and a 1.6-second hold
 in each half-cycle. Rigs without `legs` retain their previous output. The slider
 accepts the full `-1..1` parameter range.
 
+## Optional — Hanging arms
+
+Add `rig.arms` only when both arms hang clear of the body with a transparent gap.
+Omit it when arms touch or lie in front of the body, with hands on hips or crossed
+arms, and for bust-up art. This feature permits small swings and elbow bends, not
+raised arms or reconstruction behind them. The native runtime currently ignores
+`arms` and its parameters; this feature uses the WebGL runtime.
+
+Use the coordinate calibration and zoomed grids from the earlier steps. Place each
+image-side `shoulder` inside the sleeve near the armpit, `elbow` on the joint and
+`wrist` at the hand attachment, with increasing y. Trace that arm's `split` down
+the transparent gap, starting just below the armpit and ending below the fingertips.
+The image-left split stays on the right of its elbow and wrist; mirror this for the
+image-right arm. Check `base_cloth.png` too when cloth is present: its bare arm
+silhouette and any cutout remnants determine where the mesh can move cleanly.
+Do not place a split through visible skin, sleeves or bracelets.
+
+Start with defaults `swing: 4`, `bend: 6` (degrees) and `inward: 0.4`. Validate, then
+inspect an arms overlay before rendering:
+
+```sh
+npm run validate-rig -- projects/<name>/rig.draft.json
+uv run tools/overlay.py projects/<name> --rig rig.draft.json --part arms --zoom --out projects/<name>/work/overlay-arms.png
+npm run render-poses -- projects/<name>
+```
+
+Use a built project with the same arms data in `rig.json` when rendering. In Studio,
+select **Arms** in **Body**, edit the joint handles and both split lines (double-click
+to add a vertex; Alt-click to remove one), and pause idle to test the four arm sliders.
+These edits do not require rebuilding layers. Save and reopen to verify persistence.
+The body section's **Full-body support** summary lists Legs / Arms / Cloth even when
+all are absent; unset parts keep the standard motion.
+
+Inspect `rest`, all seven fixed arm poses, every `arm-cycle-0..9` and every
+`arm-idle-0..10` frame. At rest the drawing must stay identical. Sleeves must stay
+attached, elbows must bend smoothly, and hands must not disappear into the skirt.
+Reduce limits if clothing occludes the wrist. Fix cutout remnants in the artwork
+when a swing reveals old bracelet or sleeve fragments. In Live, use **Track body
+movement** and calibrate relaxed arms; check both Mirror settings and hide one wrist
+or elbow to confirm that side returns smoothly to idle. See [Rig fields](rig-fields.md#optional-hanging-arms)
+for limits and tracking behaviour.
+
 ## Step 7 — Hand over
 
 Tell the person:

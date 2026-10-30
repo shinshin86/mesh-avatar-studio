@@ -1,5 +1,5 @@
 import { clothGrid, sampleLine } from '../../packages/runtime/src/engine/cloth-grid.js';
-import type { Cloth, Point, Rig } from 'mesh-avatar';
+import { ARM_DEFAULTS, type Cloth, type Point, type Rig } from 'mesh-avatar';
 import { getAt } from './model';
 import { NumericField } from './NumericField';
 import { useI18n } from './i18n';
@@ -10,7 +10,7 @@ export function RigFields({ rig, path, scope = path, onChange }: {
   rig: Rig; path: string; scope?: string; onChange: (path: string, value: unknown) => void;
 }) {
   const { t, title } = useI18n();
-  const label = title(path.startsWith('legs.split') ? path : path === scope ? path.split('.').at(-1)! : path.slice(scope.length + 1));
+  const label = path.startsWith('arms.') ? title(path).replace(`${title('arms')} · `, '') : title(path.startsWith('legs.split') ? path : path === scope ? path.split('.').at(-1)! : path.slice(scope.length + 1));
   const value = getAt(rig, path);
   if (typeof value === 'number') return <NumericField path={path} label={label} value={value} onChange={number => onChange(path, number)} />;
   if (!value || typeof value !== 'object') return null;
@@ -20,10 +20,10 @@ export function RigFields({ rig, path, scope = path, onChange }: {
         value={number} onChange={next => onChange(`${path}.${index}`, next)} />)}
     </div><small>{path}</small></div>;
   }
-  const fields = /^cloth\.\d+$/.test(path) ? { ...CLOTH_DEFAULTS, ...value } : path === 'legs' ? { ...LEG_DEFAULTS, ...value } : value;
+  const fields = /^cloth\.\d+$/.test(path) ? { ...CLOTH_DEFAULTS, ...value } : path === 'legs' ? { ...LEG_DEFAULTS, ...value } : path === 'arms' ? { ...ARM_DEFAULTS, ...value } : value;
   const children = Object.entries(fields).map(([key, child]) =>
-    (/^cloth\.\d+$/.test(path) && Object.hasOwn(CLOTH_DEFAULTS, key)) || (path === 'legs' && Object.hasOwn(LEG_DEFAULTS, key))
-      ? <NumericField key={key} path={`${path}.${key}`} label={title(key)} value={child as number} onChange={number => onChange(`${path}.${key}`, number)} />
+    (/^cloth\.\d+$/.test(path) && Object.hasOwn(CLOTH_DEFAULTS, key)) || (path === 'legs' && Object.hasOwn(LEG_DEFAULTS, key)) || (path === 'arms' && Object.hasOwn(ARM_DEFAULTS, key))
+      ? <NumericField key={key} path={`${path}.${key}`} label={path === 'arms' ? title(`arms.${key}`).replace(`${title('arms')} · `, '') : title(key)} value={child as number} onChange={number => onChange(`${path}.${key}`, number)} />
       : <RigFields key={key} rig={rig} path={`${path}.${key}`} scope={scope} onChange={onChange} />);
 
   if (/^cloth\.\d+$/.test(path)) {
