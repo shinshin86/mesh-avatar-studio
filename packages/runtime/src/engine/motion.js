@@ -1,6 +1,7 @@
 // Drives parameters: idle ("auto idle"), mouse follow, blinking, expressions, motions.
 import { resolveLipSync, lipMotionOptions } from './lip-sync.ts';
 import { PARAMS } from './rig.js';
+import { ARM_DEFAULTS } from './arms.js';
 import { MOTIONS, IDLE_MOTIONS, ADDITIVE, sampleTrack } from './motions.js';
 import { VOWELS, kanaToMoras, sampleMoras } from './kana.js';
 
@@ -69,8 +70,11 @@ export function weightTransfer(t) {
 }
 
 export class Motion {
-  /** @param {number[]} gazeCenter */
-  constructor(gazeCenter, planted = false) {
+  /** @param {number[]} gazeCenter @param {boolean} [planted] @param {import('../rig/types').Rig|null} [armRig] */
+  constructor(gazeCenter, planted = false, armRig = null) {
+    this.armRig = armRig;
+    this.armFollow = 0;
+    this.armVelocity = 0;
     this.planted = planted;
     this.mode = 'auto';           // auto | mouse | manual
     this.P = Object.fromEntries(PARAMS.map(p => [p.id, p.def]));
@@ -331,6 +335,28 @@ export class Motion {
     }
 
     if (this.mode !== 'manual') T.angleY += T.breath * 1.6;
+
+    if (this.armRig?.arms && this.mode !== 'manual') {
+      const { arms, body, legs } = this.armRig;
+      const tilt = -T.bodyAngleZ / 10 * body.maxRoll
+        + (legs ? legs.tilt * (1 - (legs.spine ?? 0.7)) * T.weightShift : 0);
+      // Damped gravity follow: relative rotation cancels part of the torso tilt,
+      // with a small lag and no extra RNG calls on the legacy motion path.
+      const time = clamp(dt, 0, 0.05), count = Math.ceil(time * 240);
+      for (let i = 0; i < count; i++) {
+        const h = time / count;
+        this.armVelocity += (100 * (-tilt * 0.65 - this.armFollow) - 18 * this.armVelocity) * h;
+        this.armFollow += this.armVelocity * h;
+      }
+      const swing = (arms.swing ?? ARM_DEFAULTS.swing) * Math.PI / 180;
+      const inward = arms.inward ?? ARM_DEFAULTS.inward;
+      for (const [side, sign] of [['L', 1], ['R', -1]]) {
+        const relative = sign * this.armFollow;
+        const limit = swing * (relative < 0 ? inward : 1);
+        T[`armSwing${side}`] = clamp((limit > 0 ? relative / limit : 0) + (T.breath - 0.5) * 0.06, -1, 1);
+        T[`elbowBend${side}`] = T.breath * 0.025;
+      }
+    }
 
     // expression layer (smoothed so switching is not a jump)
     const E = EXPRESSIONS[this.expr].p;

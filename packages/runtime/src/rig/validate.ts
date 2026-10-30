@@ -86,12 +86,15 @@ const schema = (draft: boolean) => object({
   legs: object({ spine: unit, bob: nonnegative, twist: nonnegative, pelvis: point, shift: nonnegative, tilt: nonnegative, bend: nonnegative,
     band, split: line, left: object({ hip: point, knee: point, ankle: point }),
     right: object({ hip: point, knee: point, ankle: point }) }, ['spine', 'bob', 'twist']),
+  arms: object({ swing: nonnegative, bend: nonnegative, inward: unit,
+    left: object({ shoulder: point, elbow: point, wrist: point, split: line }),
+    right: object({ shoulder: point, elbow: point, wrist: point, split: line }) }, ['swing', 'bend', 'inward']),
   mesh: object({ baseCell: integer, fine: object({ x0: wholeNumber, x1: wholeNumber,
     y0: wholeNumber, y1: wholeNumber, cell: integer }), handCell: integer,
     tasselCell: integer, eyeBallCell: integer, eyeCell: integer, spriteCell: integer,
     clothCell: integer }, ['clothCell']),
   view: object({ padTop: number, padSide: number, gazeCenter: point }, ['gazeCenter']),
-}, ['buns', 'strands', 'accessories', 'hand', 'cloth', 'legs']);
+}, ['buns', 'strands', 'accessories', 'hand', 'cloth', 'legs', 'arms']);
 
 export function validateRig(value: unknown, options: { draft?: boolean } = {}): string[] {
   const errors: string[] = [];
@@ -134,6 +137,32 @@ export function validateRig(value: unknown, options: { draft?: boolean } = {}): 
     }
     if (legs.split.some((p, i) => i > 0 && p[1] <= legs.split[i - 1][1]))
       errors.push('rig.legs.split: y coordinates must increase');
+  }
+  if (rig.arms) {
+    if ((rig.arms.swing ?? 4) > 10) errors.push('rig.arms.swing: must be between 0 and 10 degrees');
+    if ((rig.arms.bend ?? 6) > 12) errors.push('rig.arms.bend: must be between 0 and 12 degrees');
+    for (const side of ['left', 'right'] as const) {
+      const arm = rig.arms[side], path = `rig.arms.${side}`;
+      if (!(arm.shoulder[1] < arm.elbow[1] && arm.elbow[1] < arm.wrist[1]))
+        errors.push(`${path}: require shoulder y < elbow y < wrist y`);
+      for (const [key, points] of Object.entries({ shoulder: [arm.shoulder], elbow: [arm.elbow], wrist: [arm.wrist], split: arm.split })) {
+        if (points.some(([x, y]) => x < 0 || y < 0 || x >= rig.image.width || y >= rig.image.height))
+          errors.push(`${path}.${key}: points must stay inside the image`);
+      }
+      if (arm.split.some((p, i) => i > 0 && p[1] <= arm.split[i - 1][1])) {
+        errors.push(`${path}.split: y coordinates must increase`);
+      } else {
+        const splitX = (y: number) => {
+          let i = 0;
+          while (i < arm.split.length - 2 && y > arm.split[i + 1][1]) i++;
+          const a = arm.split[i], b = arm.split[i + 1];
+          const t = Math.max(0, Math.min(1, (y - a[1]) / (b[1] - a[1])));
+          return a[0] + (b[0] - a[0]) * t;
+        };
+        if ([arm.elbow, arm.wrist].some(([x, y]) => side === 'left' ? splitX(y) <= x : splitX(y) >= x))
+          errors.push(`${path}.split: must lie on the body side of elbow and wrist`);
+      }
+    }
   }
   for (const [i, cloth] of (rig.cloth ?? []).entries()) {
     if (!/^[A-Za-z0-9_-]+$/.test(cloth.name) || clothNames.has(cloth.name))

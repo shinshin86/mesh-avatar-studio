@@ -27,7 +27,18 @@ async function main() {
   const project = await realpath(resolve(args[0]));
   if (relative(root, project).startsWith('..')) throw new Error('project must stay inside the repository');
   const rig = JSON.parse(await readFile(resolve(project, 'rig.json'), 'utf8'));
-  const reviewPoses = rig.legs ? [...poses, ['weight-left', { weightShift: -0.6 }], ['weight-right', { weightShift: 0.6 }]] : poses;
+  const reviewPoses = [...poses,
+    ...(rig.legs ? [['weight-left', { weightShift: -0.6 }], ['weight-right', { weightShift: 0.6 }]] : []),
+    ...(rig.arms ? [
+      ['arms-out', { armSwingL: 1, armSwingR: 1 }],
+      ['arms-in', { armSwingL: -1, armSwingR: -1 }],
+      ['elbows-bent', { elbowBendL: 1, elbowBendR: 1 }],
+      ['arm-left', { armSwingL: 1, elbowBendL: 0.5 }],
+      ['arm-right', { armSwingR: 1, elbowBendR: 0.5 }],
+      ['arms-body-left', { bodyAngleZ: -8, weightShift: -0.6, armSwingL: -1, armSwingR: 1, elbowBendL: 0.5, elbowBendR: 0.5 }],
+      ['arms-body-right', { bodyAngleZ: 8, weightShift: 0.6, armSwingL: 1, armSwingR: -1, elbowBendL: 0.5, elbowBendR: 0.5 }],
+    ] : []),
+  ];
   const errors = validateRig(rig);
   if (errors.length) throw new Error(errors.join('\n'));
   const built = await realpath(resolve(project, 'built'));
@@ -111,6 +122,25 @@ async function main() {
         }
         legs.destroy();
       }
+      if (rig.arms) {
+        const ar = await avatar();
+        // Capture a complete outward/bend/return cycle, retaining body physics.
+        for (let f = 0; f <= 180; f++) {
+          const phase = f / 180 * Math.PI * 2;
+          ar.setParameters({ ...defaults, armSwingL: Math.sin(phase), armSwingR: -Math.sin(phase),
+            elbowBendL: (1 - Math.cos(phase)) * 0.5, elbowBendR: (1 - Math.cos(phase)) * 0.5 });
+          ar.advance(1 / 60, 60);
+          if (f % 20 === 0) pictures.push([`arm-cycle-${f / 20}`, canvas.toDataURL()]);
+        }
+        ar.destroy();
+        const idle = await avatar();
+        idle.setParameters({});
+        for (let f = 0; f <= 300; f++) {
+          idle.advance(1 / 60, 60);
+          if (f % 30 === 0) pictures.push([`arm-idle-${f / 30}`, canvas.toDataURL()]);
+        }
+        idle.destroy();
+      }
       if (rig.cloth?.length) {
         // garments: lean and shift the body, let go, and follow the swing as it settles
         const cl = await avatar();
@@ -161,7 +191,7 @@ async function main() {
     if (relative(project, await realpath(review)).startsWith('..')) throw new Error('review folder must stay inside the project');
     for (const [name, url] of result.images) await writeFile(resolve(review, `${name}.png`), Buffer.from(url.split(',')[1], 'base64'));
     const { images, ...metadata } = result;
-    await writeFile(resolve(review, 'poses.json'), JSON.stringify({ ...metadata, project: basename(project), fixedFps: 60, poseSeconds: 1, poses: reviewPoses.map(([name, parameters, expression]) => ({ name, parameters, ...(expression && { expression }) })), hairFrames: 6, ...(rig.legs && { weightShiftFrames: 10, weightShiftSeconds: 5 }), files: images.map(([name]) => `${name}.png`) }, null, 2) + '\n');
+    await writeFile(resolve(review, 'poses.json'), JSON.stringify({ ...metadata, project: basename(project), fixedFps: 60, poseSeconds: 1, poses: reviewPoses.map(([name, parameters, expression]) => ({ name, parameters, ...(expression && { expression }) })), hairFrames: 6, ...(rig.legs && { weightShiftFrames: 10, weightShiftSeconds: 5 }), ...(rig.arms && { armCycleFrames: 10, armIdleFrames: 11 }), files: images.map(([name]) => `${name}.png`) }, null, 2) + '\n');
     console.log(`Rendered ${result.images.length} review images in ${relative(root, review)}/`);
   } finally {
     await browser?.close();

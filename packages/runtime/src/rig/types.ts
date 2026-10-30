@@ -72,6 +72,21 @@ export interface Hand {
   fingerYBand: Band;
   pinBand: Band;
 }
+/** A hanging arm separated from the body by a transparent gap. */
+export interface Arm {
+  shoulder: Point;
+  elbow: Point;
+  wrist: Point;
+  split: Point[];
+}
+/** Optional two-bone arms. Left/right refer to the image; amounts are degrees. */
+export interface Arms {
+  left: Arm;
+  right: Arm;
+  swing?: number;
+  bend?: number;
+  inward?: number;
+}
 export interface Leg { hip: Point; knee: Point; ankle: Point }
 /** Optional planted-foot weight transfer. Left/right refer to the image. */
 export interface Legs {
@@ -116,6 +131,7 @@ export interface Rig {
   hand?: Hand;
   cloth?: Cloth[];
   legs?: Legs;
+  arms?: Arms;
   mesh: {
     baseCell: number;
     fine: { x0: number; x1: number; y0: number; y1: number; cell: number };

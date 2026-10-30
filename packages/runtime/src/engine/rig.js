@@ -1,4 +1,5 @@
 import { createLegs } from './legs.js';
+import { createArms } from './arms.js';
 
 export const PARAMS = [
   { id: 'angleX', label: 'Face angle X', min: -30, max: 30, def: 0, group: 'Head and body' },
@@ -21,6 +22,10 @@ export const PARAMS = [
   { id: 'handAngle', label: 'Wrist angle', min: -10, max: 10, def: 0, group: 'Hand' },
   { id: 'fingerTap', label: 'Finger tap', min: 0, max: 1, def: 0, group: 'Hand' },
   { id: 'weightShift', label: 'Weight shift', min: -1, max: 1, def: 0, group: 'Legs' },
+  ...['L', 'R'].flatMap(side => [
+    { id: `armSwing${side}`, label: `Arm swing ${side}`, min: -1, max: 1, def: 0, group: 'Arms' },
+    { id: `elbowBend${side}`, label: `Elbow bend ${side}`, min: 0, max: 1, def: 0, group: 'Arms' },
+  ]),
 ];
 
 // Reference algorithms are intentionally retained as JavaScript; the factory's rig input
@@ -98,6 +103,7 @@ export function createRig(rig) {
   const HEAD = rig.head;
   const BODY = rig.body;
   const LEGS = createLegs(rig.legs, BODY, HEAD);
+  const ARMS = createArms(rig.arms, BODY, rig.legs);
 
   const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -163,6 +169,7 @@ export function createRig(rig) {
       breath: 1 - sstep(...BODY.breathBand, y),
       shoulder: BODY.shoulders.reduce((sum, area) => sum + gaussian(x, y, area), 0),
       ...(LEGS && { legs: LEGS.weights(x, y) }),
+      ...(ARMS && { arms: ARMS.weights(x, y) }),
     };
   }
 
@@ -212,6 +219,8 @@ export function createRig(rig) {
     }
   }
 
+  let armKey, armFrame;
+
   // Base layer: hair and face-part offsets are added in rest space, then head, then body.
   function deformBase(x, y, w, P, phys, out) {
     const p = out;
@@ -243,6 +252,20 @@ export function createRig(rig) {
     p[1] += (y - rig.face.eyeA.cy) * -0.06 * Math.abs(ay) * w.eyeA + (y - rig.face.eyeB.cy) * -0.06 * Math.abs(ay) * w.eyeB;
     applyHead(p, w.head, P, w.turn);
     applyBody(p, y, P, w.chest, w.breath, w.shoulder, w.legs);
+    if (ARMS && w.arms.some(a => a.arm > 0)) {
+      const key = [P.angleX, P.angleY, P.angleZ, P.bodyAngleX, P.bodyAngleZ, P.breath,
+        P.armSwingL, P.armSwingR, P.elbowBendL, P.elbowBendR, LEGS?.frame(P)];
+      if (!armKey || key.some((v, i) => v !== armKey[i])) {
+        armKey = key;
+        armFrame = ARMS.frame(P, point => {
+          const q = [...point], a = baseWeights(...point, 0);
+          applyHead(q, a.head, P, a.turn);
+          applyBody(q, point[1], P, a.chest, a.breath, a.shoulder, a.legs);
+          return q;
+        });
+      }
+      ARMS.apply(p, x, y, w.arms, P, armFrame);
+    }
     return p;
   }
 
