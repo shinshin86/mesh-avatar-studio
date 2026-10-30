@@ -259,3 +259,68 @@ test('overlay switches on the Live page reach the stream view and its OBS URL', 
   } finally { await rm(directory, { recursive: true, force: true }); }
   expect(outside).toEqual([]);
 });
+
+test('optional body tracking loads lazily, maps movement, calibrates and returns smoothly to face/idle', async ({ context, page }, testInfo) => {
+  const outside = await guardNetwork(context), errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await syntheticMedia(page);
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    const stats = { poses: 0, closed: 0, results: 0 };
+    Object.assign(window, { bodyWorkerStats: stats });
+    window.Worker = class extends NativeWorker {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options); this.addEventListener('message', ({ data }) => {
+          if (!data || typeof data.type !== 'string') return;
+          if(data.type === 'pose-test') stats.poses++;
+          if(data.type === 'pose-close-test') stats.closed++;
+          if(data.type === 'result') stats.results++;
+        });
+      }
+    };
+  });
+  await context.route('**/mediapipe/vision_bundle.js', route => route.fulfill({contentType:'application/javascript', body: `
+    self.exports.FilesetResolver={forVisionTasks:async()=>({})};
+    self.exports.FaceLandmarker={createFromOptions:async()=>({close(){},setOptions:async()=>{},detectForVideo(){
+      const a=(self.bodyTestClosed?34:24)*Math.PI/180,c=Math.cos(a),s=Math.sin(a);return {faceLandmarks:[[]],faceBlendshapes:[],facialTransformationMatrixes:[{data:[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1]}]};
+    }})};
+    self.exports.PoseLandmarker={createFromOptions:async()=>{let calls=0;return {close(){self.bodyTestClosed=true;self.postMessage({type:'pose-close-test'});},setOptions:async()=>{},detectForVideo(){
+      calls++;self.postMessage({type:'pose-test'});const shift=calls>2?.1:0;
+      const l=Array.from({length:33},()=>({x:.5,y:.5,visibility:0,presence:1}));
+      l[11]={x:.35+shift,y:.3,visibility:1,presence:1};l[12]={x:.65+shift,y:.3,visibility:1,presence:1};return {landmarks:[l]};
+    }};}};` }));
+  await ready(page, '/live.html');
+  const toggle=page.getByTestId('body-tracking-toggle'); await expect(toggle).not.toBeChecked();
+  await page.getByRole('checkbox',{name:'Mirror',exact:true}).uncheck();
+  await page.getByRole('button',{name:'Start camera',exact:true}).click();
+  await expect(page.getByTestId('tracking-status')).toHaveAttribute('data-state','tracking');
+  const stats=()=>page.evaluate(()=> (window as Window & {bodyWorkerStats?: {poses:number;closed:number;results:number}}).bodyWorkerStats!);
+  await expect.poll(async()=>(await stats()).results).toBeGreaterThan(5); expect((await stats()).poses).toBe(0);
+  const nextParams=()=>page.evaluate(async()=>{
+    const path='/src/live/relay.ts';const {receiveLiveParameters}=await import(path);
+    return new Promise<Record<string,number>>(resolve=>{const off=receiveLiveParameters((d:{params:Record<string,number>})=>{off();resolve(d.params);});});
+  });
+  await toggle.check();
+  await expect.poll(async()=>(await nextParams()).weightShift).toBeGreaterThan(.35);
+  await expect.poll(async()=>(await nextParams()).bodyAngleX).toBeGreaterThan(6);
+  expect((await nextParams()).bodyAngleX).toBeLessThan(7);
+  const s=await stats();expect(s.poses).toBeLessThan(s.results*.6);
+  await page.getByRole('button',{name:'Calibrate',exact:true}).click();
+  await expect.poll(async()=>Math.abs((await nextParams()).bodyAngleX)).toBeLessThan(.5);
+  await page.evaluate(async()=>{
+    const path='/src/live/relay.ts';const {receiveLiveParameters}=await import(path);
+    const values: {t:number;value:number}[]=[];Object.assign(window,{bodyReturnValues:values});const start=performance.now();
+    receiveLiveParameters((d:{params:Record<string,number>})=>{if(performance.now()-start<600)values.push({t:performance.now()-start,value:d.params.weightShift});});
+  });
+  await toggle.uncheck();await expect.poll(async()=>(await stats()).closed).toBe(1);
+  await expect.poll(async()=>(await nextParams()).bodyAngleX).toBeGreaterThan(1.8);
+  const fade=await page.evaluate(()=> (window as Window & {bodyReturnValues?:{t:number;value:number}[]}).bodyReturnValues!);
+  expect(fade.length).toBeGreaterThan(3);expect(Math.max(...fade.map(x=>Math.abs(x.value)))).toBeGreaterThan(.02);
+  expect(Math.max(...fade.slice(1).map((x,i)=>Math.abs(x.value-fade[i].value)))).toBeLessThan(.45);
+  await page.screenshot({path:testInfo.outputPath('body-controls-en.png')});
+  await page.getByRole('button',{name:'日本語',exact:true}).click();await expect(page.getByRole('checkbox',{name:'体の動きを認識',exact:true})).toBeVisible();
+  await page.screenshot({path:testInfo.outputPath('body-controls-ja.png')});
+  await page.getByRole('button',{name:'简体中文',exact:true}).click();await expect(page.getByRole('checkbox',{name:'追踪身体动作',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'停止摄像头',exact:true}).click();
+  expect(errors).toEqual([]);expect(outside).toEqual([]);
+});

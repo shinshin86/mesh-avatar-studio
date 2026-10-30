@@ -1,13 +1,15 @@
+import { BodyPose, type BodyResult } from './body-tracking';
 // Vite bundles its config before applying aliases, so use the public source entry here.
 import { PARAMS } from '../../packages/runtime/src/index';
 
 export interface FaceResult {
+  body?: BodyResult | null;
   faceLandmarks: unknown[][];
   faceBlendshapes: { categories: { categoryName: string; score: number }[] }[];
   facialTransformationMatrixes: { data: number[] }[];
 }
 export interface RawFace { yaw: number; pitch: number; roll: number; shapes: Record<string, number> }
-export interface TrackingOptions { mirror: boolean; sensitivity: number; smoothing: number }
+export interface TrackingOptions { bodyTracking?: boolean; mirror: boolean; sensitivity: number; smoothing: number }
 export const clamp = (value: number, min = 0, max = 1) => Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
 export const faceNeutral: Record<string, number> = {
   angleX: 0, angleY: 0, angleZ: 0, bodyAngleX: 0, bodyAngleZ: 0,
@@ -58,28 +60,40 @@ export function smoothParameters(current: Record<string, number>, target: Record
   return Object.fromEntries(Object.entries(target).map(([key, value]) => [key, (current[key] ?? value) + (value - (current[key] ?? value)) * alpha]));
 }
 export class FacePose {
+  private body = new BodyPose();
+  private bodyEnabled = false;
   private face: RawFace | null = null;
   private neutral: RawFace | null = null;
   private seen = -Infinity;
   private params = { ...faceNeutral };
   private weight = 0;
   update(result: FaceResult, now: number) {
+    if (result.body !== undefined) this.body.update(result.body, now);
     const face = readFace(result);
     if (face) { this.face = face; this.seen = now; }
   }
   calibrate(now: number) {
-    if (!this.face || now - this.seen > 500) return false;
+    const body = this.bodyEnabled && this.body.calibrate(now);
+    if (!this.face || now - this.seen > 500) return body;
     this.neutral = structuredClone(this.face); this.params = { ...faceNeutral }; return true;
   }
-  reset() { this.face = null; this.neutral = null; this.seen = -Infinity; }
+  reset() { this.body.reset(); this.face = null; this.neutral = null; this.seen = -Infinity; }
   sample(now: number, dt: number, options: TrackingOptions) {
+    this.bodyEnabled = !!options.bodyTracking;
+    const body = this.body.sample(now, dt, options);
     const tracking = !!this.face && now - this.seen <= 500;
     const target = tracking ? mapFace(this.face!, this.neutral, options) : faceNeutral;
     this.params = smoothParameters(this.params, target, dt, tracking ? options.smoothing : 0.7);
     if (tracking) for (const eye of ['eyeLOpen', 'eyeROpen']) if (target[eye] === 0) this.params[eye] = 0;
-    this.weight = tracking ? 1 : this.weight * Math.exp(-dt / 0.2);
+    this.weight = tracking || body.active ? 1 : this.weight * Math.exp(-dt / 0.2);
     if (this.weight < 0.005) this.weight = 0;
-    return { tracking, params: { ...this.params }, weight: this.weight };
+    const params = { ...this.params };
+    if (body.weight > 0) {
+      for (const key of ['bodyAngleX', 'bodyAngleZ'] as const) params[key] += (body.params[key] - params[key]) * body.weight;
+      params.weightShift = body.params.weightShift;
+    }
+    return { tracking: tracking || body.active, params, weight: body.active ? 1 : this.weight,
+      parameterWeights: (body.weight > 0 ? { weightShift: body.weight } : {}) as Record<string, number> };
   }
 }
 export function rmsLevel(samples: Float32Array, gain: number): number {

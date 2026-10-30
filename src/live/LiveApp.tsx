@@ -65,7 +65,7 @@ export function LiveApp() {
       const control = controls.current, sampled = pose.current.sample(now, dt, control.options);
       setTracking(sampled.tracking);
       avatar.setAutoIdle(!sampled.tracking); avatar.setAutoMotion(!sampled.tracking);
-      avatar.setParameters(sampled.params, sampled.weight);
+      avatar.setParameters(sampled.params, sampled.weight, sampled.parameterWeights);
       const micOn = control.micState === 'micOn';
       avatar.setSpeaking(micOn); avatar.setVoiceLevel(micOn ? microphone.current?.level(control.gain) ?? 0 : 0);
     }, (avatar, now) => {
@@ -152,6 +152,9 @@ export function LiveApp() {
         <p role="status" data-testid="tracking-status" data-state={status}>{t[status]}</p>
         {backgroundStatus && <p role="alert" className="live-error" data-testid="background-status">{t[backgroundStatus]}</p>}
         <small>{calibrated ? t.calibrated : t.calibrateHint}</small>
+        <label className="live-check"><input data-testid="body-tracking-toggle" type="checkbox" checked={!!options.bodyTracking} onChange={event => {
+          const enabled = event.target.checked; setOptions(current => ({ ...current, bodyTracking: enabled })); camera.current?.setBodyTracking(enabled);
+        }} />{t.bodyTracking}</label><small>{t.bodyTrackingHint}</small>
         <label className="live-check"><input type="checkbox" checked={options.mirror} onChange={event => setOptions(current => ({ ...current, mirror: event.target.checked }))} />{t.mirror}</label>
         <label>{t.sensitivity}<input type="range" min="0.25" max="2" step="0.05" value={options.sensitivity} onChange={event => setOptions(current => ({ ...current, sensitivity: Number(event.target.value) }))} /></label>
         <label>{t.smoothing}<input type="range" min="0" max="1" step="0.05" value={options.smoothing} onChange={event => setOptions(current => ({ ...current, smoothing: Number(event.target.value) }))} /></label>

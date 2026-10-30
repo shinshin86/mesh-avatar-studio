@@ -182,12 +182,15 @@ export async function createMeshAvatarImpl(canvas, options) {
   const listeners = new Set();
   motion.onMotion = id => { for (const fn of listeners) fn(id); };
 
-  let parameters = {}, parameterWeight = 1, lastParameters = {};
+  let parameters = {}, parameterWeight = 1, parameterWeights = {}, lastParameters = {};
   const expression = new ExpressionOverlay();
   const tmp = [0, 0];
   function updateParameters(dt) {
     const P = { ...motion.update(dt) };
-    for (const [key, value] of Object.entries(parameters)) P[key] = parameterWeight === 1 ? value : (P[key] ?? 0) + (value - (P[key] ?? 0)) * parameterWeight;
+    for (const [key, value] of Object.entries(parameters)) {
+      const weight = parameterWeight * (parameterWeights[key] ?? 1);
+      P[key] = weight === 1 ? value : (P[key] ?? 0) + (value - (P[key] ?? 0)) * weight;
+    }
     // Speech owns the mouth while active; explicit pose sliders still own all other parameters.
     if (motion.lipOpen !== null) {
       P.mouthOpen = motion.P.mouthOpen;
@@ -264,7 +267,10 @@ export async function createMeshAvatarImpl(canvas, options) {
 
   return {
     motions: motionList,
-    setParameters(values, weight = 1) { parameters = { ...values }; parameterWeight = Math.min(1, Math.max(0, Number(weight) || 0)); },
+    setParameters(values, weight = 1, weights = {}) {
+      parameters = { ...values }; parameterWeight = Math.min(1, Math.max(0, Number(weight) || 0));
+      parameterWeights = Object.fromEntries(Object.entries(weights ?? {}).map(([key, value]) => [key, Math.min(1, Math.max(0, Number(value) || 0))]));
+    },
     getParameters() { return { ...lastParameters }; },
     /** 0..1 loudness of the voice being played (e.g. normalised RMS). */
     setVoiceLevel(v) { motion.setVoiceLevel(v); },

@@ -23,7 +23,8 @@ export interface MeshAvatar {
   readonly motions: { id: string; label: string; idle: boolean }[];
   setLighting(settings: Partial<LightingSettings>): void;
   getLightingStats(): { normalMs: number; computedLayers: number; cachedLayers: number };
-  setParameters(parameters: Record<string, number>, weight?: number): void;
+  /** Optional per-parameter weights multiply weight and blend against underlying motion; null clears them. */
+  setParameters(parameters: Record<string, number>, weight?: number, weights?: Record<string, number> | null): void;
   getParameters(): Record<string, number>;
   setVoiceLevel(value: number): void;
   /** Partial mouth-movement settings; omitted fields retain their current values. */
