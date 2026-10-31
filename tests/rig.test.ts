@@ -53,3 +53,13 @@ test('rejects fractional and out-of-image accessory boxes and fractional mesh va
   const rig = parseRig(fixture); rig.mesh.fine.x0 = 340.2; rig.mesh.fine.cell = 7.2;
   expect(validateRig(rig).join()).toContain('rig.mesh.fine.x0'); expect(validateRig(rig).join()).toContain('rig.mesh.fine.cell');
 });
+
+test('accepts an optional positive iris travel and rejects other values', () => {
+  const rig = parseRig(fixture);
+  rig.view.irisTravel = 17;
+  expect(validateRig(rig)).toEqual([]);
+  for (const bad of [0, -3, NaN]) {
+    rig.view.irisTravel = bad;
+    expect(validateRig(rig).join()).toContain('rig.view.irisTravel');
+  }
+});

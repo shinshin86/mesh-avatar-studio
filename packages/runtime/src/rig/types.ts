@@ -138,5 +138,5 @@ export interface Rig {
     handCell: number; tasselCell: number; eyeBallCell: number;
     eyeCell: number; spriteCell: number; clothCell?: number;
   };
-  view: { padTop: number; padSide: number; gazeCenter?: Point };
+  view: { padTop: number; padSide: number; gazeCenter?: Point; irisTravel?: number };
 }

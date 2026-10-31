@@ -19,6 +19,7 @@ spring/motion tuning remain engine behavior constants.
 | mesh | createMeshAvatar.js layer cell sizes and fine rectangle; sprites.js sprite cell |
 | view | createMeshAvatar.js padTop/padSide defaults |
 | view.gazeCenter (optional) | motion.js pointer-follow origin; defaults to head center when omitted |
+| view.irisTravel (optional) | createMeshAvatar.js iris offset in px at gaze ±1; defaults to 7 when omitted |
 
 The anatomical centers used by the deformation formulas (brow, eyes and chest) also come
 from the matching rig Gaussian centers. Bun spring anchors use their Gaussian centers.
