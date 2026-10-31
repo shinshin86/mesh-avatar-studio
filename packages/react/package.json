@@ -1,6 +1,6 @@
 {
   "name": "mesh-avatar-react",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "license": "MIT",
   "description": "A React component for animated Mesh Avatar Studio avatars.",
@@ -43,7 +43,7 @@
     }
   },
   "dependencies": {
-    "mesh-avatar-element": "^0.3.0"
+    "mesh-avatar-element": "^0.4.0"
   },
   "peerDependencies": {
     "react": ">=18"
