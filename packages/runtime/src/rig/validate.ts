@@ -93,7 +93,7 @@ const schema = (draft: boolean) => object({
     y0: wholeNumber, y1: wholeNumber, cell: integer }), handCell: integer,
     tasselCell: integer, eyeBallCell: integer, eyeCell: integer, spriteCell: integer,
     clothCell: integer }, ['clothCell']),
-  view: object({ padTop: number, padSide: number, gazeCenter: point }, ['gazeCenter']),
+  view: object({ padTop: number, padSide: number, gazeCenter: point, irisTravel: positive }, ['gazeCenter', 'irisTravel']),
 }, ['buns', 'strands', 'accessories', 'hand', 'cloth', 'legs', 'arms']);
 
 export function validateRig(value: unknown, options: { draft?: boolean } = {}): string[] {

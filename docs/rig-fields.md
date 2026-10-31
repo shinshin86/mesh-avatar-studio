@@ -10,7 +10,7 @@ radii and mesh cell sizes must be positive. Mesh cell sizes and fine-mesh rectan
 coordinates must be integers. Accessory boxes must be integer rectangles inside the image. A band is `[start, end]` with `start < end`.
 Ellipses are smooth influence regions, not hard cut-out boundaries.
 
-Only `buns`, `strands`, `accessories`, `hand` and `view.gazeCenter` are optional. Omit absent
+Only `buns`, `strands`, `accessories`, `hand`, `view.gazeCenter` and `view.irisTravel` are optional. Omit absent
 optional groups. Required regions must still be placed even if their animation will be small.
 The initial draft has empty eye polygons and is intentionally invalid until they are traced.
 See [agent-guide.md](agent-guide.md) for the process and [rig-mapping.md](rig-mapping.md) for
@@ -146,6 +146,7 @@ the engine mapping. Do not copy the example illustration's coordinates into a ne
 | `view.padTop` | Top viewport margin as fraction of source height; negative crops crown, must be between -1 and 1. |
 | `view.padSide` | Each side viewport margin as fraction of source width; start at `0`, must exceed -0.5. |
 | `view.gazeCenter` | Optional pointer-follow origin `[x,y]`, px; between eyes; defaults to head centre. |
+| `view.irisTravel` | Optional iris travel at full gaze, px; defaults to `7`. Raise it for large eyes, around 15% of the eye opening width. |
 
 Draft validation accepts omitted `x0/x1/top/bot` only as a complete group; supplying some of
 the four fields is an error. Complete rigs always require all four. Changing eye geometry
