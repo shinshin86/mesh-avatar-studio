@@ -75,10 +75,25 @@ test('presets preview immediately, fine-tuning becomes custom and user kana keep
   await page.getByLabel('Kana text', { exact: true }).fill('あーーーーーーー');
   await page.getByLabel('Morae per second', { exact: true }).fill('4');
   await page.getByRole('checkbox', { name: 'Loop', exact: true }).uncheck();
+  // The preview advances lip sync by at most 50 ms per frame, so measure the phrase on that
+  // clock instead of wall time: a slow page stretches both, and a restart would add a second.
+  await page.locator('.lip-text-row').getByRole('button', { name: 'Play', exact: true }).evaluate(play => play.addEventListener('click', () => {
+    const stopButton = play.nextElementSibling as HTMLButtonElement, clock = { elapsed: 0, done: false };
+    Object.assign(window, { lipClock: clock });
+    let previous = performance.now();
+    const frame = (now: number) => {
+      clock.elapsed += Math.min(50, Math.max(0, now - previous)); previous = now;
+      if (stopButton.disabled) clock.done = true; else requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }, { once: true }));
+  const lipClock = () => page.evaluate(() => (window as Window & { lipClock?: { elapsed: number; done: boolean } }).lipClock ?? { elapsed: 0, done: false });
   await page.locator('.lip-text-row').getByRole('button', { name: 'Play', exact: true }).click();
-  await page.waitForTimeout(1000);
+  await expect.poll(async () => (await lipClock()).elapsed).toBeGreaterThan(1000);
   await settings.getByRole('button', { name: 'Expressive', exact: true }).click();
-  await expect(stop).toBeDisabled({ timeout: 1600 });
+  await expect.poll(async () => (await lipClock()).done, { timeout: 10000 }).toBe(true);
+  expect((await lipClock()).elapsed).toBeLessThan(2600);
+  await expect(stop).toBeDisabled();
   await page.getByRole('tab', { name: 'Pose test', exact: true }).click();
   await expect(settings).toBeHidden();
 });

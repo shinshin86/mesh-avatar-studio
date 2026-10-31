@@ -29,6 +29,9 @@ uv run tools/test_agent_tools.py
 ```
 
 The numerical deformation regression must remain 0 px (physics has floating-point tolerance).
+If an e2e test is reported as flaky (it passed on retry) and is unrelated to your change,
+mention it in your report instead of investigating it. In tests, do not assert on fixed
+wall-clock durations; wait for a state, or measure on the clock the app itself uses.
 
 ## Runtime compatibility
 

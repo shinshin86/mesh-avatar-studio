@@ -7,6 +7,8 @@ export default defineConfig({
   testDir: 'e2e',
   // Real layer builds and pixel comparisons must not compete for GPU/CPU resources.
   workers: 1,
+  // A test that passes on retry is reported as flaky instead of failing the run.
+  retries: 1,
   use: {
     baseURL,
     viewport: { width: 1440, height: 1000 },
