@@ -164,6 +164,13 @@ relaxed eyes and a closed mouth, then choose **Calibrate**. You can adjust mirro
 sensitivity and smoothing, or enable microphone lip sync. Camera video and microphone
 audio stay on your machine; only numeric avatar motion values reach the stream view.
 
+**Track body movement (experimental)** is off by default. While it is off, only the face
+is tracked, as before. When it is on, Live also uses visible shoulders, hips,
+elbows and wrists, and lists what the loaded avatar follows: the upper body always, legs
+and arms only when its rig sets them up. Body points from a webcam are less stable than
+the face, so expect some extra sway, especially in skirts and other cloth. See
+[Full-body tracking](docs/reference.md#full-body-tracking-experimental).
+
 Choose a background and **Copy OBS URL**, or **Open stream view in a new tab** to check it first. Keep the Live page open and add the URL as an
 OBS **Browser Source**, for example at **1080 × 1080**. The transparent background works
 directly in OBS. For other capture software, choose green and apply a chroma key.
@@ -247,6 +254,6 @@ character of AITuber OnAir, © Yuki Shindo (AITuber OnAir), and her images are p
 and modified as part of your own works, but not redistributed on their own or as an asset
 collection. This project is not an official AITuber OnAir product.
 
-Face tracking uses [MediaPipe](https://github.com/google-ai-edge/mediapipe) (`@mediapipe/tasks-vision`
-and the Face Landmarker model in `vendor/mediapipe/`), © The MediaPipe Authors, licensed under the
+Face tracking and the experimental body tracking use [MediaPipe](https://github.com/google-ai-edge/mediapipe)
+(`@mediapipe/tasks-vision` and the Face Landmarker and Pose Landmarker lite models in `vendor/mediapipe/`), © The MediaPipe Authors, licensed under the
 Apache License 2.0; see [vendor/mediapipe/LICENSE](vendor/mediapipe/LICENSE).

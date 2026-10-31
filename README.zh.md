@@ -111,6 +111,8 @@ npm run create -- --random --prompt "银色短发，校服"
 
 在编辑器里打开你的项目，选择**直播**。启动摄像头，面朝正前方，眼部放松、嘴闭合，然后选择**校准**。你可以调整镜像、灵敏度和平滑度，或启用麦克风口型同步。摄像头画面和麦克风音频都留在本机；直播画面只接收虚拟形象的动作数值。
 
+**追踪身体动作（实验性）**默认关闭。关闭时与以前一样只追踪面部。开启后还会使用画面中可见的肩膀、髋部、手肘和手腕，并显示当前虚拟形象跟随的部位：上半身始终跟随，腿部和手臂只有在绑定中设置后才会动作。摄像头检测到的身体位置比面部更不稳定，裙子等衣物可能会出现额外摆动。详见[参考文档](docs/reference.md#full-body-tracking-experimental)（英文）。
+
 选择背景后**复制 OBS 地址**，或先**在新标签页打开直播画面**检查。保持直播页面打开，在 OBS 里把该地址添加为**浏览器来源**，例如设为 **1080 × 1080**。透明背景在 OBS 中可直接使用。其他采集软件请选择绿色并添加色度键。两个页面都通过本地开发服务器（`npm run dev`）运行。直播页面停止发送更新时，直播画面会显示待机动作。
 
 可选的**光照**会在你拖动的光源处生成跟随的阴影。默认关闭；在直播页面底部或编辑器预览下方打开对应区域即可。OBS 地址包含光照设置，详见[光照](docs/reference.md#lighting)。
@@ -156,4 +158,4 @@ npm run create -- --random --prompt "银色短发，校服"
 
 示例角色 Miko（`samples/miko-qipao/`）不受 MIT License 覆盖。Miko 是 AITuber OnAir 的角色，© Yuki Shindo（AITuber OnAir），其图像依据[Miko 角色使用指南](https://miko.aituberonair.com/#terms)提供，详见 [samples/miko-qipao/MIKO_ASSET_TERMS.md](samples/miko-qipao/MIKO_ASSET_TERMS.md)。可作为你自己作品的一部分使用或修改，但不得单独分发或作为素材集合分发。本项目不是 AITuber OnAir 的官方产品。
 
-面部追踪使用 [MediaPipe](https://github.com/google-ai-edge/mediapipe)（`@mediapipe/tasks-vision` 以及 `vendor/mediapipe/` 中的 Face Landmarker 模型），© The MediaPipe Authors，依据 Apache License 2.0 授权，详见 [vendor/mediapipe/LICENSE](vendor/mediapipe/LICENSE)。
+面部追踪和实验性的身体追踪使用 [MediaPipe](https://github.com/google-ai-edge/mediapipe)（`@mediapipe/tasks-vision` 以及 `vendor/mediapipe/` 中的 Face Landmarker 和 Pose Landmarker lite 模型），© The MediaPipe Authors，依据 Apache License 2.0 授权，详见 [vendor/mediapipe/LICENSE](vendor/mediapipe/LICENSE)。

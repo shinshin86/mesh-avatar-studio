@@ -68,6 +68,7 @@ export function validateAvatarFiles(files: Record<string, FileData>): string[] {
     if (!problems.length) rig = rawRig as unknown as Rig;
   }
   image('built/base.png'); image('built/hairmask.png');
+  if (rig?.cloth?.length) image('built/base_cloth.png');
   const meta = json('built/layers.json');
   if (meta && version(meta, 'built/layers.json')) {
     build(meta, 'built/layers.json');
@@ -81,7 +82,8 @@ export function validateAvatarFiles(files: Record<string, FileData>): string[] {
     const rectangles = layers(meta.layers, 'built/layers.json', 'built', size);
     if (rig && rectangles) {
       const required = [...rig.eyes.flatMap((_, i) => ['ball', 'low', 'crease', 'lash'].map(part => `eye${i}_${part}`)),
-        ...(rig.hand ? ['hand'] : []), ...(rig.accessories ?? []).map(part => part.name)];
+        ...(rig.hand ? ['hand'] : []), ...(rig.accessories ?? []).map(part => part.name),
+        ...(rig.cloth ?? []).map(part => `cloth_${part.name}`)];
       for (const name of required) if (!own(rectangles, name)) errors.push(`built/layers.json.layers.${name}: missing required layer`);
     }
     if (!Array.isArray(meta.eyes) || meta.eyes.length !== 2) {

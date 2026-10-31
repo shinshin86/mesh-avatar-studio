@@ -131,11 +131,14 @@ export function EditorCanvas({ rig, sourceUrl, visible, selected, onSelect, onCh
       context.globalAlpha = 1;
     }
     for (const shape of shapes) {
+      if (shape.grid && (focusGroup !== 'cloth' || (selected !== 'cloth' && selected !== shape.item.replace('.grid', '') && !selected?.startsWith(shape.item.replace('.grid', '.') )))) continue;
       if (shape.band && selected?.split('.')[0] !== shape.group) continue;
       const active = focusGroup === shape.group;
       context.globalAlpha = !focusGroup ? 0.6 : active ? 1 : 0.2;
       context.strokeStyle = PART_COLORS[shape.group as PartGroup];
-      context.lineWidth = active ? 2.5 : 1;
+      context.lineWidth = shape.grid ? 1 : active ? 2.5 : 1;
+      context.setLineDash(shape.grid ? [3, 4] : []);
+      if (shape.grid) context.strokeStyle = '#159ca3';
       context.beginPath();
       if (shape.kind === 'ellipse') {
         const [x, y] = screen(shape.points[0], view);
@@ -149,6 +152,7 @@ export function EditorCanvas({ rig, sourceUrl, visible, selected, onSelect, onCh
       }
       context.stroke();
     }
+    context.setLineDash([]);
     for (const handle of handles) {
       const [x, y] = screen(handle.point, view);
       const active = focusGroup === handle.group;

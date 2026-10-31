@@ -112,6 +112,8 @@ npm run create -- --random --prompt "銀髪のショートヘア、制服"
 
 エディタでプロジェクトを開き、「配信」を選びます。カメラを開始し、目と口の力を抜いて口を閉じ、正面を向いた状態で「正面の姿勢を登録」を押してください。左右反転、感度、動きのなめらかさを調整できます。マイクで口を動かすこともできます。映像と音声は端末内で処理し、配信用画面に渡すのはアバターの動きの数値だけです。
 
+「体の動きを認識(実験的)」は、初期状態ではオフです。オフのときは、これまでどおり顔だけを追跡します。オンにすると、映っている肩・腰・肘・手首も使い、読み込んだアバターで追従する部位を表示します。上半身は常に追従し、脚と腕は rig に設定がある場合だけ動きます。カメラで捉える体の位置は顔よりもぶれやすいため、スカートなどの布が余分に揺れることがあります。詳しくは[リファレンス](docs/reference.md#full-body-tracking-experimental)(英語)を参照してください。
+
 背景を選んで「OBS用URLをコピー」を押し(先に見た目を確かめたいときは「OBS用の画面を別タブで開く」)、操作画面を開いたまま、OBSの「ブラウザ」ソースにURLを貼り付けます。サイズは **1080 × 1080** などに設定してください。背景が透明なら、そのままOBSで重ねて表示できます。ほかのソフトで取り込む場合は、緑の背景にしてクロマキーで抜く方法も使えます。
 
 どちらの画面もローカルの開発サーバー(`npm run dev`)で使います。操作画面からの更新が止まると、配信用画面は待機動作に戻ります。
@@ -162,4 +164,4 @@ JavaScript版と同じ `.mavatar` ファイルとビルド済みプロジェク�
 
 サンプルのキャラクター「ミコ」(`samples/miko-qipao/`)は MIT License の対象外です。ミコは AITuber OnAir のキャラクター(© Yuki Shindo (AITuber OnAir))で、画像は[ミコ キャラクター利用ガイドライン](https://miko.aituberonair.com/#terms)に従って提供しています。概要は [samples/miko-qipao/MIKO_ASSET_TERMS.md](samples/miko-qipao/MIKO_ASSET_TERMS.md) を参照してください。自分の作品の一部として利用・改変できますが、画像だけを単体で配布したり、素材集として配布したりすることはできません。このプロジェクトは AITuber OnAir の公式製品ではありません。
 
-顔の追跡には [MediaPipe](https://github.com/google-ai-edge/mediapipe)(`@mediapipe/tasks-vision` と、`vendor/mediapipe/` の Face Landmarker のモデル)を使っています。© The MediaPipe Authors、Apache License 2.0 です。[vendor/mediapipe/LICENSE](vendor/mediapipe/LICENSE) を参照してください。
+顔の追跡と実験的な体の追跡には [MediaPipe](https://github.com/google-ai-edge/mediapipe)(`@mediapipe/tasks-vision` と、`vendor/mediapipe/` の Face Landmarker と Pose Landmarker lite のモデル)を使っています。© The MediaPipe Authors、Apache License 2.0 です。[vendor/mediapipe/LICENSE](vendor/mediapipe/LICENSE) を参照してください。

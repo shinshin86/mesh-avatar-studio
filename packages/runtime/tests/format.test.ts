@@ -9,6 +9,16 @@ import sprites from '../../../samples/miko-qipao/built/sprites/sprites.json';
 import manifest from '../../../samples/miko-qipao/avatar.json';
 
 const encode = (value: unknown) => new TextEncoder().encode(JSON.stringify(value));
+test('cloth folders require both the bare base and the named garment layer', () => {
+  const files = fixture(), r = structuredClone(rig);
+  const cloth = { name: 'skirt', outline: [[0, 0], [100, 0], [50, 100]], waist: [[0, 0], [100, 0]], hem: [[0, 100], [100, 100]] };
+  files['rig.json'] = encode({ ...r, cloth: [cloth] });
+  expect(validateAvatarFiles(files).join()).toContain('built/base_cloth.png');
+  expect(validateAvatarFiles(files).join()).toContain('cloth_skirt');
+  files['built/base_cloth.png'] = { size: 1 }; files['built/cloth_skirt.png'] = { size: 1 };
+  files['built/layers.json'] = encode({ ...metadata, layers: { ...metadata.layers, cloth_skirt: [0, 0, 100, 100] } });
+  expect(validateAvatarFiles(files)).toEqual([]);
+});
 function fixture(): Parameters<typeof validateAvatarFiles>[0] {
   const files: Parameters<typeof validateAvatarFiles>[0] = {
     'avatar.json': encode(manifest), 'rig.json': encode(rig),

@@ -1,6 +1,7 @@
 // Drives parameters: idle ("auto idle"), mouse follow, blinking, expressions, motions.
 import { resolveLipSync, lipMotionOptions } from './lip-sync.ts';
 import { PARAMS } from './rig.js';
+import { ARM_DEFAULTS } from './arms.js';
 import { MOTIONS, IDLE_MOTIONS, ADDITIVE, sampleTrack } from './motions.js';
 import { VOWELS, kanaToMoras, sampleMoras } from './kana.js';
 
@@ -55,13 +56,26 @@ const EMOTIONS = {
 const SPRINGS = {
   gazeX: [260, 0.9], gazeY: [260, 0.9],
   angleX: [55, 0.72], angleY: [55, 0.72], angleZ: [45, 0.75],
-  bodyAngleX: [14, 0.9], bodyAngleZ: [12, 0.9],
+  bodyAngleX: [14, 0.9], bodyAngleZ: [12, 0.9], weightShift: [14, 0.9],
   armAngle: [20, 0.85], handAngle: [30, 0.8],
 };
 
+/** Five-second held transfer:0.9s quintic S,1.6s hold per half-cycle. */
+export function weightTransfer(t) {
+  const duration = 0.9, phase = (t + duration / 2) % 5;
+  const start = phase < 2.5 ? -0.7 : 0.7, end = -start, local = phase % 2.5;
+  if (local >= duration) return end;
+  const u = local / duration, s = u * u * u * (10 + u * (-15 + 6 * u));
+  return start + (end - start) * s;
+}
+
 export class Motion {
-  /** @param {number[]} gazeCenter */
-  constructor(gazeCenter) {
+  /** @param {number[]} gazeCenter @param {boolean} [planted] @param {import('../rig/types').Rig|null} [armRig] */
+  constructor(gazeCenter, planted = false, armRig = null) {
+    this.armRig = armRig;
+    this.armFollow = 0;
+    this.armVelocity = 0;
+    this.planted = planted;
     this.mode = 'auto';           // auto | mouse | manual
     this.P = Object.fromEntries(PARAMS.map(p => [p.id, p.def]));
     this.manual = { ...this.P };
@@ -247,8 +261,11 @@ export class Motion {
       T.angleX = fbm(t * 0.18, 1) * 10 + this.gaze.x * 11;
       T.angleY = fbm(t * 0.15, 2) * 6 - 1 + this.gaze.y * 7;
       T.angleZ = fbm(t * 0.12, 3) * 10;
-      T.bodyAngleX = fbm(t * 0.1, 4) * 5;
-      T.bodyAngleZ = fbm(t * 0.09, 5) * 4;
+      T.bodyAngleX = fbm(t * 0.1, 4) * 5 * (this.planted ? 0.35 : 1);
+      T.bodyAngleZ = fbm(t * 0.09, 5) * 4 * (this.planted ? 0.35 : 1);
+      // Held transfers for planted rigs, legacy sine otherwise. No RNG: idle tracks must
+      // consume exactly the same random sequence.
+      T.weightShift = this.planted ? weightTransfer(t) : 0.7 * Math.sin(t * Math.PI * 2 / 5);
       T.armAngle = fbm(t * 0.14, 6) * 5;
       T.handAngle = fbm(t * 0.21, 7) * 5;
       // glances
@@ -319,6 +336,28 @@ export class Motion {
 
     if (this.mode !== 'manual') T.angleY += T.breath * 1.6;
 
+    if (this.armRig?.arms && this.mode !== 'manual') {
+      const { arms, body, legs } = this.armRig;
+      const tilt = -T.bodyAngleZ / 10 * body.maxRoll
+        + (legs ? legs.tilt * (1 - (legs.spine ?? 0.7)) * T.weightShift : 0);
+      // Damped gravity follow: relative rotation cancels part of the torso tilt,
+      // with a small lag and no extra RNG calls on the legacy motion path.
+      const time = clamp(dt, 0, 0.05), count = Math.ceil(time * 240);
+      for (let i = 0; i < count; i++) {
+        const h = time / count;
+        this.armVelocity += (100 * (-tilt * 0.65 - this.armFollow) - 18 * this.armVelocity) * h;
+        this.armFollow += this.armVelocity * h;
+      }
+      const swing = (arms.swing ?? ARM_DEFAULTS.swing) * Math.PI / 180;
+      const inward = arms.inward ?? ARM_DEFAULTS.inward;
+      for (const [side, sign] of [['L', 1], ['R', -1]]) {
+        const relative = sign * this.armFollow;
+        const limit = swing * (relative < 0 ? inward : 1);
+        T[`armSwing${side}`] = clamp((limit > 0 ? relative / limit : 0) + (T.breath - 0.5) * 0.06, -1, 1);
+        T[`elbowBend${side}`] = T.breath * 0.025;
+      }
+    }
+
     // expression layer (smoothed so switching is not a jump)
     const E = EXPRESSIONS[this.expr].p;
     const keys = ['eyeOpen', 'eyeOpenL', 'eyeSmileL', 'eyeSmile', 'mouthOpen', 'mouthForm', 'blush', 'browY', 'browAngle', 'gx', 'gy'];
@@ -334,6 +373,7 @@ export class Motion {
     const X = this.exprMix;
 
     // spring-damper towards the targets for body params
+    /** @type {Record<string, number>} */
     const out = {};
     for (const p of PARAMS) {
       const id = p.id;

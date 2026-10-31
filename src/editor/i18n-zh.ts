@@ -18,6 +18,8 @@ export const uiZh = {
   savedTo: '已保存到', saveError: '项目保存失败。编辑内容仍保留在页面中，请重试。', revealError: '无法打开项目文件夹。', copyError: '无法复制路径。',
   help: '使用帮助', close: '关闭帮助', language: '界面语言', english: 'English', japanese: '日本語', chinese: '简体中文', enCode: 'EN', jaCode: 'JA', zhCode: '中文',
   parts: '部件', faceSection: '面部', hairSection: '头发与饰品', bodySection: '身体', advanced: '高级设置',
+  fullBodySupport: '全身支持情况（实验性）', supportSet: '已设置', supportNotSet: '未设置', supportHint: '未设置的部位保持默认动作。', supportLegs: '双腿', supportArms: '手臂', supportCloth: '衣物',
+  armSwingL: '图像左臂摆动', armSwingR: '图像右臂摆动', elbowBendL: '图像左肘弯曲', elbowBendR: '图像右肘弯曲',
   notPresent: '当前绑定中没有此部件', show: '显示辅助线', hide: '隐藏辅助线', showAll: '全部显示', hideAll: '全部隐藏',
   source: '原图与绑定', canvas: '绑定编辑画布', fit: '适应画布', zoom: '缩放', zoomOut: '缩小', zoomIn: '放大', actualSize: '恢复到 100%', fitPart: '定位选中部件', wheelMode: '鼠标滚轮', wheelAuto: '缩放', wheelPan: '滚动平移',
   pickHint: '选择左侧部件，或点击图上的控制点', dragHint: '拖动控制点调整位置',
@@ -29,7 +31,7 @@ export const uiZh = {
   lipSync: '嘴型测试', release: '松开嘴型', lipText: '日语假名文本', lipPlay: '播放', lipStop: '停止',
   lipSpeed: '每秒音拍数', lipLoop: '循环', skippedKana: '已跳过的字符：', lipHelp: '支持日语假名和空格（あ=a、い=i、う=u、え=e、お=o）。仅预览嘴型，不播放声音。',
   sweepTip: '让头部在完整角度范围内转动，检查图层之间的缝隙或破损',
-  turn: '左右转头', look: '抬头／低头', tilt: '头部倾斜', eyeOpen: '眼睛开合', mouthOpen: '嘴巴开合', bodyTilt: '身体倾斜',
+  turn: '左右转头', look: '抬头／低头', tilt: '头部倾斜', eyeOpen: '眼睛开合', mouthOpen: '嘴巴开合', bodyTilt: '身体倾斜', weightShift: '重心转移',
   loading: '正在加载本地素材…', updating: '正在更新预览…', ready: '预览已就绪', previewError: '无法加载预览',
   selection: '选中部件', selectedItem: '选中的绑定项', selectPart: '选择一个部件进行编辑', tip: '调整提示',
   guideTitle: '开始编辑，只需三步', guide1: '选择左侧的部件', guide2: '拖动原图上的控制点',
@@ -94,6 +96,9 @@ export const workflowZh: typeof workflowEn = {
 };
 
 export const partsZh: Record<PartGroup, [string, string, string]> = {
+  arms: ['手臂', '自然下垂手臂的小幅动作。', '仅用于手臂与身体之间有透明间隙的图片。设置图像左右的肩、肘、腕关节，在两侧间隙中描出分界线。'],
+  legs: ['双腿', '双脚固定时的重心转移。', '设置骨盆及图像左右的髋、膝、踝关节，描出双腿分界线，再检查左右重心转移。'],
+  cloth: ['布料', '裙摆和垂布的摆动。', '调整腰线与下摆控制点，再调整频率、阻尼和风力。'],
   head: ['头部转动', '转头或倾斜时跟随动作的区域。', '把中心放在面部中央，椭圆应覆盖包括头发在内的整个头部。'],
   eyes: ['眼睛', '眼睛开口轮廓，用于眨眼和视线变化。', '沿睫毛内侧描出眼睛开口，在轮廓转弯处添加控制点。'],
   mouth: ['嘴巴', '闭嘴时的线条及嘴型差分的作用区域。', '把线条对齐闭合的嘴巴，并将周围区域限制在嘴唇附近。'],
@@ -109,6 +114,12 @@ export const partsZh: Record<PartGroup, [string, string, string]> = {
 };
 
 export const fieldsZh: Record<string, string> = {
+  twist: '骨盆扭转上限 (度)', spine: '脊柱稳定', bob: '换重心下沉 (px)', responseGain: '布料夸张倍率 (1 = 物理)',
+  pelvis: '骨盆', left: '图像左腿', right: '图像右腿', hip: '髋关节', knee: '膝盖', ankle: '脚踝',
+  shift: '横向位移 (px)', tilt: '骨盆倾角 (rad)', bend: '膝盖弯曲量 (px)',
+  scale: '图像比例 (mm/px)', swing: '频率倍率', stiffness: '刚度倍率', damping: '阻尼倍率', follow: '列刚性', cohesion: '横向平滑次数',
+  seams: '褶皱与缝线', tiers: '层间接缝', addSeam: '添加缝线', addTier: '添加层间接缝', deleteLine: '删除线条',
+  wind: '风力', waist: '腰线', hem: '下摆线', columns: '列数', rows: '行数', clothCell: '布料网格间距',
   image: '原图', width: '宽度', height: '高度', name: '名称',
   center: '中心', pivot: '支点', rx: '横向半径', ry: '纵向半径',
   cx: '中心 X', cy: '中心 Y', shiftX: '横向位移', shiftY: '纵向位移',

@@ -5,6 +5,8 @@ export type CameraState = 'stopped' | 'starting' | 'running' | 'cameraBlocked' |
 export type BackgroundTracking = 'backgroundStopped' | 'backgroundSlow' | null;
 type TrackProcessor = new (options: { track: MediaStreamTrack; maxBufferSize: number }) => { readable: ReadableStream<VideoFrame> };
 export class CameraCapture {
+  private bodyTracking = false;
+  setBodyTracking(enabled: boolean) { this.bodyTracking = enabled; this.worker?.postMessage({ type: 'body', enabled }); }
   private generation = 0;
   private stream?: MediaStream;
   private worker?: Worker;
@@ -73,7 +75,7 @@ export class CameraCapture {
         else if (data.type === 'tick' && !this.reader && performance.now() - this.lastCallback > 100) void this.sendBitmap(generation);
         else if (data.type === 'error') fail();
       };
-      worker.postMessage({ type: 'init' });
+      worker.postMessage({ type: 'init', ...(this.bodyTracking ? { bodyTracking: true } : {}) });
     } catch (error) {
       if (generation !== this.generation) return;
       this.stop();

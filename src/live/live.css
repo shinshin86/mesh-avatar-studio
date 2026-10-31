@@ -82,3 +82,6 @@ input[type="color"] { width: 100%; height: 32px; border: 0; padding: 0; }
 .preset-save { flex: none; padding-inline: 8px; }
 .lighting-presets small { display: block; color: #5a6a80; line-height: 1.5; }
 .live-controls .live-lighting .lighting-presets label { flex-direction: column; align-items: stretch; gap: 4px; }
+
+.live-body-support { margin: -4px 0 8px; padding: 8px 10px; border-left: 3px solid #c4d7ee; background: #f3f7fc; border-radius: 0 5px 5px 0; }
+.live-body-support small + small { margin-top: 4px; }

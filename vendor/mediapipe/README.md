@@ -18,3 +18,17 @@ telemetry and remote asset URLs, then run the live and stream network-isolation 
 with the real tracker initialized. All assets must still load locally, with no outbound
 requests. Camera frames and microphone audio are processed locally and are never
 included in relay messages.
+
+## Optional Pose Landmarker lite
+
+- Asset: `pose_landmarker_lite.task`, float16, model version 1; 5,777,746 bytes.
+- Source: https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task
+- SHA-256: `59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a`
+- Downloaded: 2026-10-29. The model is unmodified.
+- Copyright: The MediaPipe Authors. Apache License, Version 2.0 (see LICENSE).
+  The [official model card](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20BlazePose%20GHUM%203D.pdf),
+  page 2, specifies the model license.
+
+Body tracking is off by default. The worker loads this local model only when body
+tracking is enabled, and runs it on every second accepted face frame. Only numeric
+shoulder/hip coordinates return; no frame, segmentation mask or image is returned.

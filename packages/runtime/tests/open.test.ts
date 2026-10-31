@@ -34,6 +34,23 @@ test('archive input forms expose the same rig and asset keys as folder loading',
   expect(fetch).toHaveBeenCalledTimes(5); // includes the optional overlays.json request
 });
 
+test('cloth folder and archive expose the bare base and garment cutout for the renderer', async () => {
+  const rig = decode('rig.json'), meta = decode('built/layers.json');
+  rig.cloth = [{ name: 'skirt', outline: [[0, 0], [100, 0], [100, 100]], waist: [[0, 0], [100, 0]], hem: [[0, 100], [100, 100]] }];
+  meta.layers.cloth_skirt = [0, 0, 100, 100];
+  const extra = { 'rig.json': new TextEncoder().encode(JSON.stringify(rig)), 'built/layers.json': new TextEncoder().encode(JSON.stringify(meta)),
+    'built/base_cloth.png': new Uint8Array([1]), 'built/cloth_skirt.png': new Uint8Array([2]) };
+  vi.stubGlobal('fetch', folderFetch(extra));
+  const folder = await openAvatar('https://example.test/avatar/');
+  const packed = await openAvatar(packAvatar({ ...files, ...extra }));
+  try {
+    expect(folder.assets['base_cloth.png']).toContain('/built/base_cloth.png');
+    expect(folder.assets['cloth_skirt.png']).toContain('/built/cloth_skirt.png');
+    expect(packed.assets['base_cloth.png']).toMatch(/^blob:/);
+    expect(Object.keys(packed.assets).sort()).toEqual(Object.keys(folder.assets).sort());
+  } finally { packed.release(); folder.release(); }
+});
+
 test('fetches archive URLs with query strings and creates usable, revocable image and JSON URLs', async () => {
   const fetch = vi.fn(async (_input: RequestInfo | URL) => new Response(new Uint8Array(archive))); vi.stubGlobal('fetch', fetch);
   const loaded = await openAvatar('https://example.test/avatar.mavatar?download=1');

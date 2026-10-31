@@ -27,6 +27,18 @@ async function main() {
   const project = await realpath(resolve(args[0]));
   if (relative(root, project).startsWith('..')) throw new Error('project must stay inside the repository');
   const rig = JSON.parse(await readFile(resolve(project, 'rig.json'), 'utf8'));
+  const reviewPoses = [...poses,
+    ...(rig.legs ? [['weight-left', { weightShift: -0.6 }], ['weight-right', { weightShift: 0.6 }]] : []),
+    ...(rig.arms ? [
+      ['arms-out', { armSwingL: 1, armSwingR: 1 }],
+      ['arms-in', { armSwingL: -1, armSwingR: -1 }],
+      ['elbows-bent', { elbowBendL: 1, elbowBendR: 1 }],
+      ['arm-left', { armSwingL: 1, elbowBendL: 0.5 }],
+      ['arm-right', { armSwingR: 1, elbowBendR: 0.5 }],
+      ['arms-body-left', { bodyAngleZ: -8, weightShift: -0.6, armSwingL: -1, armSwingR: 1, elbowBendL: 0.5, elbowBendR: 0.5 }],
+      ['arms-body-right', { bodyAngleZ: 8, weightShift: 0.6, armSwingL: 1, armSwingR: -1, elbowBendL: 0.5, elbowBendR: 0.5 }],
+    ] : []),
+  ];
   const errors = validateRig(rig);
   if (errors.length) throw new Error(errors.join('\n'));
   const built = await realpath(resolve(project, 'built'));
@@ -39,7 +51,7 @@ async function main() {
   }
   await asset('layers.json');
   const layers = JSON.parse(await readFile(resolve(built, 'layers.json'), 'utf8'));
-  await Promise.all(['base', 'hairmask', ...Object.keys(layers.layers)].map(name => asset(`${name}.png`)));
+  await Promise.all(['base', 'hairmask', ...(rig.cloth?.length ? ['base_cloth'] : []), ...Object.keys(layers.layers)].map(name => asset(`${name}.png`)));
   try {
     await asset('sprites/sprites.json');
   } catch (error) {
@@ -97,6 +109,46 @@ async function main() {
         av.advance(seconds, 60); pictures.push([`hair-sway-${i}`, canvas.toDataURL()]);
       }
       av.destroy();
+      if (rig.legs) {
+        const legs = await avatar();
+        // One complete five-second sway cycle, including its neutral return. Keep cloth
+        // history across frames so the waist and tails visibly follow the pelvis.
+        const snapshots = new Map(Array.from({ length: 10 }, (_, i) => [Math.round(i * 300 / 9), i]));
+        for (let frame = 0; frame <= 300; frame++) {
+          const t = frame / 60;
+          legs.setParameters({ ...defaults, weightShift: 0.7 * Math.sin(t * Math.PI * 2 / 5) });
+          legs.advance(1 / 60, 60);
+          if (snapshots.has(frame)) pictures.push([`weight-shift-${snapshots.get(frame)}`, canvas.toDataURL()]);
+        }
+        legs.destroy();
+      }
+      if (rig.arms) {
+        const ar = await avatar();
+        // Capture a complete outward/bend/return cycle, retaining body physics.
+        for (let f = 0; f <= 180; f++) {
+          const phase = f / 180 * Math.PI * 2;
+          ar.setParameters({ ...defaults, armSwingL: Math.sin(phase), armSwingR: -Math.sin(phase),
+            elbowBendL: (1 - Math.cos(phase)) * 0.5, elbowBendR: (1 - Math.cos(phase)) * 0.5 });
+          ar.advance(1 / 60, 60);
+          if (f % 20 === 0) pictures.push([`arm-cycle-${f / 20}`, canvas.toDataURL()]);
+        }
+        ar.destroy();
+        const idle = await avatar();
+        idle.setParameters({});
+        for (let f = 0; f <= 300; f++) {
+          idle.advance(1 / 60, 60);
+          if (f % 30 === 0) pictures.push([`arm-idle-${f / 30}`, canvas.toDataURL()]);
+        }
+        idle.destroy();
+      }
+      if (rig.cloth?.length) {
+        // garments: lean and shift the body, let go, and follow the swing as it settles
+        const cl = await avatar();
+        cl.setParameters({ ...defaults, bodyAngleZ: -8, bodyAngleX: -8 }); cl.advance(0.6, 60);
+        cl.setParameters(defaults);
+        for (let i = 0; i < 10; i++) { cl.advance(0.12, 60); pictures.push([`cloth-sway-${i}`, canvas.toDataURL()]); }
+        cl.destroy();
+      }
       const scale = Math.min(width / (rig.image.width * 1.2), height / (rig.image.height * 1.1));
       const ox = (width - rig.image.width * scale) / 2, oy = height - rig.image.height * scale;
       const bounds = points => {
@@ -133,14 +185,14 @@ async function main() {
         ctx.fillStyle = '#171b23'; ctx.font = '16px sans-serif'; ctx.fillText(name, x + 8, y + 22);
       }
       return { images: [...pictures, ...crops, ['contact-sheet', sheet.toDataURL()]], width, height, cropBounds: { eyes, mouth }, padTop: 0.1, padSide: 0.1 };
-    }, { rig, assets, poses });
+    }, { rig, assets, poses: reviewPoses });
     if (browserErrors.length) throw new Error(browserErrors.join('\n'));
     const review = resolve(project, 'review'); await mkdir(review, { recursive: true });
     if (relative(project, await realpath(review)).startsWith('..')) throw new Error('review folder must stay inside the project');
     for (const [name, url] of result.images) await writeFile(resolve(review, `${name}.png`), Buffer.from(url.split(',')[1], 'base64'));
     const { images, ...metadata } = result;
-    await writeFile(resolve(review, 'poses.json'), JSON.stringify({ ...metadata, project: basename(project), fixedFps: 60, poseSeconds: 1, poses: poses.map(([name, parameters, expression]) => ({ name, parameters, ...(expression && { expression }) })), hairFrames: 6, files: images.map(([name]) => `${name}.png`) }, null, 2) + '\n');
-    console.log(`Rendered ${poses.length + 6} poses, eye/mouth crops and contact-sheet.png in ${relative(root, review)}/`);
+    await writeFile(resolve(review, 'poses.json'), JSON.stringify({ ...metadata, project: basename(project), fixedFps: 60, poseSeconds: 1, poses: reviewPoses.map(([name, parameters, expression]) => ({ name, parameters, ...(expression && { expression }) })), hairFrames: 6, ...(rig.legs && { weightShiftFrames: 10, weightShiftSeconds: 5 }), ...(rig.arms && { armCycleFrames: 10, armIdleFrames: 11 }), files: images.map(([name]) => `${name}.png`) }, null, 2) + '\n');
+    console.log(`Rendered ${result.images.length} review images in ${relative(root, review)}/`);
   } finally {
     await browser?.close();
     await server.close();

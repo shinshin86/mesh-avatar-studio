@@ -34,7 +34,7 @@ export async function openProjectFolder(files: File[]): Promise<ProjectAssets> {
   const metadata = JSON.parse(new TextDecoder().decode(layerBytes)) as { layers?: Record<string, unknown> };
   if (!metadata.layers || typeof metadata.layers !== 'object') throw new Error('layers.json must contain layer rectangles.');
   const available = new Set(entries.filter(entry => entry.path.startsWith(prefix)).map(entry => entry.path.slice(prefix.length)));
-  const required = ['base.png', 'hairmask.png', ...Object.keys(metadata.layers).map(name => `${name}.png`)];
+  const required = ['base.png', 'hairmask.png', ...(rig?.cloth?.length ? ['base_cloth.png'] : []), ...Object.keys(metadata.layers).map(name => `${name}.png`)];
   const missing = required.filter(name => !available.has(name));
   if (missing.length) throw new FolderOpenError('missingFolderFiles', missing.map(name => `${prefix}${name}`));
   // Reading the bytes catches locked files before replacing the current project.

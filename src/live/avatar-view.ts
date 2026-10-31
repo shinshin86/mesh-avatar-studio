@@ -19,11 +19,16 @@ export async function createAvatarView(canvas: HTMLCanvasElement, settings: View
   canvas.dataset.state = 'loading';
   const options = { manual: true, fit: settings.fit, preserveMouthForm: true };
   let avatar: MeshAvatar, overlays: string[] = [];
-  if (settings.avatar) avatar = await loadMeshAvatar(canvas, settings.avatar, options);
+  let support = { legs: false, arms: false };
+  if (settings.avatar) {
+    const loaded = await loadMeshAvatar(canvas, settings.avatar, options);
+    avatar = loaded; support = { legs: !!loaded.package.rig.legs, arms: !!loaded.package.rig.arms };
+  }
   else {
     const projects = await localProjects(), project = projects?.find(entry => entry.name === settings.project);
     if (project?.error || (!project && settings.project !== SAMPLE_PROJECT)) throw new Error('Project unavailable');
     const loaded = project ? await openLocalProject(project) : await openSampleAvatar();
+    support = { legs: !!loaded.rig?.legs, arms: !!loaded.rig?.arms };
     const lipSync = 'manifest' in loaded ? loaded.manifest.lipSync : loaded.lipSync;
     avatar = await createMeshAvatar(canvas, { ...options, lipSync, rig: loaded.rig!, assets: loaded.assets });
     overlays = await listOverlays(loaded.assets);
@@ -46,7 +51,7 @@ export async function createAvatarView(canvas: HTMLCanvasElement, settings: View
   };
   const frame = (now: number) => { lastPaint = now; update(now); raf = requestAnimationFrame(frame); };
   raf = requestAnimationFrame(frame);
-  return { avatar, timing, overlays,
+  return { avatar, timing, overlays, support,
     paintPaused(now: number) { return now - lastPaint > 1000; },
     updateIfStalled(now: number) { if (now - previous >= 1000 / 30 - 2) update(now, false); },
     destroy() { cancelAnimationFrame(raf); avatar.destroy(); } };

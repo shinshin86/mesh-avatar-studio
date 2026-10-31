@@ -202,6 +202,138 @@ uv run tools/build-sprites.py projects/<name>
 It cuts accepted variants into `built/sprites/`. Render the poses again (Step 5); the
 `angry`, `sad` and `surprise` frames show the expression eyes and mouths.
 
+## Optional — Garments
+
+Experimental full-body feature; its fields and behaviour may change.
+
+For a skirt or hanging fabric, prepare a local `source_under.png` with exactly the
+same size, pose and pixel alignment as `source.png`. Remove the skirt and its tails,
+leaving modest inner shorts and complete legs. Ask before sending any image to an
+external generation service. Small redraw differences can create edge artifacts;
+compare the two images before building. If this input is absent, the builder uses
+inpainting, which may look blurry when the cloth swings away from the body.
+
+Add optional `rig.cloth` entries (see [Rig fields](rig-fields.md)). Trace each `outline`
+around the whole garment, place its `waist` along the attachment and its `hem` across
+the lower edge. Use the calibrated coordinates, zoomed grids and overlays from the
+earlier steps. Keep the grid wide enough for projecting ruffles; narrow or degenerate
+grids can distort extrapolated points. Put rear tails in separate entries with
+`behind: true`; use `parent: "skirt"` when their attachment should follow an earlier
+skirt entry. Depth controls drawing order; parent controls motion, independently.
+For planted feet, optionally set `body.hip: { "shift": 20, "band": [900, 1400] }`,
+adjusting these example coordinates to the illustration. `mesh.clothCell` defaults to 8.
+
+Optionally trace `seams` from waist to hem in left-to-right order and `tiers`
+across the columns, following the drawn folds and ruffle joins. Every tier must
+cross every column once, in waist-to-hem order, without crossing columns or
+inverting grid cells. Nonempty seams/tiers use coupled N-link pendulums; their
+absence retains the two-link solver. In Studio's **Cloth** inspector, add/delete
+lines and edit vertices (drag, double-click an edge to add, Alt-click a vertex to
+remove). Motion-grid edits do not require rebuilding layers. Start `tierGain` and
+`highModeDamping` at `1`; the former exaggerates relative bending only in the
+rendered grid, while the latter changes damping above the lowest mode. Review
+lag, overshoot and settling after each adjustment.
+
+Validate the draft before rebuilding:
+
+```sh
+npm run validate-rig -- projects/<name>/rig.draft.json
+uv run --with numpy --with pillow --with opencv-python-headless tools/build-layers.py projects/<name> --rig rig.draft.json
+npm run render-poses -- projects/<name>
+```
+
+Inspect `review/rest.png` at the waist, ruffles and tail edges. Inspect the ten
+`cloth-sway-0.png` through `cloth-sway-9.png` frames for lag, reversal and settling,
+not just the contact sheet. Set `wind: 0` when checking convergence to rest; default
+wind intentionally keeps a small motion. Compare a lower `swing` or higher `damping`
+to the defaults. In Studio, select Cloth, adjust its numeric fields, save and reopen
+to confirm persistence. Waist/hem handles affect motion immediately; changing an
+outline marks layers stale and requires a rebuild. Keep `base.png` intact for older
+players; verify `base_cloth.png` and all `cloth_<name>` layers are present when packing.
+
+## Optional — Legs
+
+Experimental full-body feature; its fields and behaviour may change.
+
+Add `rig.legs` only when the illustration has two visible legs and planted feet
+(see [Rig fields](rig-fields.md#optional-planted-legs)). Use the calibrated source
+coordinates, zoomed grids and an overlay from the earlier steps. Left and right
+mean image-left and image-right. Place `pelvis` at the pelvic rotation centre,
+each `hip` at the top of the thigh, each `knee` at the drawn knee joint and each
+`ankle` at the fixed foot attachment. Keep hip, knee and ankle y increasing.
+Trace `split` down the gap between the legs, starting inside the crotch gap and
+continuing below both ankles, with strictly increasing y. Avoid putting this
+boundary through a leg. Place `band` above the hips where the pelvis motion should
+blend into the torso; its start must be above both hips.
+
+Start with modest `shift` (pixels), `tilt` (radians) and `bend` (pixels). Validate
+the draft before using it, then run `render-poses` as in Step 5. Compare `rest`,
+`weight-left`, `weight-right` and every `weight-shift-0..9` frame. Inspect the
+crotch, knees, ankles and any garment attachments at full resolution: feet must
+stay planted, knees must bend smoothly without reversing and the split must not
+produce a tear or overlap. The solver preserves bone lengths in 3D, so their
+projected lengths can shorten. Also check body sway and head movement together.
+
+For optional pelvis yaw, start `twist` at 3–6 degrees (allowed range `0..15`).
+Check that the shoulders partly counterturn, the head remains frontal, and feet
+and garment attachments stay connected during transfer and holds. Omitted or
+zero twist preserves the existing output. Studio exposes this under **Legs**;
+it does not require rebuilding layers.
+
+In Studio, select **Legs**, align the pelvis and joint handles, and edit the split
+vertices (double-click an edge to add a point; Alt-click a vertex to remove
+it). Pause idle motion and test the **Weight shift** slider in both directions.
+Joint, split and tuning edits recalculate mesh weights; they do not require a
+layer rebuild. Save and reopen to confirm persistence. Omit `legs` to preserve an
+existing avatar's deformation. With `legs`, idle weight transfer targets `±0.7`
+over a five-second cycle: a 0.9-second smooth S transition and a 1.6-second hold
+in each half-cycle. Rigs without `legs` retain their previous output. The slider
+accepts the full `-1..1` parameter range.
+
+## Optional — Hanging arms
+
+Experimental full-body feature; its fields and behaviour may change.
+
+Add `rig.arms` only when both arms hang clear of the body with a transparent gap.
+Omit it when arms touch or lie in front of the body, with hands on hips or crossed
+arms, and for bust-up art. This feature permits small swings and elbow bends, not
+raised arms or reconstruction behind them. The native runtime currently ignores
+`arms` and its parameters; this feature uses the WebGL runtime.
+
+Use the coordinate calibration and zoomed grids from the earlier steps. Place each
+image-side `shoulder` inside the sleeve near the armpit, `elbow` on the joint and
+`wrist` at the hand attachment, with increasing y. Trace that arm's `split` down
+the transparent gap, starting just below the armpit and ending below the fingertips.
+The image-left split stays on the right of its elbow and wrist; mirror this for the
+image-right arm. Check `base_cloth.png` too when cloth is present: its bare arm
+silhouette and any cutout remnants determine where the mesh can move cleanly.
+Do not place a split through visible skin, sleeves or bracelets.
+
+Start with defaults `swing: 4`, `bend: 6` (degrees) and `inward: 0.4`. Validate, then
+inspect an arms overlay before rendering:
+
+```sh
+npm run validate-rig -- projects/<name>/rig.draft.json
+uv run tools/overlay.py projects/<name> --rig rig.draft.json --part arms --zoom --out projects/<name>/work/overlay-arms.png
+npm run render-poses -- projects/<name>
+```
+
+Use a built project with the same arms data in `rig.json` when rendering. In Studio,
+select **Arms** in **Body**, edit the joint handles and both split lines (double-click
+to add a vertex; Alt-click to remove one), and pause idle to test the four arm sliders.
+These edits do not require rebuilding layers. Save and reopen to verify persistence.
+The body section's **Full-body support** summary lists Legs / Arms / Cloth even when
+all are absent; unset parts keep the standard motion.
+
+Inspect `rest`, all seven fixed arm poses, every `arm-cycle-0..9` and every
+`arm-idle-0..10` frame. At rest the drawing must stay identical. Sleeves must stay
+attached, elbows must bend smoothly, and hands must not disappear into the skirt.
+Reduce limits if clothing occludes the wrist. Fix cutout remnants in the artwork
+when a swing reveals old bracelet or sleeve fragments. In Live, use **Track body
+movement** and calibrate relaxed arms; check both Mirror settings and hide one wrist
+or elbow to confirm that side returns smoothly to idle. See [Rig fields](rig-fields.md#optional-hanging-arms)
+for limits and tracking behaviour.
+
 ## Step 7 — Hand over
 
 Tell the person:

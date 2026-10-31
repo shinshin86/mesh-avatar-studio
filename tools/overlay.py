@@ -98,6 +98,10 @@ def geometry(rig):
     for group, value in rig.items():
         if group not in ("version", "image"):
             walk(value, group, group)
+    if rig.get("arms"):
+        for side in ("left", "right"):
+            arm = rig["arms"][side]
+            add("arms", f"arms.{side}.bones", [arm["shoulder"], arm["elbow"], arm["wrist"]])
     if "gazeCenter" not in rig["view"]:
         add(
             "view",
@@ -118,6 +122,8 @@ def overlay(project, rig_name, part, zoom, output):
         .split("export const SECTIONS")[0]
     )
     colours = dict(re.findall(r"(\w+): '(#[0-9a-fA-F]+)'", colours_text))
+    # optional groups the editor does not colour yet (such as cloth)
+    colours.setdefault("cloth", "#e040a0")
     if part and part.split(".")[0] not in colours:
         raise ValueError("unknown part; use " + ", ".join(colours))
     shapes = [
@@ -148,6 +154,8 @@ def overlay(project, rig_name, part, zoom, output):
         color = colours[group]
         if len(mapped) > 1:
             draw.line(mapped + ([mapped[0]] if closed else []), fill=color, width=2)
+        if label.endswith(".bones"):
+            continue  # Joint points already carry their own labels.
         # Ellipse sampling has no user node indices; polylines do.
         sampled_ellipse = len(points) in (33, 64)
         for i, (x, y) in enumerate(mapped if not sampled_ellipse else mapped[:1]):

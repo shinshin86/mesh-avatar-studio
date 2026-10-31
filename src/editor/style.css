@@ -307,3 +307,11 @@ main:has(.stale) .editor-panel, main:has(.stale) .parts-panel { height: calc(100
 .audio-file-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .audio-file-picker button { font-size: 12px; padding: 6px 10px; }
 .audio-file-picker span { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 11px; color: var(--muted); }
+
+.full-body-support { margin: 0 16px 8px; padding: 8px; background: var(--canvas); border-radius: 6px; font-size: 11px; }
+.full-body-support h4 { margin: 0 0 6px; font-size: inherit; font-weight: 600; }
+.full-body-support dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 0; }
+.full-body-support dt { color: var(--muted); }
+.full-body-support dd { margin: 3px 0 0; font-weight: 500; }
+.full-body-support [data-state="set"] dd { color: #187747; }
+.full-body-support p { margin: 7px 0 0; line-height: 1.5; color: var(--muted); }

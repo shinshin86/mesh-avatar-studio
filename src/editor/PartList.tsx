@@ -37,7 +37,14 @@ export function PartList({ rig, visible, selected, onSelect, onFocus, onVisible 
     <details className="parts-disclosure" open><summary className="parts-title">{t.parts}</summary>
     {SECTIONS.map(s => s.key === 'advanced'
       ? <details key={s.key} className="part-section advanced-section"><summary>{t[s.key]}</summary>{section(s.groups)}</details>
-      : <section key={s.key} className="part-section"><h3>{t[s.key]}</h3>{section(s.groups)}</section>)}
+      : <section key={s.key} className="part-section"><h3>{t[s.key]}</h3>{s.key === 'bodySection' && <div className="full-body-support" data-testid="full-body-support">
+        <h4>{t.fullBodySupport}</h4><dl>{(['legs', 'arms', 'cloth'] as const).map(group => {
+          const present = partPresent(rig, group);
+          return <div key={group} data-testid={`support-${group}`} data-state={present ? 'set' : 'unset'}>
+            <dt>{{ legs: t.supportLegs, arms: t.supportArms, cloth: t.supportCloth }[group]}</dt><dd>{present ? t.supportSet : t.supportNotSet}</dd>
+          </div>;
+        })}</dl>{(['legs', 'arms', 'cloth'] as const).some(group => !partPresent(rig, group)) && <p>{t.supportHint}</p>}
+      </div>}{section(s.groups)}</section>)}
     </details>
   </aside>;
 }

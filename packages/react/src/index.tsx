@@ -5,7 +5,7 @@ import { type MeshAvatarElement, type AvatarSource, type Emotion, type Fit, type
 import 'mesh-avatar-element';
 
 export { DEFAULT_SRC, EMOTIONS } from 'mesh-avatar-element';
-export type { MeshAvatarElement, AvatarSource, Emotion, Fit, LiveExpression, MeshAvatar as MeshAvatarInstance } from 'mesh-avatar-element';
+export type { MeshAvatarElement, AvatarSource, Emotion, Fit, LiveExpression, ClothTuning, MeshAvatar as MeshAvatarInstance } from 'mesh-avatar-element';
 
 export interface MeshAvatarProps extends Omit<HTMLAttributes<MeshAvatarElement>, 'onLoad' | 'onError' | 'children' | 'dangerouslySetInnerHTML'> {
   src?: string;
