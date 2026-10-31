@@ -34,7 +34,9 @@ export function mapBody(body: BodyNeutral, neutral: BodyNeutral, options: Tracki
   const gain = clamp(options.sensitivity, 0.25, 2) * (options.mirror ? -1 : 1);
   const shoulders = (body.shoulderX - neutral.shoulderX) / neutral.width;
   const hips = body.hipX !== undefined && neutral.hipX !== undefined ? (body.hipX - neutral.hipX) / neutral.width : 0;
-  return { bodyAngleX: clamp(softDeadZone(shoulders, BODY_DEAD_ZONE.shift) * gain * 20, -10, 10), bodyAngleZ: clamp(softDeadZone(body.roll - neutral.roll, BODY_DEAD_ZONE.roll) * gain, -10, 10), weightShift: clamp(softDeadZone(hips, BODY_DEAD_ZONE.hips) * gain * 1.4, -1, 1) };
+  // Image roll is clockwise-positive (y down), but a positive bodyAngleZ tilts the
+  // avatar's top towards image-left, so roll takes the opposite sign to the shifts.
+  return { bodyAngleX: clamp(softDeadZone(shoulders, BODY_DEAD_ZONE.shift) * gain * 20, -10, 10), bodyAngleZ: clamp(softDeadZone(neutral.roll - body.roll, BODY_DEAD_ZONE.roll) * gain, -10, 10), weightShift: clamp(softDeadZone(hips, BODY_DEAD_ZONE.hips) * gain * 1.4, -1, 1) };
 }
 export class BodyPose {
   private body: BodyNeutral | null = null;

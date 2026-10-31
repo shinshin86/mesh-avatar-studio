@@ -17,9 +17,18 @@ test('shoulder displacement/tilt map independently, hips take weight priority, m
   expect(mapBody(shifted, zero, { ...options, sensitivity: 2 }).bodyAngleX).toBeCloseTo(6.4);
   expect(mapBody(readBody(body(1))!, zero, options).bodyAngleX).toBe(10);
   const seated = mapBody(readBody(body(.06, -.03, false))!, zero, options); expect(seated.weightShift).toBe(0);
+  // A clockwise camera-image tilt leans the avatar's top towards image-right without
+  // Mirror (negative bodyAngleZ), and towards image-left with it, like bodyAngleX.
   const tilted = body(); tilted.shoulders[1].y += .04;
-  expect(mapBody(readBody(tilted)!, zero, options).bodyAngleZ).toBeGreaterThan(3);
-  expect(mapBody(readBody(tilted)!, zero, { ...options, mirror: true }).bodyAngleZ).toBeLessThan(-3);
+  expect(mapBody(readBody(tilted)!, zero, options).bodyAngleZ).toBeLessThan(-3);
+  expect(mapBody(readBody(tilted)!, zero, { ...options, mirror: true }).bodyAngleZ).toBeGreaterThan(3);
+  // Leaning sideways moves the shoulders and tilts their line the same way. The avatar's
+  // shift (+bodyAngleX = image-right) and tilt (-bodyAngleZ = top to image-right) agree.
+  for (const mirror of [false, true]) {
+    const lean = body(-.08, -.04); lean.shoulders[0].y += .04;
+    const mapped = mapBody(readBody(lean)!, zero, { ...options, mirror });
+    expect(Math.sign(mapped.bodyAngleX)).toBe(-Math.sign(mapped.bodyAngleZ));
+  }
   tilted.shoulders[0].visibility = .1; expect(readBody(tilted)).toBeNull();
   tilted.shoulders[0].visibility = 1; tilted.shoulders[0].x = NaN; expect(readBody(tilted)).toBeNull();
 });
@@ -265,7 +274,7 @@ test('real torso lean remains tracked and visible hips can corroborate lean duri
     p.x = center.x + (x * Math.cos(angle) - y * Math.sin(angle)) / roll.aspect;
     p.y = center.y + x * Math.sin(angle) + y * Math.cos(angle);
   }
-  pose.update(face(roll), 10); expect(pose.sample(10, 2, armOptions).params.bodyAngleZ).toBeGreaterThan(6);
+  pose.update(face(roll), 10); expect(Math.abs(pose.sample(10, 2, armOptions).params.bodyAngleZ)).toBeGreaterThan(6);
 });
 
 test('hidden hips release only weightShift to idle; late hips never inherit the shoulder offset', () => {
