@@ -18,7 +18,7 @@ export const uiZh = {
   savedTo: '已保存到', saveError: '项目保存失败。编辑内容仍保留在页面中，请重试。', revealError: '无法打开项目文件夹。', copyError: '无法复制路径。',
   help: '使用帮助', close: '关闭帮助', language: '界面语言', english: 'English', japanese: '日本語', chinese: '简体中文', enCode: 'EN', jaCode: 'JA', zhCode: '中文',
   parts: '部件', faceSection: '面部', hairSection: '头发与饰品', bodySection: '身体', advanced: '高级设置',
-  fullBodySupport: '全身支持情况', supportSet: '已设置', supportNotSet: '未设置', supportHint: '未设置的部位保持默认动作。', supportLegs: '双腿', supportArms: '手臂', supportCloth: '衣物',
+  fullBodySupport: '全身支持情况（实验性）', supportSet: '已设置', supportNotSet: '未设置', supportHint: '未设置的部位保持默认动作。', supportLegs: '双腿', supportArms: '手臂', supportCloth: '衣物',
   armSwingL: '图像左臂摆动', armSwingR: '图像右臂摆动', elbowBendL: '图像左肘弯曲', elbowBendR: '图像右肘弯曲',
   notPresent: '当前绑定中没有此部件', show: '显示辅助线', hide: '隐藏辅助线', showAll: '全部显示', hideAll: '全部隐藏',
   source: '原图与绑定', canvas: '绑定编辑画布', fit: '适应画布', zoom: '缩放', zoomOut: '缩小', zoomIn: '放大', actualSize: '恢复到 100%', fitPart: '定位选中部件', wheelMode: '鼠标滚轮', wheelAuto: '缩放', wheelPan: '滚动平移',

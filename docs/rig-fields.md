@@ -153,6 +153,8 @@ requires rebuilding; old sampled curves cannot reconstruct new image pixels.
 
 ## Optional garments
 
+Experimental full-body feature; its fields and behaviour may change.
+
 `cloth` is an optional array. Omit it or use `[]` to retain the existing rendering.
 Coordinates are source-image pixels, with x increasing right and y increasing down.
 
@@ -221,6 +223,8 @@ React exposes the same element through its ref and the runtime through `onLoad`.
 
 ## Optional planted legs
 
+Experimental full-body feature; its fields and behaviour may change.
+
 Omit `legs` to retain the existing deformation exactly. `weightShift` is an optional
 parameter in `-1..1`, default `0`: negative supports the image-left leg, positive
 supports the image-right leg. For rigs with `legs`, idle weight transfer uses a five-second cycle: a 0.9-second quintic S transition and 1.6-second hold in each half-cycle, targeting `±0.7`. The existing body spring smooths it. Rigs without `legs` retain the previous deterministic sine and deformation.
@@ -262,6 +266,8 @@ For planted rigs, the chest drive lags the pelvis by approximately 0.1–0.2s; h
 
 
 ## Optional hanging arms
+
+Experimental full-body feature; its fields and behaviour may change.
 
 Use `arms` for front-facing, hanging arms separated from the body by a transparent gap.
 Omit it for arms touching or in front of the torso, hands on hips, crossed arms, and

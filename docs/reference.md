@@ -287,6 +287,32 @@ The camera is optional. Turn on only the microphone and the avatar keeps its idl
 the camera the mouth keeps one shape and changes only how far it opens; drawn mouth images
 are still used when the project has them.
 
+### Full-body tracking (experimental)
+
+**Track body movement (experimental)** is off by default. While it is off, Live tracks only
+the face, exactly as before, and the Pose Landmarker model is not loaded. Its behaviour and
+settings may change.
+
+When it is on, the tracking worker also runs the local Pose Landmarker lite model on every
+second face frame and returns only numeric shoulder, hip, elbow and wrist positions. Live
+lists what the loaded avatar follows:
+
+- **Upper body** (every avatar): shoulder movement drives body sway and tilt.
+- **Legs** (avatars with `legs`): visible hips drive weight shift. When the hips are out of
+  frame, for example while seated, weight shift keeps its idle motion.
+- **Arms** (avatars with `arms`): elbows and wrists drive small arm swings and elbow bends.
+  Arms never rise; see [Rig fields](rig-fields.md#optional-hanging-arms).
+
+Calibrate while standing relaxed with your arms down. Small shoulder movements are ignored,
+and while your arms move away from the calibrated pose the body keeps its previous lean, so
+an arm movement is not mistaken for leaning. A joint that leaves the frame holds its pose
+for 500 ms and then returns to idle.
+
+Webcam body positions are less stable than face tracking, so skirts and other cloth may sway
+more than you expect. To calm them, raise **Smoothing**, or lower each garment's
+`responseGain` towards `1` (physical) in Studio under **Body → Cloth**. The value is saved in
+the rig, so the stream view uses it too. The native runtime ignores `arms`.
+
 ### Mouth movement settings
 
 The studio's **Lip sync** tab offers five styles: Relaxed, Standard, Snappy, Subtle and

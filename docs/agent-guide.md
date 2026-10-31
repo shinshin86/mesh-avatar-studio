@@ -204,6 +204,8 @@ It cuts accepted variants into `built/sprites/`. Render the poses again (Step 5)
 
 ## Optional — Garments
 
+Experimental full-body feature; its fields and behaviour may change.
+
 For a skirt or hanging fabric, prepare a local `source_under.png` with exactly the
 same size, pose and pixel alignment as `source.png`. Remove the skirt and its tails,
 leaving modest inner shorts and complete legs. Ask before sending any image to an
@@ -251,6 +253,8 @@ players; verify `base_cloth.png` and all `cloth_<name>` layers are present when 
 
 ## Optional — Legs
 
+Experimental full-body feature; its fields and behaviour may change.
+
 Add `rig.legs` only when the illustration has two visible legs and planted feet
 (see [Rig fields](rig-fields.md#optional-planted-legs)). Use the calibrated source
 coordinates, zoomed grids and an overlay from the earlier steps. Left and right
@@ -287,6 +291,8 @@ in each half-cycle. Rigs without `legs` retain their previous output. The slider
 accepts the full `-1..1` parameter range.
 
 ## Optional — Hanging arms
+
+Experimental full-body feature; its fields and behaviour may change.
 
 Add `rig.arms` only when both arms hang clear of the body with a transparent gap.
 Omit it when arms touch or lie in front of the body, with hands on hips or crossed
