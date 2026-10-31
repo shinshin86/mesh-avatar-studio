@@ -1,5 +1,11 @@
 # mesh-avatar
 
+## 0.6.0
+
+### Minor Changes
+
+- acde8e8: Add optional `rig.view.irisTravel` to set how far the irises move at full gaze. Avatars without it keep the previous 7 px.
+
 ## 0.5.0
 
 ### Minor Changes
