@@ -236,7 +236,7 @@ export async function createMeshAvatarImpl(canvas, options) {
     physics.chains.forEach((ch, k) => deformTassel(ch, tassels[k].mesh));
     if (CLOTH.length) { cloth.step(P, dt, phys); cloth.deform(); }
 
-    const ball = 7; // px of iris travel
+    const ball = rig.view.irisTravel ?? 7; // px of iris travel; rig.view.irisTravel scales it for large eyes
     R.draw({
       angleX: P.angleX, angleY: P.angleY, angleZ: P.angleZ,
       eyes: [
