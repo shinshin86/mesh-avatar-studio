@@ -207,6 +207,36 @@ fn speech_settings_and_expression_sequences_match_javascript() {
     eprintln!("Speech/expression: max delta {max}");
 }
 #[test]
+fn expression_overlay_output_matches_javascript_for_the_same_parameters() {
+    let Some(f) = fixture() else {
+        return;
+    };
+    let mut overlay = ExpressionOverlay::default();
+    let mut max = 0.0;
+    for update in f["updates"].as_array().unwrap() {
+        for event in f["actions"].as_array().unwrap() {
+            if event[0] == update["frame"] && event[1] == "setExpression" {
+                overlay.set(event[2].as_str().unwrap());
+            }
+        }
+        let parameters = serde_json::from_value(update["parameters"].clone()).unwrap();
+        let output = overlay.apply(&parameters, update["dt"].as_f64().unwrap());
+        let output = serde_json::to_value(output).unwrap();
+        for (key, value) in output.as_object().unwrap() {
+            if let Some(expected) = update["output"].get(key) {
+                compare(value, expected, 1e-9, &mut max);
+            }
+        }
+        compare(
+            &json!({"name":overlay.name,"active":overlay.active()}),
+            &update["expression"],
+            0.0,
+            &mut max,
+        );
+    }
+    eprintln!("Expression overlay: max delta {max}");
+}
+#[test]
 fn kana_timing_and_grouping_match_javascript() {
     let Some(f) = fixture() else {
         return;

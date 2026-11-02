@@ -17,7 +17,6 @@ pub fn overlay_target(name: &str) -> BTreeMap<String, f64> {
         .find(|(n, _)| *n == name)
         .map_or("normal", |(_, e)| *e);
     let mut target = expression_target(expr);
-    target.remove("mouthForm");
     target.insert("pitch".into(), if name == "sad" { -6.0 } else { 0.0 });
     if name == "sad" {
         target.insert("gy".into(), -0.45);
@@ -34,6 +33,11 @@ pub fn apply_overlay(p: &Parameters, m: &BTreeMap<String, f64>) -> Parameters {
     out.brow_y = (p.brow_y + m["browY"]).clamp(-1.0, 1.0);
     out.brow_angle = (p.brow_angle + m["browAngle"]).clamp(-1.0, 1.0);
     out.mouth_open = p.mouth_open.max(m["mouthOpen"]);
+    // While the expression's own mouth is open wider than the voice or tracking, show its mouth
+    // shape too (surprise is an "o"); louder syllables keep the lip-sync vowel.
+    if m["mouthOpen"] > p.mouth_open {
+        out.mouth_form = m["mouthForm"];
+    }
     out.gaze_x = (p.gaze_x + m["gx"]).clamp(-1.0, 1.0);
     out.gaze_y = (p.gaze_y + m["gy"]).clamp(-1.0, 1.0);
     out.angle_y = (p.angle_y + m["pitch"]).clamp(-30.0, 30.0);

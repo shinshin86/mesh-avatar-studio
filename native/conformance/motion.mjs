@@ -13,6 +13,8 @@ export const actions = [
   [180, 'holdMouth', 'n'], [190, 'holdMouth', 'i'], [200, 'stopLipSync'], [210, 'setExpression', 'sad'],
   [230, 'setExpression', 'neutral'], [240, 'speakKana', 'あ'], [265, 'setLipSync', { closeSpeed: 0.5 }],
   [280, 'setSpeaking', true], [320, 'setSpeaking', false], [340, 'setExpression', 'unknown'],
+  [360, 'stopLipSync'], [360, 'setExpression', 'surprise'], [400, 'speakKana', 'あいうえお'],
+  [460, 'setExpression', 'sad'], [500, 'setExpression', 'neutral'],
 ];
 
 export async function dumpMotion({ rig, engine, destination }) {
@@ -33,7 +35,7 @@ export async function dumpMotion({ rig, engine, destination }) {
     Math.random = seededRandom(173);
     const motion = new Motion(rig.view.gazeCenter ?? [rig.head.cx, rig.head.cy]);
     const expression = new ExpressionOverlay(), updates = [];
-    for (let frame = 0; frame < 360; frame++) {
+    for (let frame = 0; frame < 560; frame++) {
       for (const [at, method, ...args] of actions) if (at === frame) {
         if (method === 'setExpression') expression.set(...args);
         else if (method === 'setAutoIdle') motion.autoIdle = args[0];
