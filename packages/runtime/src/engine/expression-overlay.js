@@ -10,13 +10,13 @@ export const OVERLAY_EXPRESSIONS = {
 // Brows are often hidden under bangs, so some faces also lean on gaze and head pitch to read.
 const POSE = { sad: { pitch: -6, gy: -0.45 } };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const NEUTRAL = Object.freeze({ eyeOpen: 1, eyeOpenL: 1, eyeSmile: 0, eyeSmileL: 0, blush: 0, browY: 0, browAngle: 0, mouthOpen: 0, gx: 0, gy: 0, pitch: 0 });
+const NEUTRAL = Object.freeze({ eyeOpen: 1, eyeOpenL: 1, eyeSmile: 0, eyeSmileL: 0, blush: 0, browY: 0, browAngle: 0, mouthOpen: 0, mouthForm: 0, gx: 0, gy: 0, pitch: 0 });
 
 export function overlayTarget(name) {
   const E = EXPRESSIONS[OVERLAY_EXPRESSIONS[name]]?.p ?? {}, pose = POSE[name] ?? {};
   return { eyeOpen: E.eyeOpen ?? 1, eyeOpenL: E.eyeOpenL ?? E.eyeOpen ?? 1, eyeSmile: E.eyeSmile ?? 0,
     eyeSmileL: E.eyeSmileL ?? E.eyeSmile ?? 0, blush: E.blush ?? 0, browY: E.browY ?? 0, browAngle: E.browAngle ?? 0,
-    mouthOpen: E.mouthOpen ?? 0, gx: E.glance?.[0] ?? 0, gy: pose.gy ?? E.glance?.[1] ?? 0, pitch: pose.pitch ?? 0 };
+    mouthOpen: E.mouthOpen ?? 0, mouthForm: E.mouthForm ?? 0, gx: E.glance?.[0] ?? 0, gy: pose.gy ?? E.glance?.[1] ?? 0, pitch: pose.pitch ?? 0 };
 }
 
 /** Eyes scale with the expression so blinks still show; smiles, blush and brows add on top. */
@@ -30,6 +30,9 @@ export function applyOverlay(P, m) {
   out.browY = clamp((P.browY ?? 0) + m.browY, -1, 1);
   out.browAngle = clamp((P.browAngle ?? 0) + m.browAngle, -1, 1);
   out.mouthOpen = Math.max(P.mouthOpen ?? 0, m.mouthOpen);
+  // While the expression's own mouth is open wider than the voice or tracking, show its mouth
+  // shape too (surprise is an "o"); louder syllables keep the lip-sync vowel.
+  if (m.mouthOpen > (P.mouthOpen ?? 0)) out.mouthForm = m.mouthForm;
   out.gazeX = clamp((P.gazeX ?? 0) + m.gx, -1, 1);
   out.gazeY = clamp((P.gazeY ?? 0) + m.gy, -1, 1);
   out.angleY = clamp((P.angleY ?? 0) + m.pitch, -30, 30);

@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { ExpressionOverlay, OVERLAY_EXPRESSIONS, applyOverlay, overlayTarget } from '../packages/runtime/src/engine/expression-overlay.js';
+import { createSpriteModule } from '../packages/runtime/src/engine/sprites.js';
 
 const tracked = { angleY: 0, eyeLOpen: 1, eyeROpen: 1, eyeSmile: 0, eyeSmileL: 0, mouthOpen: 0.7, mouthForm: 0.4, browY: 0.1, browAngle: 0, blush: 0, gazeX: 0.2, gazeY: 0 };
 
@@ -43,4 +44,44 @@ test('switching fades in and out, then passes parameters through again', () => {
 test('unknown names, including inherited object keys, fall back to neutral', () => {
   const overlay = new ExpressionOverlay();
   for (const name of ['unknown', 'toString', '__proto__', 'constructor']) { overlay.set(name); expect(overlay.name).toBe('neutral'); }
+});
+
+// Only the mouth drawing choice is used here, so the engine and rig are minimal stand-ins.
+const { mouthShape } = createSpriteModule({ baseWeights: () => [], deformBase: () => undefined, MOUTH: {} } as never, { mouth: { area: {} } } as never);
+
+test('surprise keeps its "o" mouth while its mouth is open wider than the voice', () => {
+  const surprise = overlayTarget('surprise');
+  expect(surprise.mouthForm).toBeGreaterThan(0.35);
+  // At rest and in the quiet gaps of speech the expression's mouth is wider, so its shape is shown.
+  for (const voice of [{ mouthOpen: 0, mouthForm: 0 }, { mouthOpen: 0.05, mouthForm: -0.8 }, { mouthOpen: 0.3, mouthForm: 0.1 }]) {
+    const out = applyOverlay({ ...tracked, ...voice }, surprise);
+    expect(out.mouthOpen).toBe(surprise.mouthOpen);
+    expect(out.mouthForm).toBe(surprise.mouthForm);
+    expect(mouthShape(out.mouthOpen, out.mouthForm)).toBe('o');
+  }
+  // Louder syllables keep the lip-sync vowel.
+  for (const form of [-0.8, -0.4, 0, 0.9]) {
+    const loud = applyOverlay({ ...tracked, mouthOpen: 0.85, mouthForm: form }, surprise);
+    expect(loud.mouthOpen).toBe(0.85); expect(loud.mouthForm).toBe(form);
+  }
+});
+
+test('expressions without an open mouth leave the mouth shape to the voice or tracking', () => {
+  for (const name of Object.keys(OVERLAY_EXPRESSIONS)) {
+    if (overlayTarget(name).mouthOpen > 0) continue;
+    for (const voice of [{ mouthOpen: 0, mouthForm: -0.6 }, { mouthOpen: 0.7, mouthForm: 0.4 }]) {
+      expect(applyOverlay({ ...tracked, ...voice }, overlayTarget(name)).mouthForm).toBe(voice.mouthForm);
+    }
+  }
+});
+
+test('the mouth shape fades with the expression and is released after switching back', () => {
+  const overlay = new ExpressionOverlay(), idle = { ...tracked, mouthOpen: 0, mouthForm: -0.3 };
+  overlay.set('surprise');
+  for (let i = 0; i < 120; i++) overlay.apply(idle, 1 / 60);
+  expect(overlay.apply(idle, 1 / 60).mouthForm).toBeCloseTo(overlayTarget('surprise').mouthForm, 3);
+  overlay.set('neutral');
+  for (let i = 0; i < 240 && overlay.active; i++) overlay.apply(idle, 1 / 60);
+  expect(overlay.active).toBe(false);
+  expect(overlay.apply(idle, 1 / 60).mouthForm).toBe(-0.3);
 });
