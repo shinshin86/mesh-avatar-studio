@@ -363,6 +363,27 @@ fit changes and otherwise the avatar's saved values apply. The optional `preset`
 playback always uses the three numbers. The React wrapper exposes the element through its
 ref, so call `ref.current.setLipSync(...)`; it has no dedicated settings prop.
 
+### Expression mouth opening
+
+Live expressions can set their resting mouth opening, for drawings where the built-in value
+does not fit. Save it in `avatar.json.expressions` (see [the format](format.md)) or pass the same
+shape when creating the avatar:
+
+```ts
+import { createMeshAvatar, type ExpressionSettings } from 'mesh-avatar';
+
+const expressions: ExpressionSettings = { surprise: { mouthOpen: 0.45 } };
+const avatar = await createMeshAvatar(canvas, { rig, assets, expressions });
+avatar.setExpression('surprise'); // rests at 0.45 instead of 0.6
+```
+
+`mouthOpen` accepts a finite number from 0 to 1 for `smile`, `shy`, `surprise`, `halfLidded`,
+`angry`, `sad` and `wink`. Omitted expressions and an omitted option keep the built-in values
+(surprise 0.6, the others 0), so the output is unchanged. `loadMeshAvatar` applies the saved
+values, with explicit `options.expressions` fields taking precedence for each expression. Invalid
+objects and values outside 0–1 throw; unknown expression names and fields are ignored. `neutral`
+leaves the parameters untouched, so an entry for it has no effect and is ignored too.
+
 ### Video calls
 
 To use the avatar in Zoom, Google Meet or other video-call apps, show the stream view in OBS

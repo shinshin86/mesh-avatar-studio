@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { zipSync } from 'fflate';
-import { createMeshAvatar, openAvatar, loadMeshAvatar, packAvatar } from 'mesh-avatar';
+import { createMeshAvatar, openAvatar, loadMeshAvatar, packAvatar, unpackAvatar } from 'mesh-avatar';
 import { sampleFiles } from './avatar-fixture';
 
 vi.mock('../src/engine', async importOriginal => ({
@@ -129,6 +129,25 @@ test('loadMeshAvatar releases owned resources on destroy or failure but preserve
   const second = await loadMeshAvatar({} as HTMLCanvasElement, shared);
   second.destroy(); expect(release).not.toHaveBeenCalled();
   shared.release();
+});
+
+test('loadMeshAvatar applies saved expression settings and lets explicit options override them per field', async () => {
+  const expressions = { surprise: { mouthOpen: 0.45 }, smile: { mouthOpen: 0.2 } };
+  const saved = packAvatar(files, { manifest: { expressions } });
+  const avatar = await loadMeshAvatar({} as HTMLCanvasElement, saved);
+  expect(avatar.package.manifest.expressions).toEqual(expressions);
+  expect(vi.mocked(createMeshAvatar).mock.calls.at(-1)?.[1].expressions).toEqual(expressions);
+  avatar.destroy();
+  const other = await loadMeshAvatar({} as HTMLCanvasElement, saved, { expressions: { surprise: { mouthOpen: 0.3 }, sad: { mouthOpen: 0.1 } } });
+  expect(vi.mocked(createMeshAvatar).mock.calls.at(-1)?.[1].expressions)
+    .toEqual({ surprise: { mouthOpen: 0.3 }, smile: { mouthOpen: 0.2 }, sad: { mouthOpen: 0.1 } });
+  other.destroy();
+  const plain = await loadMeshAvatar({} as HTMLCanvasElement, archive);
+  expect(vi.mocked(createMeshAvatar).mock.calls.at(-1)?.[1]).not.toHaveProperty('expressions');
+  plain.destroy();
+  // Repacking with another manifest override keeps the block (Studio exports with lip-sync settings).
+  const repacked = packAvatar(unpackAvatar(saved), { manifest: { lipSync: { openness: 0.7 } } });
+  expect(JSON.parse(new TextDecoder().decode(unpackAvatar(repacked)['avatar.json'])).expressions).toEqual(expressions);
 });
 
 test('loadMeshAvatar applies saved mouth settings and lets explicit runtime options override them', async () => {

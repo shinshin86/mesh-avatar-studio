@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { ExpressionOverlay, OVERLAY_EXPRESSIONS, applyOverlay, overlayTarget } from '../packages/runtime/src/engine/expression-overlay.js';
+import { mergeExpressionSettings, parseExpressionSettings } from '../packages/runtime/src/engine/expression-settings.ts';
 import { createSpriteModule } from '../packages/runtime/src/engine/sprites.js';
 
 const tracked = { angleY: 0, eyeLOpen: 1, eyeROpen: 1, eyeSmile: 0, eyeSmileL: 0, mouthOpen: 0.7, mouthForm: 0.4, browY: 0.1, browAngle: 0, blush: 0, gazeX: 0.2, gazeY: 0 };
@@ -84,4 +85,66 @@ test('the mouth shape fades with the expression and is released after switching 
   for (let i = 0; i < 240 && overlay.active; i++) overlay.apply(idle, 1 / 60);
   expect(overlay.active).toBe(false);
   expect(overlay.apply(idle, 1 / 60).mouthForm).toBe(-0.3);
+});
+
+test('without settings every live expression keeps its built-in target', () => {
+  // The built-in values, written out so a change to the defaults is caught here.
+  const builtIn = { neutral: 0, smile: 0, shy: 0, surprise: 0.6, halfLidded: 0, angry: 0, sad: 0, wink: 0 };
+  for (const name of Object.keys(OVERLAY_EXPRESSIONS)) {
+    const target = overlayTarget(name);
+    expect(target.mouthOpen).toBe(builtIn[name as keyof typeof builtIn]);
+    expect(overlayTarget(name, {})).toEqual(target);
+    expect(overlayTarget(name, parseExpressionSettings({}))).toEqual(target);
+  }
+  // A whole switching sequence produces the same output with and without an empty settings object.
+  const run = (overlay: ExpressionOverlay) => {
+    const trace = [];
+    for (const name of [...Object.keys(OVERLAY_EXPRESSIONS), 'neutral']) {
+      overlay.set(name);
+      for (let i = 0; i < 20; i++) trace.push(overlay.apply({ ...tracked, mouthOpen: i % 3 ? 0.6 : 0.05 }, 1 / 60));
+    }
+    return trace;
+  };
+  expect(run(new ExpressionOverlay({}))).toEqual(run(new ExpressionOverlay()));
+});
+
+test('a per-expression opening replaces the resting mouth opening of that expression only', () => {
+  const settings = parseExpressionSettings({ surprise: { mouthOpen: 0.45 }, smile: { mouthOpen: 0.3 } });
+  const surprise = overlayTarget('surprise', settings);
+  expect(surprise.mouthOpen).toBe(0.45);
+  expect({ ...surprise, mouthOpen: 0.6 }).toEqual(overlayTarget('surprise'));
+  expect(overlayTarget('smile', settings).mouthOpen).toBe(0.3);
+  for (const name of ['shy', 'halfLidded', 'angry', 'sad', 'wink']) expect(overlayTarget(name, settings)).toEqual(overlayTarget(name));
+  // Surprise still shows its "o" drawing at rest with the smaller opening.
+  const overlay = new ExpressionOverlay(settings), idle = { ...tracked, mouthOpen: 0, mouthForm: 0 };
+  overlay.set('surprise');
+  for (let i = 0; i < 120; i++) overlay.apply(idle, 1 / 60);
+  const settled = overlay.apply(idle, 1 / 60);
+  expect(settled.mouthOpen).toBeCloseTo(0.45, 3);
+  expect(mouthShape(settled.mouthOpen, settled.mouthForm)).toBe('o');
+  // An opening of 0 keeps the mouth closed and leaves its shape to the voice.
+  const closed = parseExpressionSettings({ surprise: { mouthOpen: 0 } });
+  const quiet = applyOverlay({ ...tracked, mouthOpen: 0, mouthForm: -0.3 }, overlayTarget('surprise', closed));
+  expect(quiet.mouthOpen).toBe(0); expect(quiet.mouthForm).toBe(-0.3);
+  expect(mouthShape(quiet.mouthOpen, quiet.mouthForm)).toBeNull();
+});
+
+test('expression settings validate values and ignore unknown expressions and fields', () => {
+  expect(parseExpressionSettings({ surprise: { mouthOpen: 0.45, extra: true }, unknown: { mouthOpen: 2 }, sad: {} }))
+    .toEqual({ surprise: { mouthOpen: 0.45 }, sad: {} });
+  for (const value of [-0.01, 1.01, NaN, Infinity, '0.5', null])
+    expect(() => parseExpressionSettings({ surprise: { mouthOpen: value } })).toThrow('expressions.surprise.mouthOpen: expected 0–1');
+  for (const input of [null, [], 'surprise', 1]) expect(() => parseExpressionSettings(input)).toThrow('expressions: expected an object');
+  for (const entry of [null, [], 0.45]) expect(() => parseExpressionSettings({ surprise: entry })).toThrow('expressions.surprise: expected an object');
+  // neutral leaves the parameters untouched: an entry for it is ignored and changes nothing
+  const withNeutral = parseExpressionSettings({ neutral: { mouthOpen: 0.2 } });
+  expect(withNeutral).toEqual({});
+  expect(overlayTarget('neutral', withNeutral)).toEqual(overlayTarget('neutral'));
+  expect(overlayTarget('neutral', { neutral: { mouthOpen: 0.2 } } as never)).toEqual(overlayTarget('neutral'));
+  const neutralRun = (overlay: ExpressionOverlay) => { overlay.set('neutral'); return overlay.apply({ ...tracked }, 1 / 60); };
+  expect(neutralRun(new ExpressionOverlay(withNeutral))).toEqual({ ...tracked });
+  for (const name of ['toString', '__proto__', 'constructor'])
+    expect(parseExpressionSettings(JSON.parse(`{"${name}": {"mouthOpen": 0.5}}`))).toEqual({});
+  expect(mergeExpressionSettings({ surprise: { mouthOpen: 0.45 }, smile: { mouthOpen: 0.2 } }, { surprise: { mouthOpen: 0.3 }, sad: {} }))
+    .toEqual({ surprise: { mouthOpen: 0.3 }, smile: { mouthOpen: 0.2 }, sad: {} });
 });

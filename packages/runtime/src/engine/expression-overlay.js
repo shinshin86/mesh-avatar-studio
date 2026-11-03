@@ -12,11 +12,16 @@ const POSE = { sad: { pitch: -6, gy: -0.45 } };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const NEUTRAL = Object.freeze({ eyeOpen: 1, eyeOpenL: 1, eyeSmile: 0, eyeSmileL: 0, blush: 0, browY: 0, browAngle: 0, mouthOpen: 0, mouthForm: 0, gx: 0, gy: 0, pitch: 0 });
 
-export function overlayTarget(name) {
+/**
+ * @param {string} name
+ * @param {Record<string, { mouthOpen?: number }>} [settings] optional per-expression values (see expression-settings.ts)
+ */
+export function overlayTarget(name, settings = {}) {
   const E = EXPRESSIONS[OVERLAY_EXPRESSIONS[name]]?.p ?? {}, pose = POSE[name] ?? {};
+  const mouthOpen = name === 'neutral' ? undefined : settings[name]?.mouthOpen;
   return { eyeOpen: E.eyeOpen ?? 1, eyeOpenL: E.eyeOpenL ?? E.eyeOpen ?? 1, eyeSmile: E.eyeSmile ?? 0,
     eyeSmileL: E.eyeSmileL ?? E.eyeSmile ?? 0, blush: E.blush ?? 0, browY: E.browY ?? 0, browAngle: E.browAngle ?? 0,
-    mouthOpen: E.mouthOpen ?? 0, mouthForm: E.mouthForm ?? 0, gx: E.glance?.[0] ?? 0, gy: pose.gy ?? E.glance?.[1] ?? 0, pitch: pose.pitch ?? 0 };
+    mouthOpen: mouthOpen ?? E.mouthOpen ?? 0, mouthForm: E.mouthForm ?? 0, gx: E.glance?.[0] ?? 0, gy: pose.gy ?? E.glance?.[1] ?? 0, pitch: pose.pitch ?? 0 };
 }
 
 /** Eyes scale with the expression so blinks still show; smiles, blush and brows add on top. */
@@ -44,13 +49,15 @@ export class ExpressionOverlay {
   /** @type {keyof typeof OVERLAY_EXPRESSIONS} */
   name = 'neutral';
   mix = { ...NEUTRAL };
+  /** @param {Record<string, { mouthOpen?: number }>} [settings] parsed per-expression settings */
+  constructor(settings = {}) { this.settings = settings; }
   /** @param {string} name */
   set(name) { this.name = Object.hasOwn(OVERLAY_EXPRESSIONS, name) ? /** @type {keyof typeof OVERLAY_EXPRESSIONS} */ (name) : 'neutral'; }
   /** True while an expression is shown or still fading out. */
   get active() { return this.name !== 'neutral' || Object.keys(NEUTRAL).some(k => Math.abs(this.mix[k] - NEUTRAL[k]) > 1e-3); }
   apply(P, dt) {
     if (!this.active) { this.mix = { ...NEUTRAL }; return P; }
-    const target = overlayTarget(this.name), k = 1 - Math.exp(-Math.max(0, dt) * 12);
+    const target = overlayTarget(this.name, this.settings), k = 1 - Math.exp(-Math.max(0, dt) * 12);
     for (const key of Object.keys(NEUTRAL)) this.mix[key] += (target[key] - this.mix[key]) * k;
     return applyOverlay(P, this.mix);
   }

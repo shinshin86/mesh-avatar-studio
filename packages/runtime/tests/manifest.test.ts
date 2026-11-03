@@ -56,3 +56,18 @@ test('editor preset metadata survives parsing without changing playback values',
   for (const preset of ['', 'unknown', null, 1, {}])
     expect(() => parseManifest({ ...manifest, lipSync: { preset } })).toThrow('avatar.json.lipSync: lipSync.preset:');
 });
+
+test('optional expression settings keep omission, validate values and ignore unknown expressions and fields', () => {
+  expect(parseManifest(manifest).expressions).toBeUndefined();
+  expect(parseManifest({ ...manifest, expressions: {} }).expressions).toEqual({});
+  const expressions = { surprise: { mouthOpen: 0.45, extra: true }, smile: { mouthOpen: 0 }, future: { mouthOpen: 0.3 } };
+  expect(parseManifest({ ...manifest, expressions }).expressions).toEqual({ surprise: { mouthOpen: 0.45 }, smile: { mouthOpen: 0 } });
+  for (const expressions of [null, [], 'surprise', 1])
+    expect(() => parseManifest({ ...manifest, expressions })).toThrow('avatar.json.expressions: expressions: expected an object');
+  for (const value of [-0.01, 1.01, NaN, Infinity, '0.5', null])
+    expect(() => parseManifest({ ...manifest, expressions: { surprise: { mouthOpen: value } } }))
+      .toThrow('avatar.json.expressions: expressions.surprise.mouthOpen: expected 0–1');
+  // neutral leaves the parameters untouched, so an entry for it is ignored like an unknown name
+  expect(parseManifest({ ...manifest, expressions: { neutral: { mouthOpen: 0.2 }, surprise: { mouthOpen: 0.45 } } }).expressions)
+    .toEqual({ surprise: { mouthOpen: 0.45 } });
+});

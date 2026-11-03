@@ -123,6 +123,11 @@ Avatars saved or exported in Studio carry these settings in `avatar.json.lipSync
 saved values. `setLipSync` is a partial update and works during playback. The optional
 `preset` field records the editor selection only; playback uses the three numbers.
 
+Live expressions can set their resting mouth opening in `avatar.json.expressions` or with the
+`expressions` option, for example `{ surprise: { mouthOpen: 0.45 } }` (the built-in value for
+surprise is 0.6). `loadMeshAvatar` applies the saved values; explicit option fields override them.
+An entry for `neutral` has no effect and is ignored.
+
 ## License
 
 The runtime is MIT licensed; see [LICENSE](./LICENSE). The browser bundle includes [fflate](https://github.com/101arrowz/fflate), with its MIT notice retained in the bundle.

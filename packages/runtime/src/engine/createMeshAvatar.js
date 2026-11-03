@@ -9,6 +9,7 @@ import { createSpriteModule, eyeMood } from './sprites.js';
 import { createOverlayLayers } from './overlays.js';
 import { Motion } from './motion.js';
 import { ExpressionOverlay } from './expression-overlay.js';
+import { parseExpressionSettings } from './expression-settings.ts';
 import { MOTIONS, IDLE_MOTIONS } from './motions.js';
 
 const EYE_PARTS = ['ball', 'low', 'crease', 'lash'];   // back to front
@@ -183,7 +184,7 @@ export async function createMeshAvatarImpl(canvas, options) {
   motion.onMotion = id => { for (const fn of listeners) fn(id); };
 
   let parameters = {}, parameterWeight = 1, parameterWeights = {}, lastParameters = {};
-  const expression = new ExpressionOverlay();
+  const expression = new ExpressionOverlay(options.expressions === undefined ? undefined : parseExpressionSettings(options.expressions));
   const tmp = [0, 0];
   function updateParameters(dt) {
     const P = { ...motion.update(dt) };

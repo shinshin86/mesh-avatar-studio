@@ -1,4 +1,5 @@
 import { parseLipSyncSettings } from '../engine/lip-sync.ts';
+import { mergeExpressionSettings, parseExpressionSettings } from '../engine/expression-settings.ts';
 import { createMeshAvatar, type MeshAvatar, type MeshAvatarOptions } from '../engine';
 import { parseRig } from '../rig/validate';
 import type { Rig } from '../rig/types';
@@ -113,7 +114,10 @@ export async function loadMeshAvatar(canvas: HTMLCanvasElement, source: AvatarSo
   try {
     const lipSync = options.lipSync === undefined ? loaded.manifest.lipSync
       : { ...loaded.manifest.lipSync, ...parseLipSyncSettings(options.lipSync) };
-    const avatar = await createMeshAvatar(canvas, { ...options, ...(lipSync === undefined ? {} : { lipSync }), rig: loaded.rig, assets: loaded.assets });
+    const expressions = options.expressions === undefined ? loaded.manifest.expressions
+      : mergeExpressionSettings(loaded.manifest.expressions, parseExpressionSettings(options.expressions));
+    const avatar = await createMeshAvatar(canvas, { ...options, ...(lipSync === undefined ? {} : { lipSync }),
+      ...(expressions === undefined ? {} : { expressions }), rig: loaded.rig, assets: loaded.assets });
     const destroy = avatar.destroy.bind(avatar);
     let destroyed = false;
     return Object.assign(avatar, { package: loaded, destroy() {
