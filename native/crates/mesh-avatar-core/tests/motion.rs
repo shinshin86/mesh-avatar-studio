@@ -1,6 +1,6 @@
 use mesh_avatar_core::{
     engine::{
-        expression::ExpressionOverlay,
+        expression::{ExpressionOverlay, ExpressionSettings},
         kana::{kana_to_moras, sample_moras, skipped_kana_characters, Vowel},
         lip_sync::LipSyncSettings,
         motion::{Motion, SpeakOptions},
@@ -236,6 +236,44 @@ fn expression_overlay_output_matches_javascript_for_the_same_parameters() {
     }
     eprintln!("Expression overlay: max delta {max}");
 }
+#[test]
+fn configured_expression_overlay_matches_javascript() {
+    let Some(f) = fixture() else {
+        return;
+    };
+    let mut max = 0.0;
+    for case in f["expressionSettings"].as_array().unwrap() {
+        let settings = ExpressionSettings::parse(&case["saved"])
+            .unwrap()
+            .merge(&ExpressionSettings::parse(&case["explicit"]).unwrap())
+            .unwrap();
+        compare(
+            &serde_json::to_value(&settings).unwrap(),
+            &case["settings"],
+            0.0,
+            &mut max,
+        );
+        let mut overlay = ExpressionOverlay::with_settings(settings).unwrap();
+        for sample in case["samples"].as_array().unwrap() {
+            overlay.set(sample["name"].as_str().unwrap());
+            let parameters = serde_json::from_value(sample["parameters"].clone()).unwrap();
+            let output =
+                serde_json::to_value(overlay.apply(&parameters, sample["dt"].as_f64().unwrap()))
+                    .unwrap();
+            for (key, value) in output.as_object().unwrap() {
+                if let Some(expected) = sample["output"].get(key) {
+                    compare(value, expected, 1e-9, &mut max);
+                }
+            }
+            assert_eq!(
+                json!({"name":overlay.name,"active":overlay.active()}),
+                sample["expression"]
+            );
+        }
+    }
+    eprintln!("Configured expression overlay: max delta {max}");
+}
+
 #[test]
 fn kana_timing_and_grouping_match_javascript() {
     let Some(f) = fixture() else {
