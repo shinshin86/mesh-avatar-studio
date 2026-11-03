@@ -29,8 +29,8 @@ export async function createAvatarView(canvas: HTMLCanvasElement, settings: View
     if (project?.error || (!project && settings.project !== SAMPLE_PROJECT)) throw new Error('Project unavailable');
     const loaded = project ? await openLocalProject(project) : await openSampleAvatar();
     support = { legs: !!loaded.rig?.legs, arms: !!loaded.rig?.arms };
-    const lipSync = 'manifest' in loaded ? loaded.manifest.lipSync : loaded.lipSync;
-    avatar = await createMeshAvatar(canvas, { ...options, lipSync, rig: loaded.rig!, assets: loaded.assets });
+    const { lipSync, expressions } = 'manifest' in loaded ? loaded.manifest : loaded;
+    avatar = await createMeshAvatar(canvas, { ...options, lipSync, expressions, rig: loaded.rig!, assets: loaded.assets });
     overlays = await listOverlays(loaded.assets);
   }
   if (settings.lighting) avatar.setLighting(settings.lighting);

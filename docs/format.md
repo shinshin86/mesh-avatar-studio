@@ -69,6 +69,7 @@ not included by `pack-avatar`. Without it the layer builder inpaints the covered
 | `source` | Optional original-image filename relative to the root, normally `source.png`. |
 | `thumbnail` | Optional preview-image filename relative to the root, normally `thumbnail.png`. |
 | `lipSync` | Optional mouth-movement settings: `granularity`, `openness`, `closeSpeed` (each optional, finite 0–1, default 0.5). Optional `preset` records the editor selection (`calm`, `default`, `lively`, `subtle`, `big`, `custom`); playback always uses the numbers. An omitted or empty block preserves existing behavior. |
+| `expressions` | Optional per-expression settings for the live expressions shown with `setExpression`, keyed by expression name (`smile`, `shy`, `surprise`, `halfLidded`, `angry`, `sad`, `wink`). Each entry may set `mouthOpen` (finite, 0–1), the expression's resting mouth opening. An omitted block or field keeps the built-in value. |
 | `studio.version` | Optional version string identifying the Studio that prepared the avatar. |
 
 For example, `"lipSync": { "granularity": 0, "openness": 0.5, "closeSpeed": 0,
@@ -85,6 +86,17 @@ explicit runtime settings override the corresponding saved fields. Audio-driven 
 requires an application supplying analyzed loudness. Loading an avatar alone does not
 start a microphone. Older readers ignore this optional key. Format version and existing
 fields are unchanged. Unknown fields in the block are ignored.
+
+For example, `"expressions": { "surprise": { "mouthOpen": 0.45 } }` gives the surprise
+expression a smaller resting mouth than the built-in 0.6, which can suit drawings with a small
+"o" mouth. The other expressions have a closed mouth (0) unless an opening is given. The
+opening is held while the expression is shown, at rest and in the quiet gaps of speech; louder
+syllables still open the mouth further. Expression names the runtime does not know and unknown
+fields are ignored, an entry for `neutral` has no effect and is ignored the same way, and a value outside 0–1 is an error. Loaders apply
+the block, and explicit runtime settings override the corresponding saved fields. Motion
+expressions started with `setEmotion` keep their own values. Older readers ignore this
+optional key. Studio keeps the block when it saves lip-sync settings and on export; it has no
+editor control for it.
 
 On import, Studio saves the original image as `source.png` and updates `avatar.json.source` when its filename differs.
 

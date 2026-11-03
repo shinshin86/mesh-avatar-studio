@@ -1,4 +1,4 @@
-import { openAvatar, parseRig, type Rig, type AvatarPackage, parseManifest, type LipSyncSettings } from 'mesh-avatar';
+import { openAvatar, parseRig, type Rig, type AvatarPackage, parseManifest, type LipSyncSettings, type ExpressionSettings } from 'mesh-avatar';
 import type { LocalProject, LocalProjectEntry } from '../project-types';
 import { FolderOpenError } from './folder-errors';
 import { packProjectAvatar } from '../../packages/runtime/src/format/project-archive';
@@ -17,6 +17,7 @@ export interface ProjectAssets {
   rig?: Rig;
   urls: string[];
   lipSync?: LipSyncSettings;
+  expressions?: ExpressionSettings;
 }
 export async function openProjectFolder(files: File[]): Promise<ProjectAssets> {
   const entries = files.map(file => ({ file, path: file.webkitRelativePath.replace(/^[^/]+\//, '') || file.name }));
@@ -45,7 +46,8 @@ export async function openProjectFolder(files: File[]): Promise<ProjectAssets> {
     built.push({ entry, bytes: entry === layers ? layerBytes : await read(entry) });
   }
   const manifestFile = entries.find(entry => entry.path === 'avatar.json');
-  const lipSync = manifestFile ? parseManifest(JSON.parse(new TextDecoder().decode(await read(manifestFile)))).lipSync : undefined;
+  const manifest = manifestFile ? parseManifest(JSON.parse(new TextDecoder().decode(await read(manifestFile)))) : undefined;
+  const lipSync = manifest?.lipSync, expressions = manifest?.expressions;
   const urls: string[] = [];
   const sourceUrl = URL.createObjectURL(new Blob([sourceBytes], { type: source.file.type }));
   urls.push(sourceUrl);
@@ -54,7 +56,7 @@ export async function openProjectFolder(files: File[]): Promise<ProjectAssets> {
     urls.push(url);
     return [entry.path.slice(prefix.length), url];
   }));
-  return { sourceUrl, assets, rig, urls, lipSync };
+  return { sourceUrl, assets, rig, urls, lipSync, expressions };
 }
 
 export async function localProjects(): Promise<LocalProjectEntry[] | null> {
@@ -148,7 +150,7 @@ export async function openLocalProject(project: LocalProject): Promise<ProjectAs
   await Promise.all(urls.map(url => new Promise<void>((done, reject) => {
     const image = new Image(); image.onload = () => done(); image.onerror = () => reject(new Error('Missing project image.')); image.src = url;
   })));
-  return { sourceUrl, assets, rig, urls: [], lipSync: manifest.lipSync };
+  return { sourceUrl, assets, rig, urls: [], lipSync: manifest.lipSync, expressions: manifest.expressions };
 }
 export async function projectAction(project: LocalProject, action: 'rig' | 'reveal', rig?: Rig): Promise<{ path: string }> {
   const response = await fetch(`${baseUrl(project)}${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: rig ? JSON.stringify(rig) : '{}' });

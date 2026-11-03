@@ -4,6 +4,7 @@ import { parseRig } from '../rig/validate';
 import { createMeshAvatarImpl } from './createMeshAvatar.js';
 import { OVERLAY_EXPRESSIONS } from './expression-overlay.js';
 import type { LipSyncSettings } from './lip-sync';
+import type { ExpressionSettings } from './expression-settings';
 
 export type LiveExpression = keyof typeof OVERLAY_EXPRESSIONS;
 export const LIVE_EXPRESSIONS = Object.keys(OVERLAY_EXPRESSIONS) as LiveExpression[];
@@ -18,6 +19,8 @@ export interface MeshAvatarOptions {
   fit?: 'contain' | 'cover';
   preserveMouthForm?: boolean;
   lipSync?: LipSyncSettings;
+  /** Optional per-expression settings for live expressions, such as `{ surprise: { mouthOpen: 0.45 } }`. */
+  expressions?: ExpressionSettings;
 }
 export interface MeshAvatar {
   readonly motions: { id: string; label: string; idle: boolean }[];

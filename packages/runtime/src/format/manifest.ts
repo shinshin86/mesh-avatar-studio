@@ -1,4 +1,5 @@
 import { parseLipSyncSettings, type LipSyncSettings } from '../engine/lip-sync.ts';
+import { parseExpressionSettings, type ExpressionSettings } from '../engine/expression-settings.ts';
 
 export interface AvatarManifest {
   format: 'mesh-avatar';
@@ -10,6 +11,7 @@ export interface AvatarManifest {
   source?: string;
   studio?: { version: string };
   lipSync?: LipSyncSettings;
+  expressions?: ExpressionSettings;
 }
 
 export function parseManifest(input: unknown): AvatarManifest {
@@ -37,6 +39,11 @@ export function parseManifest(input: unknown): AvatarManifest {
     try {
       manifest.lipSync = parseLipSyncSettings(value.lipSync);
     } catch (error) { errors.push(`avatar.json.lipSync: ${error instanceof Error ? error.message : String(error)}`); }
+  }
+  if (value.expressions !== undefined) {
+    try {
+      manifest.expressions = parseExpressionSettings(value.expressions);
+    } catch (error) { errors.push(`avatar.json.expressions: ${error instanceof Error ? error.message : String(error)}`); }
   }
   if (errors.length) throw new Error(errors.join('\n'));
   return manifest;
