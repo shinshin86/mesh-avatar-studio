@@ -27,6 +27,7 @@ pub struct Manifest {
     pub studio: Option<Studio>,
     #[serde(rename = "lipSync")]
     pub lip_sync: Option<Value>,
+    pub expressions: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,6 +41,9 @@ impl Manifest {
             serde_json::from_slice(bytes).context("avatar.json: invalid manifest JSON")?;
         if let Some(settings) = raw.get("lipSync") {
             crate::engine::lip_sync::LipSyncSettings::parse(settings)?;
+        }
+        if let Some(settings) = raw.get("expressions") {
+            crate::engine::expression::ExpressionSettings::parse(settings)?;
         }
         let m: Self = serde_json::from_value(raw).context("avatar.json: invalid manifest JSON")?;
         ensure!(
@@ -70,6 +74,7 @@ impl Manifest {
             source: None,
             studio: None,
             lip_sync: None,
+            expressions: None,
         }
     }
 }
@@ -950,9 +955,54 @@ mod tests {
     }
 
     #[test]
+    fn manifest_validates_expression_settings() {
+        let parse = |settings: Value| {
+            let bytes = serde_json::to_vec(&serde_json::json!({
+                "format":"mesh-avatar", "version":1, "name":"Example", "expressions":settings
+            }))
+            .unwrap();
+            Manifest::parse(&bytes)
+        };
+        for value in [Value::Null, serde_json::json!([]), serde_json::json!(false)] {
+            assert_eq!(
+                parse(value).unwrap_err().to_string(),
+                "expressions: expected an object"
+            );
+        }
+        assert_eq!(
+            parse(serde_json::json!({"surprise":null}))
+                .unwrap_err()
+                .to_string(),
+            "expressions.surprise: expected an object"
+        );
+        for value in [
+            serde_json::json!(2),
+            serde_json::json!(-1),
+            serde_json::json!("0.5"),
+            Value::Null,
+        ] {
+            assert_eq!(
+                parse(serde_json::json!({"surprise":{"mouthOpen":value}}))
+                    .unwrap_err()
+                    .to_string(),
+                "expressions.surprise.mouthOpen: expected 0–1"
+            );
+        }
+        let settings = serde_json::json!({"surprise":{"mouthOpen":0.45,"future":null},"neutral":null,"unknown":false});
+        assert_eq!(parse(settings.clone()).unwrap().expressions, Some(settings));
+        assert!(Manifest::default_named("Example".into())
+            .expressions
+            .is_none());
+    }
+
+    #[test]
     fn rejects_bad_rigs_metadata_and_images() {
         type Mutation = (&'static str, fn(&mut Value));
         let mutations: &[Mutation] = &[
+            ("avatar.json", |v| v["expressions"] = Value::Null),
+            ("avatar.json", |v| {
+                v["expressions"] = serde_json::json!({"surprise":{"mouthOpen":2}})
+            }),
             ("avatar.json", |v| v["lipSync"] = Value::Null),
             ("avatar.json", |v| {
                 v["lipSync"] = serde_json::json!({"granularity":2})

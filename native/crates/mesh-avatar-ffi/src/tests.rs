@@ -256,6 +256,10 @@ fn frame_geometry_uniforms_and_textures_match_core_with_explicit_lifetimes() {
 }
 
 fn archive_bytes() -> Vec<u8> {
+    archive_bytes_with_expressions(None)
+}
+
+fn archive_bytes_with_expressions(expressions: Option<serde_json::Value>) -> Vec<u8> {
     let source = sample();
     let package = AvatarPackage::open(&source).unwrap();
     let mut manifest = serde_json::to_value(&package.manifest).unwrap();
@@ -263,6 +267,9 @@ fn archive_bytes() -> Vec<u8> {
         .as_object_mut()
         .unwrap()
         .retain(|_, value| !value.is_null());
+    if let Some(expressions) = expressions {
+        manifest["expressions"] = expressions;
+    }
     let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
     let options =
         zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
@@ -290,6 +297,43 @@ fn archive_bytes() -> Vec<u8> {
     }
     zip.finish().unwrap().into_inner()
 }
+#[test]
+fn archive_expression_settings_are_applied_and_validated_through_c_api() {
+    let bytes =
+        archive_bytes_with_expressions(Some(serde_json::json!({"surprise":{"mouthOpen":0.45}})));
+    let mut h = 0;
+    assert_eq!(
+        unsafe { mesh_avatar_open_bytes(bytes.as_ptr(), bytes.len(), &mut h) },
+        MA_OK,
+        "{}",
+        error()
+    );
+    assert_eq!(mesh_avatar_set_auto_idle(h, 0), MA_OK);
+    assert_eq!(mesh_avatar_set_auto_motion(h, 0), MA_OK);
+    assert_eq!(
+        unsafe { mesh_avatar_set_expression(h, c"surprise".as_ptr()) },
+        MA_OK
+    );
+    for _ in 0..120 {
+        assert_eq!(mesh_avatar_tick(h, 1.0 / 60.0), MA_OK);
+    }
+    state::with_entry(h, |entry| {
+        assert!((entry.avatar.parameters().mouth_open - 0.45).abs() < 1e-9);
+        Ok(())
+    })
+    .map_err(|e| e.message)
+    .unwrap();
+    assert_eq!(mesh_avatar_destroy(h), MA_OK);
+    let bytes =
+        archive_bytes_with_expressions(Some(serde_json::json!({"surprise":{"mouthOpen":2}})));
+    assert_eq!(
+        unsafe { mesh_avatar_open_bytes(bytes.as_ptr(), bytes.len(), &mut h) },
+        MA_LOAD_ERROR
+    );
+    assert_eq!(h, 0);
+    assert!(error().contains("expressions.surprise.mouthOpen: expected 0–1"));
+}
+
 #[test]
 fn archive_input_is_consumed_without_retaining_the_caller_buffer() {
     let bytes = archive_bytes();

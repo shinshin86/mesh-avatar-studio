@@ -1,6 +1,11 @@
 use mesh_avatar_core::{
     engine::{
-        grid::Grid, kana::Vowel, lip_sync::LipSyncSettings, random::SeededRandom, rig::Parameters,
+        expression::{ExpressionMouthSettings, ExpressionSettings},
+        grid::Grid,
+        kana::Vowel,
+        lip_sync::LipSyncSettings,
+        random::SeededRandom,
+        rig::Parameters,
     },
     format::{AvatarPackage, OverlayMetadata, Texture},
     Avatar, AvatarOptions, FaceUniforms,
@@ -262,6 +267,73 @@ fn full_avatar_tick_draw_list_and_uniforms_match_real_javascript_tick_path() {
         assert_eq!(sample, expected.samples.len());
     }
     eprintln!("Full Avatar: {count} captured frames, max position delta {max_positions} px, max parameter/uniform delta {max_uniforms}");
+}
+
+#[test]
+fn saved_expression_settings_merge_with_options_and_leave_motion_emotions_unchanged() {
+    let make = |saved, explicit| {
+        let mut package = package();
+        package.manifest.expressions = saved;
+        Avatar::with_rng(
+            package,
+            AvatarOptions {
+                expressions: explicit,
+                ..Default::default()
+            },
+            Box::new(SeededRandom::new(173)),
+        )
+    };
+    let saved = json!({"surprise":{"mouthOpen":0.45},"smile":{"mouthOpen":0.2},"neutral":false});
+    let explicit = ExpressionSettings::parse(
+        &json!({"surprise":{"mouthOpen":0.3},"smile":{},"sad":{"mouthOpen":0.4}}),
+    )
+    .unwrap();
+    let mut avatar = make(Some(saved.clone()), Some(explicit)).unwrap();
+    avatar.set_auto_idle(false);
+    avatar.set_auto_motion(false);
+    for (name, opening) in [
+        ("surprise", 0.3),
+        ("smile", 0.2),
+        ("sad", 0.4),
+        ("neutral", 0.0),
+    ] {
+        avatar.set_expression(name);
+        for _ in 0..120 {
+            avatar.tick(1.0 / 60.0);
+        }
+        assert!((avatar.parameters().mouth_open - opening).abs() < 1e-9);
+    }
+    let mut saved_only = make(Some(saved.clone()), None).unwrap();
+    saved_only.set_expression("surprise");
+    saved_only.set_auto_idle(false);
+    saved_only.set_auto_motion(false);
+    for _ in 0..120 {
+        saved_only.tick(1.0 / 60.0);
+    }
+    assert!((saved_only.parameters().mouth_open - 0.45).abs() < 1e-9);
+
+    let mut configured = make(Some(saved), None).unwrap();
+    let mut original = make(None, None).unwrap();
+    for emotion in ["surprised", "happy", "sad", "neutral"] {
+        configured.set_emotion(emotion);
+        original.set_emotion(emotion);
+        for _ in 0..60 {
+            configured.tick(1.0 / 60.0);
+            original.tick(1.0 / 60.0);
+            assert_eq!(
+                serde_json::to_value(configured.parameters()).unwrap(),
+                serde_json::to_value(original.parameters()).unwrap()
+            );
+        }
+    }
+    assert!(make(Some(json!({"surprise":{"mouthOpen":null}})), None).is_err());
+    let invalid = ExpressionSettings(BTreeMap::from([(
+        "surprise".into(),
+        ExpressionMouthSettings {
+            mouth_open: Some(f64::NAN),
+        },
+    )]));
+    assert!(make(None, Some(invalid)).is_err());
 }
 
 #[test]

@@ -1,7 +1,8 @@
 import { writeFile } from 'node:fs/promises';
 import { SCENARIOS, createScenario, seededRandom } from '../../tools/motion-scenarios.mjs';
 import { Motion } from '../../packages/runtime/src/engine/motion.js';
-import { ExpressionOverlay } from '../../packages/runtime/src/engine/expression-overlay.js';
+import { ExpressionOverlay, OVERLAY_EXPRESSIONS } from '../../packages/runtime/src/engine/expression-overlay.js';
+import { parseExpressionSettings, mergeExpressionSettings } from '../../packages/runtime/src/engine/expression-settings.ts';
 import { kanaToMoras, sampleMoras, skippedKanaCharacters } from '../../packages/runtime/src/engine/kana.js';
 
 export const speechText = 'こんにちは。きょうも、いっしょにあいうえおをれんしゅうしましょう。';
@@ -67,8 +68,29 @@ export async function dumpMotion({ rig, engine, destination }) {
       }
       modes.push({ mode, samples });
     }
+    const expressionSettings = [
+      { saved: {}, explicit: {} },
+      { saved: { surprise: { mouthOpen: 0.45 }, smile: { mouthOpen: 0.2 }, neutral: null, future: false }, explicit: {} },
+      { saved: { surprise: { mouthOpen: 0.45 }, smile: { mouthOpen: 0.2 } },
+        explicit: { surprise: { mouthOpen: 0.3 }, smile: {}, sad: { mouthOpen: 0.4, future: true } } },
+      { saved: {}, explicit: Object.fromEntries(Object.keys(OVERLAY_EXPRESSIONS).map((name, i) => [name, { mouthOpen: i % 2 }])) },
+    ].map(({ saved, explicit }) => {
+      const settings = mergeExpressionSettings(parseExpressionSettings(saved), parseExpressionSettings(explicit));
+      const overlay = new ExpressionOverlay(settings), samples = [];
+      // Include every live name, speech louder than the expression, and a settled fade to neutral.
+      for (const name of [...Object.keys(OVERLAY_EXPRESSIONS), 'unknown', 'neutral']) {
+        overlay.set(name);
+        for (let frame = 0; frame < 120; frame++) {
+          const parameters = { ...updates[frame].parameters, mouthOpen: frame < 60 ? 0 : 0.9, mouthForm: 0.5 };
+          const dt = frame === 0 ? -0.1 : frame === 1 ? 0 : 1 / 60;
+          samples.push({ name, dt, parameters, output: overlay.apply(parameters, dt),
+            expression: { name: overlay.name, active: overlay.active } });
+        }
+      }
+      return { saved, explicit, settings, samples };
+    });
     await writeFile(new URL('motion.json', destination), JSON.stringify({ version: 1, seed: 173, seconds: 20, stride: 60,
-      random: Array.from({ length: 100 }, () => rng()), scenarios, actions, updates, kana, modes }) + '\n');
+      random: Array.from({ length: 100 }, () => rng()), scenarios, actions, updates, kana, modes, expressionSettings }) + '\n');
     console.log(`Wrote ${scenarios.length} seeded motion scenarios, speech/expression sequences and kana samples`);
   } finally { Math.random = original; }
 }

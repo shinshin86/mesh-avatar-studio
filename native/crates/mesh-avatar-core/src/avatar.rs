@@ -1,6 +1,6 @@
 use crate::{
     engine::{
-        expression::ExpressionOverlay,
+        expression::{ExpressionOverlay, ExpressionSettings},
         grid::{build_grid, Grid},
         kana::Vowel,
         lip_sync::LipSyncSettings,
@@ -23,6 +23,7 @@ use std::{collections::BTreeMap, path::Path};
 pub struct AvatarOptions {
     pub preserve_mouth_form: bool,
     pub lip_sync: Option<LipSyncSettings>,
+    pub expressions: Option<ExpressionSettings>,
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct DrawLayer {
@@ -171,6 +172,20 @@ impl Avatar {
         if let Some(settings) = &options.lip_sync {
             motion.set_lip_sync(settings)?;
         }
+        let saved = package
+            .manifest
+            .expressions
+            .as_ref()
+            .map(ExpressionSettings::parse)
+            .transpose()?
+            .unwrap_or_default();
+        let settings = saved.merge(
+            options
+                .expressions
+                .as_ref()
+                .unwrap_or(&ExpressionSettings::default()),
+        )?;
+        let expression = ExpressionOverlay::with_settings(settings)?;
         let base_rect = package.layers.layers.get("base").copied().unwrap_or([
             0,
             0,
@@ -263,7 +278,7 @@ impl Avatar {
             package,
             motion,
             physics,
-            expression: ExpressionOverlay::default(),
+            expression,
             options,
             overrides: BTreeMap::new(),
             parameter_weight: 1.0,
