@@ -94,8 +94,8 @@ export function PlayerApp({ language }: { language: PlayerLanguage }) {
         setTracking(sampled.tracking);
         value.setAutoIdle(!sampled.tracking); value.setAutoMotion(!sampled.tracking);
         value.setParameters(sampled.params, sampled.weight);
-        const micOn = control.micState === 'micOn';
-        value.setSpeaking(micOn); value.setVoiceLevel(micOn ? microphone.current?.level(control.gain) ?? 0 : 0);
+        const voice = control.micState === 'micOn' ? microphone.current?.sample(control.gain, now) : null;
+        value.setSpeaking(voice?.speaking ?? false); value.setVoiceLevel(voice?.level ?? 0);
       });
       setViewState('ready');
     }).catch((error: unknown) => {
