@@ -144,11 +144,13 @@ export class MicrophoneCapture {
   private context?: AudioContext;
   private analyser?: AnalyserNode;
   private samples = new Float32Array(1024);
+  private speakingUntil = -Infinity;
   constructor(private onState: (state: MicState) => void) {}
   stop() {
     this.generation++;
     this.stream?.getTracks().forEach(track => track.stop()); this.stream = undefined;
     void this.context?.close().catch(() => undefined); this.context = undefined; this.analyser = undefined;
+    this.speakingUntil = -Infinity;
     this.onState('micOff');
   }
   async start(deviceId: string) {
@@ -170,9 +172,12 @@ export class MicrophoneCapture {
       this.stop(); this.onState(error instanceof DOMException && error.name === 'NotAllowedError' ? 'micBlocked' : 'micUnavailable');
     }
   }
-  level(gain: number) {
-    if (!this.analyser) return 0;
+  sample(gain: number, now: number) {
+    if (!this.analyser) return { level: 0, speaking: false };
     this.analyser.getFloatTimeDomainData(this.samples);
-    return rmsLevel(this.samples, gain);
+    const level = rmsLevel(this.samples, gain);
+    // The lower release threshold and short hold bridge quiet syllables and breaths.
+    if (level >= (now < this.speakingUntil ? 0.035 : 0.075)) this.speakingUntil = now + 180;
+    return { level, speaking: now < this.speakingUntil };
   }
 }

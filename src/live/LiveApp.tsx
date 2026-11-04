@@ -68,8 +68,8 @@ export function LiveApp() {
       setTracking(sampled.tracking);
       avatar.setAutoIdle(!sampled.tracking); avatar.setAutoMotion(!sampled.tracking);
       avatar.setParameters(sampled.params, sampled.weight, sampled.parameterWeights);
-      const micOn = control.micState === 'micOn';
-      avatar.setSpeaking(micOn); avatar.setVoiceLevel(micOn ? microphone.current?.level(control.gain) ?? 0 : 0);
+      const voice = control.micState === 'micOn' ? microphone.current?.sample(control.gain, now) : null;
+      avatar.setSpeaking(voice?.speaking ?? false); avatar.setVoiceLevel(voice?.level ?? 0);
     }, (avatar, now) => {
       // An expression alone also drives the stream view, including its fade back to neutral.
       if (controls.current.cameraState === 'running' || controls.current.micState === 'micOn' || avatar.getExpression().active) send(avatar.getParameters(), now);

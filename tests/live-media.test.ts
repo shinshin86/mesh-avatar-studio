@@ -90,7 +90,34 @@ test('microphone permission cancellation releases tracks and permission denial i
   vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: () => new Promise<MediaStream>(done => { resolve = done; }) } });
   const state = vi.fn(), mic = new MicrophoneCapture(state);
   const pending = mic.start(''); mic.stop(); resolve(stream); await pending;
-  expect(track.stop).toHaveBeenCalledOnce(); expect(mic.level(1)).toBe(0);
+  expect(track.stop).toHaveBeenCalledOnce(); expect(mic.sample(1, 0)).toEqual({ level: 0, speaking: false });
   vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn(async () => { throw new DOMException('', 'NotAllowedError'); }) } });
   await mic.start(''); expect(state).toHaveBeenLastCalledWith('micBlocked');
+});
+test('microphone speech starts on voice, holds through short gaps and releases during silence', async () => {
+  const { stream } = media();
+  let amplitude = 0.01;
+  vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: async () => stream } });
+  vi.stubGlobal('AudioContext', class {
+    async resume() {}
+    async close() {}
+    createAnalyser() { return { getFloatTimeDomainData: (samples: Float32Array) => samples.fill(amplitude) }; }
+    createMediaStreamSource() { return { connect() {} }; }
+  });
+  const mic = new MicrophoneCapture(vi.fn());
+  await mic.start('');
+  expect(mic.sample(1, 0).speaking).toBe(false);
+  amplitude = 0.1;
+  expect(mic.sample(1, 100).speaking).toBe(true);
+  amplitude = 0.02;
+  expect(mic.sample(1, 250).speaking).toBe(true);
+  amplitude = 0;
+  expect(mic.sample(1, 350)).toEqual({ level: 0, speaking: true });
+  expect(mic.sample(1, 450)).toEqual({ level: 0, speaking: false });
+  amplitude = 0.1;
+  expect(mic.sample(1, 500).speaking).toBe(true);
+  mic.stop(); await mic.start('');
+  amplitude = 0;
+  expect(mic.sample(1, 510).speaking).toBe(false);
+  mic.stop();
 });
