@@ -69,6 +69,28 @@ export function createRenderer(engine, rig) {
 
   vec4 texAt(vec2 p) { return texture(uTex, (p - uRect.xy) / uRect.zw); }
 
+  // Half-eye sprites share the open eye's rig curves. Use the middle of that
+  // opening for gaze, tapering travel near the painted lids and corners.
+  vec2 halfEyeUv(int e, vec2 p) {
+    vec2 gaze = uEyeState[e].zw;
+    vec2 box = uEyeBox[e].xy;
+    float span = box.y - box.x;
+    float u = (p.x - box.x) / span;
+    if (all(equal(gaze, vec2(0.0))) || u <= 0.0 || u >= 1.0) return vUv;
+    float top = crv(e, true, u), bottom = crv(e, false, u);
+    float height = bottom - top;
+    if (height < 2.0) return vUv;
+    float v = (p.y - top) / height;
+    float w = smoothstep(0.18, 0.34, v) * (1.0 - smoothstep(0.70, 0.85, v))
+            * smoothstep(0.0, 0.23, min(u, 1.0 - u));
+    if (w == 0.0) return vUv;
+    float x = p.x - clamp(gaze.x * 0.8, -0.08 * span, 0.08 * span) * w;
+    float sourceU = (x - box.x) / span;
+    float dy = clamp(gaze.y / height, -0.05, 0.05) * w;
+    float y = mix(crv(e, true, sourceU), crv(e, false, sourceU), v - dy);
+    return (vec2(x, y) - uRect.xy) / uRect.zw;
+  }
+
   // Eye white + iris layer: shown only between the lids (the lids cover it, it never squashes);
   // the iris slides inside the opening for the gaze.
   vec4 eyeBall(int e, vec2 p) {
@@ -113,12 +135,16 @@ export function createRenderer(engine, rig) {
 
   void main() {
     vec2 p = uRect.xy + vUv * uRect.zw;
+    vec2 materialUv = vUv;
     vec4 c;
     if (uFace == 1) {
       c = mouth(p, texAt(p));
       float blush = exp(-dot((p - uCheeks.xy) / vec2(48.0, 22.0), (p - uCheeks.xy) / vec2(48.0, 22.0)))
                   + exp(-dot((p - uCheeks.zw) / vec2(40.0, 20.0), (p - uCheeks.zw) / vec2(40.0, 20.0)));
       c.rgb = mix(c.rgb, c.rgb * vec3(1.0, 0.62, 0.64) , clamp(blush * uCheek * 0.55, 0.0, 1.0) * c.a);
+    } else if (uFace >= 4) {
+      materialUv = halfEyeUv(uFace - 4, p);
+      c = texture(uTex, materialUv);
     } else if (uFace >= 2) {
       c = eyeBall(uFace - 2, p);
     } else {
@@ -136,7 +162,7 @@ export function createRenderer(engine, rig) {
     uniform vec4 uLighting; uniform vec4 uSurface; uniform float uAspect; uniform int uCel;`)
     .replace('outColor = c * uAlpha;', `
       // RG hold the smooth surface normal, BA the painting's relief (see lighting/normals.ts).
-      vec4 encoded = texture(uNormal, vUv);
+      vec4 encoded = texture(uNormal, materialUv);
       vec2 base = encoded.rg * 2.0 - 1.0;
       vec3 n = vec3(base, sqrt(max(0.0, 1.0 - dot(base, base))));
       n = normalize(n + vec3((encoded.ba * 2.0 - 1.0) * uSurface.w * ${DETAIL_SCALE.toFixed(3)}, 0.0));
@@ -299,7 +325,10 @@ export function createRenderer(engine, rig) {
       const lineBuf = gl.createBuffer();
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, lineBuf);
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.lines, gl.STATIC_DRAW);
-      const layer = { name, image: img, mesh, tex: this.texture(img), vao, posBuf, uvBuf, triBuf, lineBuf, visible: true, face: !!opts.face, eyeBall: opts.eyeBall, color: opts.color || [1, 1, 1, 1] };
+      let faceMode = opts.face ? 1 : 0;
+      if (opts.eyeBall !== undefined) faceMode = 2 + opts.eyeBall;
+      if (opts.halfEye !== undefined) faceMode = 4 + opts.halfEye;
+      const layer = { name, image: img, mesh, tex: this.texture(img), vao, posBuf, uvBuf, triBuf, lineBuf, visible: true, faceMode, color: opts.color || [1, 1, 1, 1] };
       this.layers.push(layer);
       return layer;
     }
@@ -430,7 +459,7 @@ export function createRenderer(engine, rig) {
       if (this.lighting.enabled) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, L.normal); gl.activeTexture(gl.TEXTURE0); }
       gl.bindTexture(gl.TEXTURE_2D, L.tex);
       gl.uniform4fv(m.u.uRect, L.mesh.rect);
-      gl.uniform1i(m.u.uFace, L.eyeBall !== undefined ? 2 + L.eyeBall : L.face ? 1 : 0);
+      gl.uniform1i(m.u.uFace, L.faceMode);
       gl.uniform1f(m.u.uAlpha, alpha);
       gl.drawElements(gl.TRIANGLES, L.mesh.tris.length, gl.UNSIGNED_INT, 0);
     }

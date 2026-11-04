@@ -78,9 +78,13 @@ impl Uniforms {
             scale_offset: transform,
             rect: layer.rect.map(|v| v as f32),
             flags: [
-                layer
-                    .eye_ball
-                    .map_or(if layer.face { 1.0 } else { 0.0 }, |e| 2.0 + e as f32),
+                match layer.texture.as_str() {
+                    "sprites/eyes_half_0.png" => 4.0,
+                    "sprites/eyes_half_1.png" => 5.0,
+                    _ => layer
+                        .eye_ball
+                        .map_or(if layer.face { 1.0 } else { 0.0 }, |e| 2.0 + e as f32),
+                },
                 layer.alpha as f32,
                 state.cheek,
                 0.0,
