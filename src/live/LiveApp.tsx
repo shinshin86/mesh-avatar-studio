@@ -9,6 +9,7 @@ import { viewSettings, streamUrl, backgroundColor, loadOverlays, saveOverlays } 
 import { FacePose, type TrackingOptions } from './tracking';
 import { CameraCapture, MicrophoneCapture, type CameraState, type MicState, type BackgroundTracking } from './media';
 import { liveText } from './i18n';
+import { MicrophoneControls } from './MicrophoneControls';
 import { Icon } from '../editor/Icon';
 import { createLiveSender, receiveExpression, receiveLightingPreset, sendLighting, sendOverlays, watchDuplicateLivePages } from './relay';
 import { EXPRESSION_TOKEN_PATH, LIGHTING_PRESET_PATH } from './expression-protocol';
@@ -31,7 +32,7 @@ export function LiveApp() {
   const [cameraState, setCameraState] = useState<CameraState>('stopped');
   const [micState, setMicState] = useState<MicState>('micOff');
   const [tracking, setTracking] = useState(false), [showCamera, setShowCamera] = useState(true);
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]), [cameraId, setCameraId] = useState(''), [micId, setMicId] = useState('');
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]), [cameraId, setCameraId] = useState('');
   const [gain, setGain] = useState(1), [calibrated, setCalibrated] = useState(false);
   const [copyState, setCopyState] = useState<'copied' | 'copyError' | null>(null);
   const [viewState, setViewState] = useState<'loading' | 'ready' | 'projectError'>('loading');
@@ -133,7 +134,6 @@ export function LiveApp() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   const cameraActive = cameraState === 'starting' || cameraState === 'running';
-  const micActive = micState === 'micStarting' || micState === 'micOn';
   const url = streamUrl(settings, location.origin);
   const followed = support ? [t.upperBody, ...(support.legs ? [t.legs] : []), ...(support.arms ? [t.arms] : [])] : [];
   const missing = support ? [...(!support.legs ? [t.legs] : []), ...(!support.arms ? [t.arms] : [])] : [];
@@ -169,10 +169,9 @@ export function LiveApp() {
         <label className="live-check"><input type="checkbox" checked={showCamera} onChange={event => setShowCamera(event.target.checked)} />{t.cameraPreview}</label>
         <video ref={video} autoPlay muted playsInline className={showCamera ? 'camera-preview' : 'camera-preview camera-hidden'} style={{ transform: options.mirror ? 'scaleX(-1)' : undefined }} aria-label={t.cameraPreview} />
       </section>
-      <section><h2>{t.microphone}</h2><label className="live-check"><input type="checkbox" checked={micActive} disabled={!micActive && viewState !== 'ready'} onChange={event => { if (event.target.checked) void microphone.current?.start(micId).then(refreshDevices); else microphone.current?.stop(); }} />{t.microphone}</label>
-        <select aria-label={t.microphone} value={micId} disabled={micActive} onChange={event => setMicId(event.target.value)}><option value="">{t.defaultDevice}</option>{devices.filter(device => device.kind === 'audioinput' && device.deviceId).map((device, i) => <option key={device.deviceId} value={device.deviceId}>{device.label || `${t.microphone} ${i + 1}`}</option>)}</select>
-        <label>{t.gain}<input type="range" min="0.25" max="5" step="0.05" value={gain} onChange={event => setGain(Number(event.target.value))} /></label><small role="status">{t[micState]}</small>
-      </section>
+      <MicrophoneControls language={language} ready={viewState === 'ready'} devices={devices} state={micState}
+        gain={gain} onGainChange={setGain} onStart={id => void microphone.current?.start(id).then(refreshDevices)}
+        onStop={() => microphone.current?.stop()} />
       <section><h2>{t.background}</h2><select aria-label={t.background} value={settings.background} onChange={event => setSettings(current => ({ ...current, background: backgroundColor(event.target.value) }))}>
         <option value="transparent">{t.transparent}</option><option value="#00ff00">{t.green}</option><option value="#0000ff">{t.blue}</option>{!['transparent', '#00ff00', '#0000ff'].includes(settings.background) && <option value={settings.background}>{t.custom}</option>}
       </select><small className="background-hint" data-testid="background-hint">{settings.background === 'transparent' ? t.bgHintTransparent : ['#00ff00', '#0000ff'].includes(settings.background) ? t.bgHintChroma : t.bgHintCustom}</small>
