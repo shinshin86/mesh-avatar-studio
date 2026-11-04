@@ -231,9 +231,17 @@ export function PlayerApp({ language }: { language: PlayerLanguage }) {
         <label className="live-check"><input type="checkbox" checked={showCamera} onChange={event => setShowCamera(event.target.checked)} />{t.cameraPreview}</label>
         <video ref={video} autoPlay muted playsInline className={showCamera ? 'camera-preview' : 'camera-preview camera-hidden'} style={{ transform: options.mirror ? 'scaleX(-1)' : undefined }} aria-label={t.cameraPreview} />
       </section>
-      <section><h2>{t.microphone}</h2><label className="live-check"><input type="checkbox" checked={micActive} disabled={!micActive && viewState !== 'ready'} onChange={event => { if (event.target.checked) void microphone.current?.start(micId).then(refreshDevices); else microphone.current?.stop(); }} />{t.microphone}</label>
-        <select aria-label={t.microphone} value={micId} disabled={micActive} onChange={event => setMicId(event.target.value)}><option value="">{t.defaultDevice}</option>{devices.filter(device => device.kind === 'audioinput' && device.deviceId).map((device, i) => <option key={device.deviceId} value={device.deviceId}>{device.label || `${t.microphone} ${i + 1}`}</option>)}</select>
-        <label>{t.gain}<input type="range" min="0.25" max="5" step="0.05" value={gain} onChange={event => setGain(Number(event.target.value))} /></label><small role="status">{t[micState]}</small>
+      <section><h2>{t.microphone}</h2>
+        <label>{t.device}<select value={micId} disabled={micActive} onChange={event => setMicId(event.target.value)}>
+          <option value="">{t.defaultDevice}</option>
+          {devices.filter(device => device.kind === 'audioinput' && device.deviceId).map((device, i) => <option key={device.deviceId} value={device.deviceId}>{device.label || `${t.microphone} ${i + 1}`}</option>)}
+        </select></label>
+        <div className="live-buttons"><button className="live-primary" disabled={!micActive && viewState !== 'ready'} onClick={() => {
+          if (micActive) microphone.current?.stop();
+          else void microphone.current?.start(micId).then(refreshDevices);
+        }}>{micActive ? t.stopMicrophone : t.startMicrophone}</button></div>
+        <p role="status">{t[micState]}</p>
+        <label>{t.gain}<input type="range" min="0.25" max="5" step="0.05" value={gain} onChange={event => setGain(Number(event.target.value))} /></label>
       </section>
       <section><h2>{t.background}</h2><select aria-label={t.background} value={background} onChange={event => setBackground(backgroundColor(event.target.value))}>
         <option value="transparent">{t.none}</option><option value="#00ff00">{t.green}</option><option value="#0000ff">{t.blue}</option>{!['transparent', '#00ff00', '#0000ff'].includes(background) && <option value={background}>{t.custom}</option>}
