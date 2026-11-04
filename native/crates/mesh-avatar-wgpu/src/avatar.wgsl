@@ -49,6 +49,26 @@ fn eye_lids(e: u32, value: f32, top: f32, bot: f32) -> vec2f {
     return vec2f(top + max(d.x, raw.x), bot + min(d.y, raw.y));
 }
 fn tex_at(p: vec2f) -> vec4f { return textureSample(image, image_sampler, (p - u.rect.xy) / u.rect.zw); }
+// Keep the painted half lids anchored while the iris follows the eye's slope.
+fn half_eye_uv(e: u32, p: vec2f, uv: vec2f) -> vec2f {
+    let gaze = u.eyes[e].zw;
+    let box = u.eye_box[e].xy;
+    let span = box.y - box.x;
+    let value = (p.x - box.x) / span;
+    if all(gaze == vec2f(0.0)) || value <= 0.0 || value >= 1.0 { return uv; }
+    let top = curve(e, true, value);
+    let height = curve(e, false, value) - top;
+    if height < 2.0 { return uv; }
+    let v = (p.y - top) / height;
+    let w = smoothstep(0.18, 0.34, v) * (1.0 - smoothstep(0.70, 0.85, v))
+          * smoothstep(0.0, 0.23, min(value, 1.0 - value));
+    if w == 0.0 { return uv; }
+    let x = p.x - clamp(gaze.x * 0.8, -0.08 * span, 0.08 * span) * w;
+    let source_u = (x - box.x) / span;
+    let dy = clamp(gaze.y / height, -0.05, 0.05) * w;
+    let y = mix(curve(e, true, source_u), curve(e, false, source_u), v - dy);
+    return (vec2f(x, y) - u.rect.xy) / u.rect.zw;
+}
 fn eye_ball(e: u32, p: vec2f) -> vec4f {
     let box = u.eye_box[e];
     let state = u.eyes[e];
@@ -99,6 +119,8 @@ fn painted_mouth(p: vec2f, base: vec4f) -> vec4f {
         let b = (p - u.cheeks.zw) / vec2f(40.0, 20.0);
         let blush = exp(-dot(a, a)) + exp(-dot(b, b));
         c = vec4f(mix(c.rgb, c.rgb * vec3f(1.0, 0.62, 0.64), clamp(blush * u.flags.z * 0.55, 0.0, 1.0) * c.a), c.a);
+    } else if u.flags.x >= 4.0 {
+        c = textureSample(image, image_sampler, half_eye_uv(u32(u.flags.x) - 4u, p, in.uv));
     } else if u.flags.x >= 2.0 { c = eye_ball(u32(u.flags.x) - 2u, p); }
     else { c = tex_at(p); }
     return c * u.flags.y;

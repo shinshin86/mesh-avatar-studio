@@ -18,6 +18,7 @@ const baselineOnly = process.argv.includes('--baseline-only');
 const allPoses = [
   { name: 'rest', parameters: {} },
   { name: 'half-eyes', parameters: { eyeLOpen: 0.5, eyeROpen: 0.5 } },
+  { name: 'half-eye-gaze', parameters: { eyeLOpen: 0.5, eyeROpen: 0.5, gazeX: 1, gazeY: -1 } },
   { name: 'closed-eyes', parameters: { eyeLOpen: 0, eyeROpen: 0, eyeSmile: 1 } },
   { name: 'mouth-a', parameters: { mouthOpen: 0.8 } },
   { name: 'mouth-i', parameters: { mouthOpen: 0.8, mouthForm: -1 } },

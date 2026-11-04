@@ -93,8 +93,8 @@ test('live controls calibrate, mirror, compose mic mouth, localize and relay wit
   page.on('pageerror', error => errors.push(error.message));
   await syntheticMedia(page); await stubTracker(page); await ready(page, '/live.html');
   const stream = await context.newPage(); await ready(stream, '/stream.html');
-  const mic = page.getByRole('checkbox', { name: 'Microphone lip sync' });
-  await expect(mic).not.toBeChecked();
+  const startMic = page.getByRole('button', { name: 'Start microphone', exact: true });
+  await expect(startMic).toBeEnabled();
   await page.getByRole('button', { name: 'Start camera', exact: true }).click();
   await expect(page.getByTestId('tracking-status')).toHaveAttribute('data-state', 'tracking');
   await expect(stream.locator('#avatar')).toHaveAttribute('data-live', 'active');
@@ -107,10 +107,11 @@ test('live controls calibrate, mirror, compose mic mouth, localize and relay wit
   expect((await nextParams()).angleX).toBeLessThan(-10);
   await page.getByRole('checkbox', { name: 'Mirror', exact: true }).uncheck();
   await expect.poll(async () => (await nextParams()).angleX).toBeGreaterThan(15);
-  await mic.check();
+  await startMic.click();
   await expect.poll(async () => (await nextParams()).mouthOpen).toBeGreaterThan(0.5);
   expect((await nextParams()).mouthForm).toBeCloseTo(0.8, 1);
-  await mic.uncheck();
+  await page.getByRole('button', { name: 'Stop microphone', exact: true }).click();
+  await expect(startMic).toBeEnabled();
   await page.getByRole('button', { name: 'Calibrate', exact: true }).click();
   await expect(page.getByText('Neutral pose saved', { exact: true })).toBeVisible();
   await expect.poll(async () => Math.abs((await nextParams()).angleX)).toBeLessThan(0.5);

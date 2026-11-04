@@ -100,7 +100,8 @@ export function createSpriteModule(engine, rig) {
         W.push(baseWeights(x, y, 0));
         inner.push(name.startsWith('mouth') ? mouthInner(x, y) : 0);
       }
-      const layer = R.addLayer(name, imgs[name], mesh, { color: [0.4, 1, 0.8, 0.6] });
+      const halfEye = name === 'eyes_half_0' ? 0 : name === 'eyes_half_1' ? 1 : undefined;
+      const layer = R.addLayer(name, imgs[name], mesh, { color: [0.4, 1, 0.8, 0.6], halfEye });
       layer.visible = false;
       items[name] = { mesh, W, inner, layer };
     }
