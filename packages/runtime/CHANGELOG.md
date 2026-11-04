@@ -1,5 +1,11 @@
 # mesh-avatar
 
+## 0.7.1
+
+### Patch Changes
+
+- 2ee6dd2: Let the iris follow gaze input in drawn half-lidded eyes.
+
 ## 0.7.0
 
 ### Minor Changes
