@@ -1,5 +1,13 @@
 # mesh-avatar-element
 
+## 0.4.3
+
+### Patch Changes
+
+- 8263722: Update the standalone bundle so the iris follows gaze input in drawn half-lidded eyes.
+- Updated dependencies [2ee6dd2]
+  - mesh-avatar@0.7.1
+
 ## 0.4.2
 
 ### Patch Changes
