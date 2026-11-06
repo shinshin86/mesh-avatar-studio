@@ -293,9 +293,10 @@ cargo fmt --manifest-path native/Cargo.toml --all --check
 
 The dump first checks the embedded motion data, then writes numeric reference data
 to ignored `native/target/conformance/`. Generate it before running the tests;
-comparison tests report a skip when it is absent. Tests without a compatible GPU
-skip GPU readback checks. Core also compiles for WASM; this does not provide
-JavaScript bindings:
+comparison tests report a skip when it is absent locally, but fail when the `CI`
+environment variable is set. CI generates the data before running tests.
+Tests without a compatible GPU skip GPU readback checks. Core also compiles for
+WASM; this does not provide JavaScript bindings:
 
 ```sh
 rustup target add wasm32-unknown-unknown
@@ -332,6 +333,10 @@ run `node --experimental-strip-types native/conformance/sync-motion-data.mjs`.
 
 ## Limitations
 
+- Leg and hanging-arm deformation (`rig.legs` / `rig.arms`) is not supported.
+  The `weightShift`, `armSwingL/R` and `elbowBendL/R` parameters are accepted,
+  but do not affect geometry. Automatic motion matches the JavaScript path
+  without leg/arm rigs: weight shift follows a smoothed sine, and arm parameters stay at zero.
 - Windows and Linux desktop behavior has not been verified. Window transparency,
   always-on-top behavior and cursor click-through depend on the OS compositor.
   The app exits if a transparent surface is unavailable.

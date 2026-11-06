@@ -502,6 +502,8 @@ impl Motion {
                 target.angle_z = fbm(t * 0.12, 3.0) * 10.0;
                 target.body_angle_x = fbm(t * 0.1, 4.0) * 5.0;
                 target.body_angle_z = fbm(t * 0.09, 5.0) * 4.0;
+                // Match the JS path without a leg rig; do not consume extra randomness.
+                target.weight_shift = 0.7 * (t * std::f64::consts::PI * 2.0 / 5.0).sin();
                 target.arm_angle = fbm(t * 0.14, 6.0) * 5.0;
                 target.hand_angle = fbm(t * 0.21, 7.0) * 5.0;
                 if t > self.gaze.next {
@@ -624,7 +626,7 @@ impl Motion {
                 "gazeX" | "gazeY" => (260.0_f64, 0.9),
                 "angleX" | "angleY" => (55.0, 0.72),
                 "angleZ" => (45.0, 0.75),
-                "bodyAngleX" => (14.0, 0.9),
+                "bodyAngleX" | "weightShift" => (14.0, 0.9),
                 "bodyAngleZ" => (12.0, 0.9),
                 "armAngle" => (20.0, 0.85),
                 "handAngle" => (30.0, 0.8),

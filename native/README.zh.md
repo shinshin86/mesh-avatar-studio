@@ -216,7 +216,8 @@ cargo fmt --manifest-path native/Cargo.toml --all --check
 ```
 
 dump首先检查嵌入的动作数据是否一致，然后将数值参考数据写入Git忽略的 `native/target/conformance/`。
-请在测试前生成数据；缺少数据时，对比测试会输出跳过提示。没有兼容GPU时，GPU读回测试也会跳过。
+请在测试前生成数据；本地缺少数据时，对比测试会输出跳过提示，但设置了 `CI` 环境变量时会失败。CI会在测试前生成数据。
+没有兼容GPU时，GPU读回测试会跳过。
 core也可编译为WASM，但不包含JavaScript绑定：
 
 ```sh
@@ -248,6 +249,9 @@ PNG及报告保存在Git忽略的 `native/target/pixel-comparison*/`。macOS上�
 
 ## 限制
 
+- 尚不支持腿部和下垂手臂的变形（`rig.legs` / `rig.arms`）。
+  可以设置 `weightShift`、`armSwingL/R` 和 `elbowBendL/R`，但它们不会影响网格形状。
+  自动动作与没有腿部或手臂rig的JavaScript版本一致：重心转移使用平滑后的正弦波，手臂参数保持为0。
 - 尚未验证 Windows 和 Linux 上的桌面行为。窗口透明、置顶和鼠标点击穿透取决于操作系统的合成器。
   如果无法使用透明绘制表面，程序会退出。
 - 原生菜单栏、状态栏图标和 Open Avatar 对话框仅支持 macOS。可执行文件在没有应用包的情况下嵌入了名称“Mesh Avatar”；

@@ -171,24 +171,38 @@ fn frame_geometry_uniforms_and_textures_match_core_with_explicit_lifetimes() {
     let texture = texture(h, 0);
     let pixel_copy =
         unsafe { std::slice::from_raw_parts(texture.rgba, texture.byte_count) }.to_vec();
+    let parameters = [
+        (c"angleX", 20.0),
+        (c"weightShift", -0.6),
+        (c"armSwingL", 0.7),
+        (c"elbowBendL", 0.8),
+        (c"armSwingR", -0.5),
+        (c"elbowBendR", 0.3),
+    ];
+    let input = parameters.map(|(name, value)| MaParameter {
+        name: name.as_ptr(),
+        value,
+    });
     assert_eq!(
-        unsafe {
-            mesh_avatar_set_parameters(
-                h,
-                [MaParameter {
-                    name: c"angleX".as_ptr(),
-                    value: 20.0,
-                }]
-                .as_ptr(),
-                1,
-                1.0,
-            )
-        },
+        unsafe { mesh_avatar_set_parameters(h, input.as_ptr(), input.len(), 1.0) },
         MA_OK
     );
-    assert_eq!(frame(h).layers, before.layers); // A setter does not replace the cached frame.
+    // A setter does not replace the cached frame.
+    assert_eq!(frame(h).layers, before.layers);
+    // Legs/arms parameters are accepted but must not deform a rig without legs/arms.
     core.set_parameters(BTreeMap::from([("angleX".into(), 20.0)]));
     assert_eq!(mesh_avatar_tick(h, 0.016), MA_OK);
+    state::with_entry(h, |entry| {
+        for (name, value) in parameters {
+            assert_eq!(
+                entry.avatar.parameters().get(name.to_str().unwrap()),
+                Some(value)
+            );
+        }
+        Ok(())
+    })
+    .map_err(|e| e.message)
+    .unwrap();
     let actual = frame(h);
     let expected = core.tick(0.016);
     assert_eq!(actual.layer_count, expected.layers.len());

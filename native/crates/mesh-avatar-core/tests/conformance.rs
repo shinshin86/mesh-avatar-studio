@@ -40,6 +40,10 @@ fn every_sample_grid_matches_javascript_exactly() {
     let bytes = match fs::read(&golden_path) {
         Ok(bytes) => bytes,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            assert!(
+                std::env::var_os("CI").is_none(),
+                "Grid goldens required in CI. Run node --experimental-strip-types native/conformance/dump.mjs first."
+            );
             eprintln!("Grid goldens absent; skipping. Run node native/conformance/dump.mjs first.");
             return;
         }
