@@ -179,6 +179,7 @@ impl Physics {
             dt.is_finite() && dt >= 0.0,
             "dt must be finite and non-negative"
         );
+        engine.step_body(p, dt);
         let sub = ((dt / (1.0 / 240.0)).ceil() as usize).max(1);
         let h = dt.min(0.05) / sub as f64;
         let roll = -p.angle_z / 30.0 * engine.rig.head.max_roll

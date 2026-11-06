@@ -79,6 +79,13 @@ struct Sequence {
     overlay_grids: Vec<NamedGrid>,
     actions: Vec<Value>,
     samples: Vec<Sample>,
+    #[serde(default, rename = "rigOverride")]
+    rig_override: Option<mesh_avatar_core::rig::Rig>,
+    #[serde(default = "sequence_frames")]
+    frames: usize,
+}
+fn sequence_frames() -> usize {
+    1200
 }
 #[derive(Deserialize)]
 struct Sample {
@@ -170,6 +177,9 @@ fn full_avatar_tick_draw_list_and_uniforms_match_real_javascript_tick_path() {
         let expected = read::<Sequence>(&file).unwrap();
         assert_eq!(expected.version, 1);
         let mut package = package();
+        if let Some(rig) = &expected.rig_override {
+            package.rig = rig.clone();
+        }
         if !expected.has_sprites {
             package.sprites = None;
         }
@@ -200,7 +210,7 @@ fn full_avatar_tick_draw_list_and_uniforms_match_real_javascript_tick_path() {
         let overlay_grids = &expected.overlay_grids;
         let mut sample = 0;
         let mut events = vec![];
-        for frame in 0..1200 {
+        for frame in 0..expected.frames {
             for event in &expected.actions {
                 if event[0] == frame {
                     action(&mut avatar, event);
@@ -217,7 +227,7 @@ fn full_avatar_tick_draw_list_and_uniforms_match_real_javascript_tick_path() {
             avatar.set_voice_level(voice);
             let output = avatar.tick(dt);
             events.extend(output.motion_events);
-            if frame % 60 > 4 && frame != 1199 {
+            if frame % 60 > 4 && frame != expected.frames - 1 {
                 continue;
             }
             let expected = &expected.samples[sample];

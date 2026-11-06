@@ -128,6 +128,7 @@ pub struct Avatar {
     package: AvatarPackage,
     motion: Motion,
     physics: Physics,
+    body_dynamics: crate::engine::legs::BodyDynamics,
     expression: ExpressionOverlay,
     options: AvatarOptions,
     overrides: BTreeMap<String, f64>,
@@ -166,6 +167,7 @@ impl Avatar {
                 .unwrap_or([r.head.ellipse.cx, r.head.ellipse.cy]),
             rng,
         );
+        motion.configure_rig(r);
         if let Some(settings) = &package.manifest.lip_sync {
             motion.set_lip_sync(&LipSyncSettings::parse(settings)?)?;
         }
@@ -278,6 +280,7 @@ impl Avatar {
             package,
             motion,
             physics,
+            body_dynamics: Default::default(),
             expression,
             options,
             overrides: BTreeMap::new(),
@@ -403,8 +406,9 @@ impl Avatar {
             dt.clamp(0.0, 0.05)
         };
         let p = self.update_parameters(dt);
-        let engine = RigEngine::new(&self.package.rig);
+        let engine = RigEngine::with_body_dynamics(&self.package.rig, self.body_dynamics);
         let phys = self.physics.step(&engine, &p, dt);
+        self.body_dynamics = engine.body_dynamics();
         for (k, (rest, pos)) in self
             .base
             .mesh

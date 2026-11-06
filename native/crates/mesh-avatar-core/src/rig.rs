@@ -100,6 +100,107 @@ pub struct Body {
     pub roll_band: Band,
     pub chest: Ellipse,
     pub shoulders: Vec<Ellipse>,
+    #[serde(
+        default,
+        deserialize_with = "optional_field",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub hip: Option<Hip>,
+}
+
+fn optional_field<'de, D, T>(deserializer: D) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Hip {
+    pub shift: f64,
+    pub band: Band,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Leg {
+    pub hip: Point,
+    pub knee: Point,
+    pub ankle: Point,
+}
+
+fn default_spine() -> f64 {
+    0.7
+}
+fn default_bob() -> f64 {
+    2.0
+}
+fn default_swing() -> f64 {
+    4.0
+}
+fn default_bend() -> f64 {
+    6.0
+}
+fn default_inward() -> f64 {
+    0.4
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Legs {
+    #[serde(default = "default_spine")]
+    pub spine: f64,
+    #[serde(default = "default_bob")]
+    pub bob: f64,
+    #[serde(default)]
+    pub twist: f64,
+    pub pelvis: Point,
+    pub shift: f64,
+    pub tilt: f64,
+    pub bend: f64,
+    pub band: Band,
+    pub left: Leg,
+    pub right: Leg,
+    pub split: Vec<Point>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Arm {
+    pub shoulder: Point,
+    pub elbow: Point,
+    pub wrist: Point,
+    pub split: Vec<Point>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Arms {
+    pub left: Arm,
+    pub right: Arm,
+    #[serde(default = "default_swing")]
+    pub swing: f64,
+    #[serde(default = "default_bend")]
+    pub bend: f64,
+    #[serde(default = "default_inward")]
+    pub inward: f64,
+}
+
+pub(crate) fn split_x(line: &[Point], y: f64) -> f64 {
+    let mut i = 0;
+    while i < line.len() - 2 && y > line[i + 1][1] {
+        i += 1;
+    }
+    let (a, b) = (line[i], line[i + 1]);
+    let t = ((y - a[1]) / (b[1] - a[1])).clamp(0.0, 1.0);
+    a[0] + (b[0] - a[0]) * t
+}
+
+fn split_line(line: &[Point]) -> Result<()> {
+    ensure!(
+        line.len() >= 2
+            && line.iter().flatten().all(|v| v.is_finite())
+            && line.windows(2).all(|p| p[0][1] < p[1][1]),
+        "split needs at least two finite points with increasing y"
+    );
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -192,6 +293,18 @@ pub struct Rig {
     #[serde(default)]
     pub accessories: Vec<Accessory>,
     pub hand: Option<Hand>,
+    #[serde(
+        default,
+        deserialize_with = "optional_field",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub legs: Option<Legs>,
+    #[serde(
+        default,
+        deserialize_with = "optional_field",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub arms: Option<Arms>,
     pub mesh: Mesh,
     pub view: View,
 }
@@ -224,6 +337,81 @@ impl Rig {
         band(self.head.turn_band)?;
         band(self.body.breath_band)?;
         band(self.body.roll_band)?;
+        if let Some(hip) = &self.body.hip {
+            ensure!(
+                hip.shift.is_finite() && hip.band.iter().all(|v| v.is_finite()),
+                "body.hip must be finite"
+            );
+            band(hip.band)?;
+        }
+        if let Some(legs) = &self.legs {
+            ensure!(
+                [legs.shift, legs.tilt, legs.bend, legs.bob]
+                    .iter()
+                    .all(|v| v.is_finite() && *v >= 0.0),
+                "legs amounts must be finite and nonnegative"
+            );
+            ensure!(
+                (0.0..=1.0).contains(&legs.spine) && (0.0..=15.0).contains(&legs.twist),
+                "invalid legs spine or twist"
+            );
+            ensure!(
+                legs.pelvis.iter().chain(&legs.band).all(|v| v.is_finite()),
+                "legs coordinates must be finite"
+            );
+            band(legs.band)?;
+            split_line(&legs.split).context("legs.split")?;
+            for leg in [&legs.left, &legs.right] {
+                ensure!(
+                    leg.hip
+                        .iter()
+                        .chain(&leg.knee)
+                        .chain(&leg.ankle)
+                        .all(|v| v.is_finite()),
+                    "leg joints must be finite"
+                );
+                ensure!(
+                    legs.band[0] < leg.hip[1]
+                        && leg.hip[1] < leg.knee[1]
+                        && leg.knee[1] < leg.ankle[1],
+                    "legs require band start < hip y < knee y < ankle y"
+                );
+            }
+        }
+        if let Some(arms) = &self.arms {
+            ensure!(
+                (0.0..=10.0).contains(&arms.swing)
+                    && (0.0..=12.0).contains(&arms.bend)
+                    && (0.0..=1.0).contains(&arms.inward),
+                "invalid arms swing, bend or inward"
+            );
+            for (i, arm) in [&arms.left, &arms.right].into_iter().enumerate() {
+                ensure!(
+                    arm.shoulder[1] < arm.elbow[1] && arm.elbow[1] < arm.wrist[1],
+                    "arms require shoulder y < elbow y < wrist y"
+                );
+                split_line(&arm.split).context("arms.split")?;
+                ensure!(
+                    [&arm.shoulder, &arm.elbow, &arm.wrist]
+                        .into_iter()
+                        .chain(arm.split.iter())
+                        .all(|p| p.iter().all(|v| v.is_finite())
+                            && p[0] >= 0.0
+                            && p[1] >= 0.0
+                            && p[0] < self.image.width as f64
+                            && p[1] < self.image.height as f64),
+                    "arm points must stay inside the image"
+                );
+                ensure!(
+                    [arm.elbow, arm.wrist].iter().all(|p| if i == 0 {
+                        split_x(&arm.split, p[1]) > p[0]
+                    } else {
+                        split_x(&arm.split, p[1]) < p[0]
+                    }),
+                    "arm split must lie on the body side of elbow and wrist"
+                );
+            }
+        }
         let f = &self.face;
         for e in [
             &self.body.chest,

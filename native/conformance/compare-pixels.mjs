@@ -1,5 +1,5 @@
 // Local-only Chromium/WebGL and wgpu comparison. Outputs stay under native/target/.
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, cp } from 'node:fs/promises';
 import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -7,15 +7,21 @@ import { resolve, relative } from 'node:path';
 import { createServer } from 'vite';
 import { chromium } from '@playwright/test';
 import { PNG } from 'pngjs';
+import { limbRig } from './limb-rigs.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const noAA = process.argv.includes('--no-aa');
 const metal = process.argv.includes('--metal');
 const dpr = process.argv.includes('--dpr=2') ? 2 : 1;
-const out = resolve(root, `native/target/pixel-comparison${metal ? '-metal' : ''}${noAA ? '-no-aa' : ''}${dpr === 2 ? '-dpr2' : ''}`);
-const project = resolve(root, 'samples/miko-qipao');
+const limbs = process.argv.includes('--limbs');
+const out = resolve(root, `native/target/pixel-comparison${limbs ? '-limbs' : ''}${process.argv.includes('--before') ? '-before' : ''}${metal ? '-metal' : ''}${noAA ? '-no-aa' : ''}${dpr === 2 ? '-dpr2' : ''}`);
+const sampleProject = resolve(root, 'samples/miko-qipao');
+const project = limbs ? resolve(out, 'avatar') : sampleProject;
 const baselineOnly = process.argv.includes('--baseline-only');
-const allPoses = [
+const allPoses = limbs ? [
+  { name: 'planted-arms', seconds: 1, parameters: { weightShift: 0.7, bodyAngleX: 5, bodyAngleZ: -4, breath: 0.6,
+    angleX: 12, armSwingL: 0.9, armSwingR: -0.7, elbowBendL: 0.8, elbowBendR: 0.4 } },
+] : [
   { name: 'rest', parameters: {} },
   { name: 'half-eyes', parameters: { eyeLOpen: 0.5, eyeROpen: 0.5 } },
   { name: 'half-eye-gaze', parameters: { eyeLOpen: 0.5, eyeROpen: 0.5, gazeX: 1, gazeY: -1 } },
@@ -30,7 +36,7 @@ const allPoses = [
   { name: 'cover-wide', parameters: { gazeX: -1, mouthOpen: 0.75, mouthForm: 0.7 }, size: [640, 360], fit: 'cover', padTop: 0.1, padSide: 0.12 },
   { name: 'contain-odd', parameters: { angleX: 20, angleZ: -10 }, size: [333, 501], padTop: 0.1, padSide: 0.1 },
 ];
-const poses = dpr === 2 ? allPoses.filter(p => ['rest', 'cover-wide', 'contain-odd'].includes(p.name))
+const poses = dpr === 2 ? allPoses.filter(p => limbs || ['rest', 'cover-wide', 'contain-odd'].includes(p.name))
   .map(p => ({ ...p, size: (p.size ?? [512, 640]).map(v => Math.ceil(v / dpr) * dpr) })) : allPoses;
 const run = promisify(execFile);
 
@@ -57,6 +63,11 @@ function metrics(a, b) {
 
 async function main() {
   await mkdir(out, { recursive: true });
+  if (limbs) {
+    await mkdir(project, { recursive: true });
+    await writeFile(resolve(project, 'rig.json'), JSON.stringify(limbRig(JSON.parse(await readFile(resolve(sampleProject, 'rig.json'), 'utf8')), 'twist')));
+    await cp(resolve(sampleProject, 'built'), resolve(project, 'built'), { recursive: true });
+  }
   const rig = JSON.parse(await readFile(resolve(project, 'rig.json'), 'utf8'));
   const metadata = JSON.parse(await readFile(resolve(project, 'built/layers.json'), 'utf8'));
   const sprites = JSON.parse(await readFile(resolve(project, 'built/sprites/sprites.json'), 'utf8'));

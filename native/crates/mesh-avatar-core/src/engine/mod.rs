@@ -1,6 +1,8 @@
+pub mod arms;
 pub mod expression;
 pub mod grid;
 pub mod kana;
+pub mod legs;
 pub mod lip_sync;
 pub mod motion;
 pub mod motions;
