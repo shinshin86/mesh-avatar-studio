@@ -21,6 +21,10 @@ fn read<T: DeserializeOwned>(name: &str) -> Option<T> {
     match fs::read(path) {
         Ok(bytes) => Some(serde_json::from_slice(&bytes).unwrap()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            assert!(
+                std::env::var_os("CI").is_none(),
+                "{name} required in CI. Run node --experimental-strip-types native/conformance/dump.mjs first."
+            );
             eprintln!("{name} absent; skipping. Run node native/conformance/dump.mjs first.");
             None
         }

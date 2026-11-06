@@ -18,6 +18,10 @@ fn fixture() -> Option<Value> {
     match fs::read(path) {
         Ok(bytes) => Some(serde_json::from_slice(&bytes).unwrap()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            assert!(
+                std::env::var_os("CI").is_none(),
+                "Motion goldens required in CI. Run node --experimental-strip-types native/conformance/dump.mjs first."
+            );
             eprintln!(
                 "Motion goldens absent; skipping. Run node native/conformance/dump.mjs first."
             );
@@ -320,10 +324,8 @@ fn manual_and_pointer_modes_with_keyframes_match_javascript() {
         let mut motion = Motion::with_rng([600.0, 500.0], Box::new(SeededRandom::new(173)));
         motion.mode = serde_json::from_value(mode["mode"].clone()).unwrap();
         motion.set_expression("shy");
-        motion.manual.angle_x = 12.0;
-        motion.manual.eye_l_open = 0.4;
-        motion.manual.breath = 0.6;
         for (frame, sample) in mode["samples"].as_array().unwrap().iter().enumerate() {
+            motion.manual = serde_json::from_value(sample["manual"].clone()).unwrap();
             if frame == 30 {
                 motion.play_motion("tilt");
             }

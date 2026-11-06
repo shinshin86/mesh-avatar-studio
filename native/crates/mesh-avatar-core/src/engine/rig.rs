@@ -60,6 +60,11 @@ parameters! {
     arm_angle => ("armAngle", "Arm angle", -10.0, 10.0, 0.0, "Hand"),
     hand_angle => ("handAngle", "Wrist angle", -10.0, 10.0, 0.0, "Hand"),
     finger_tap => ("fingerTap", "Finger tap", 0.0, 1.0, 0.0, "Hand"),
+    weight_shift => ("weightShift", "Weight shift", -1.0, 1.0, 0.0, "Legs"),
+    arm_swing_l => ("armSwingL", "Arm swing L", -1.0, 1.0, 0.0, "Arms"),
+    elbow_bend_l => ("elbowBendL", "Elbow bend L", 0.0, 1.0, 0.0, "Arms"),
+    arm_swing_r => ("armSwingR", "Arm swing R", -1.0, 1.0, 0.0, "Arms"),
+    elbow_bend_r => ("elbowBendR", "Elbow bend R", 0.0, 1.0, 0.0, "Arms"),
 }
 
 pub(crate) fn sstep(a: f64, b: f64, x: f64) -> f64 {

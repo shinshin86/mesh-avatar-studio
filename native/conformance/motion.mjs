@@ -62,9 +62,13 @@ export async function dumpMotion({ rig, engine, destination }) {
       const samples = [];
       for (let frame = 0; frame < 120; frame++) {
         if (frame === 30) motion.playMotion('tilt');
-        motion.manual.angleX = 12; motion.manual.eyeLOpen = 0.4; motion.manual.breath = 0.6;
+        // Change targets during keyframe playback to exercise parameter smoothing too.
+        Object.assign(motion.manual, { angleX: 12, eyeLOpen: 0.4, breath: 0.6,
+          weightShift: frame < 45 ? -0.6 : 0.8,
+          armSwingL: frame < 45 ? 0.7 : -0.4, elbowBendL: frame < 45 ? 0.8 : 0.2,
+          armSwingR: frame < 45 ? -0.5 : 0.6, elbowBendR: frame < 45 ? 0.3 : 0.9 });
         motion.pointer = [600 + Math.sin(frame / 20) * 350, 500 + Math.cos(frame / 25) * 200];
-        samples.push({ pointer: motion.pointer, parameters: { ...motion.update(1 / 60) } });
+        samples.push({ manual: { ...motion.manual }, pointer: motion.pointer, parameters: { ...motion.update(1 / 60) } });
       }
       modes.push({ mode, samples });
     }

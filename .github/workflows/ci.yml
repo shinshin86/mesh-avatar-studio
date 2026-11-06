@@ -84,7 +84,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.17.0'
+          cache: npm
+
+      - name: Install dependencies for comparison data
+        working-directory: .
+        run: npm ci
 
       - name: Check embedded motion data matches the JS runtime
         run: node conformance/sync-motion-data.mjs --check
@@ -107,7 +112,9 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
 
       - name: Run tests
-        run: cargo test
+        run: |
+          node --experimental-strip-types conformance/dump.mjs
+          cargo test
 
       - name: Check core for WASM
         run: cargo check -p mesh-avatar-core --target wasm32-unknown-unknown
