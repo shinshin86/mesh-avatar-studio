@@ -3,6 +3,9 @@
 use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 
+mod cloth;
+pub use cloth::{Cloth, ClothTuning, ClothTuningUpdate};
+
 pub type Point = [f64; 2];
 pub type Band = [f64; 2];
 
@@ -267,6 +270,12 @@ pub struct Mesh {
     pub eye_ball_cell: u32,
     pub eye_cell: u32,
     pub sprite_cell: u32,
+    #[serde(
+        default,
+        deserialize_with = "optional_field",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub cloth_cell: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -305,6 +314,8 @@ pub struct Rig {
         skip_serializing_if = "Option::is_none"
     )]
     pub arms: Option<Arms>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cloth: Vec<Cloth>,
     pub mesh: Mesh,
     pub view: View,
 }
@@ -507,6 +518,20 @@ impl Rig {
             }
         }
         let m = &self.mesh;
+        ensure!(
+            m.cloth_cell.is_none_or(|n| n > 0),
+            "mesh.clothCell must be positive"
+        );
+        let mut names = std::collections::BTreeSet::new();
+        for c in &self.cloth {
+            c.validate()?;
+            ensure!(!names.contains(&c.name), "cloth names must be unique");
+            ensure!(
+                c.parent.as_ref().is_none_or(|p| names.contains(p)),
+                "cloth parent must name an earlier entry"
+            );
+            names.insert(c.name.clone());
+        }
         ensure!(
             [
                 m.base_cell,

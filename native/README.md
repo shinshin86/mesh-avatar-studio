@@ -15,6 +15,20 @@ deformation and motion model, including planted feet, torso stabilization, pelvi
 twist and arm follow. See the [rig fields](../docs/rig-fields.md#optional-planted-legs)
 for joint placement and tuning. Omitting these fields preserves legacy deformation.
 
+Optional garments (`rig.cloth`) use `base_cloth.png` and separate `cloth_<name>.png`
+layers. The runtime supports parent garments, rear/front draw order, curved seams,
+tiers, source scale, wind and the same coupled pendulum physics as JavaScript.
+`mesh.clothCell` controls render mesh density. See [optional garments](../docs/rig-fields.md#optional-garments).
+Avatars without cloth keep their existing rendering.
+
+Use `Avatar::set_cloth_tuning` with `Some("skirt")` and a `ClothTuningUpdate` to update
+one garment, or `None` for all. The C equivalent is
+`mesh_avatar_set_cloth_tuning(handle, name, values, count)`, with `MaParameter`
+entries and a NULL name for all garments. Both validate the entire update before
+applying it and preserve unspecified fields; unknown names/fields or invalid values
+fail without changing tuning. Tuning does not edit the rig. `set_sway_gain` also
+controls cloth response.
+
 ## Prerequisites
 
 - Rust 1.88 or newer, with Cargo.
@@ -336,9 +350,18 @@ On macOS, `--metal` selects Chromium's Metal backend; `--dpr=2` compares equal
 physical sizes at HiDPI. To intentionally update the embedded motion definitions,
 run `node --experimental-strip-types native/conformance/sync-motion-data.mjs`.
 
+For other local projects, pass `--project projects/<name> --out projects/<name>/comparison`
+to keep their images and reports inside that project.
+
+The offscreen renderer can stream a sequence directly to an encoder with
+`--raw --frames 300 --fps 30 -o -`. Frames are straight RGBA8 at `--size`, with no
+headers; simulation advances at 60 Hz. `--seconds` sets the initial simulation
+time. Configure the receiving encoder for the same dimensions/frame rate and
+composite the alpha channel onto a background when exporting an opaque format.
+This avoids storing intermediate PNGs. Without `--raw`, output remains a single PNG.
+
 ## Limitations
 
-- Cloth (`rig.cloth`), including garment layers and pendulum simulation, is not supported.
 - Windows and Linux desktop behavior has not been verified. Window transparency,
   always-on-top behavior and cursor click-through depend on the OS compositor.
   The app exits if a transparent surface is unavailable.

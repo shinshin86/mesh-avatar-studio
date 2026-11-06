@@ -587,6 +587,13 @@ impl AvatarPackage {
                 accessory.name
             );
         }
+        for cloth in &rig.cloth {
+            ensure!(
+                layers.layers.contains_key(&format!("cloth_{}", cloth.name)),
+                "missing cloth layer: {}",
+                cloth.name
+            );
+        }
         let manifest = match read("avatar.json")? {
             Some(bytes) => Manifest::parse(&bytes)?,
             None => Manifest::default_named(folder_name.context("avatar.json: missing manifest")?),
@@ -609,7 +616,12 @@ impl AvatarPackage {
             .transpose()?;
         let mut image_rects = BTreeMap::from([
             (
-                "base.png".to_owned(),
+                if rig.cloth.is_empty() {
+                    "base.png"
+                } else {
+                    "base_cloth.png"
+                }
+                .to_owned(),
                 [0, 0, rig.image.width, rig.image.height],
             ),
             (
@@ -770,6 +782,44 @@ mod tests {
         let mut value = serde_json::from_slice(&files[name]).unwrap();
         edit(&mut value);
         files.insert(name.into(), serde_json::to_vec(&value).unwrap());
+    }
+
+    #[test]
+    fn cloth_assets_are_required_in_folders_and_archives() {
+        let mut files = fixture();
+        edit_json(&mut files, "rig.json", |r| {
+            r["cloth"] = serde_json::json!([{
+                "name":"skirt", "outline":[[0,0],[20,0],[20,30],[0,30]],
+                "waist":[[0,0],[20,0]], "hem":[[0,30],[20,30]]
+            }])
+        });
+        assert!(load(&files, true).is_err());
+        edit_json(&mut files, "built/layers.json", |v| {
+            v["layers"]["cloth_skirt"] = serde_json::json!([0, 0, 20, 30])
+        });
+        files.insert(
+            "built/cloth_skirt.png".into(),
+            png_bytes(20, 30, png::ColorType::Grayscale, &vec![255; 600]),
+        );
+        assert!(load(&files, true).is_err());
+        files.insert(
+            "built/base_cloth.png".into(),
+            files["built/base.png"].clone(),
+        );
+        for folder in [true, false] {
+            let package = load(&files, folder).unwrap();
+            let mut avatar = crate::Avatar::from_package(package).unwrap();
+            let frame = avatar.tick(0.0);
+            assert_eq!(frame.layers[0].texture, "base_cloth.png");
+            assert!(frame.layers.iter().any(|l| l.name == "cloth_skirt"));
+        }
+        let packed = AvatarPackage::from_archive(Cursor::new(archive(&files))).unwrap();
+        assert!(packed.textures.contains_key("base_cloth.png"));
+        files.insert(
+            "built/cloth_skirt.png".into(),
+            png_bytes(1, 1, png::ColorType::Grayscale, &[255]),
+        );
+        assert!(load(&files, true).is_err());
     }
 
     struct TestFolder(std::path::PathBuf);

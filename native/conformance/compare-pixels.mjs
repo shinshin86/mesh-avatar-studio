@@ -1,4 +1,4 @@
-// Local-only Chromium/WebGL and wgpu comparison. Outputs stay under native/target/.
+// Local-only Chromium/WebGL and wgpu comparison. Use --out inside projects/ for user art.
 import { readFile, writeFile, mkdir, cp } from 'node:fs/promises';
 import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -14,11 +14,14 @@ const noAA = process.argv.includes('--no-aa');
 const metal = process.argv.includes('--metal');
 const dpr = process.argv.includes('--dpr=2') ? 2 : 1;
 const limbs = process.argv.includes('--limbs');
-const out = resolve(root, `native/target/pixel-comparison${limbs ? '-limbs' : ''}${process.argv.includes('--before') ? '-before' : ''}${metal ? '-metal' : ''}${noAA ? '-no-aa' : ''}${dpr === 2 ? '-dpr2' : ''}`);
+const option = name => { const i = process.argv.indexOf(name); return i < 0 ? undefined : process.argv[i + 1]; };
+const customProject = option('--project');
+if (customProject && !option('--out')) throw new Error('--project requires an explicit --out directory');
+const out = resolve(root, option('--out') ?? `native/target/pixel-comparison${limbs ? '-limbs' : ''}${process.argv.includes('--before') ? '-before' : ''}${metal ? '-metal' : ''}${noAA ? '-no-aa' : ''}${dpr === 2 ? '-dpr2' : ''}`);
 const sampleProject = resolve(root, 'samples/miko-qipao');
-const project = limbs ? resolve(out, 'avatar') : sampleProject;
+const project = customProject ? resolve(root, customProject) : limbs ? resolve(out, 'avatar') : sampleProject;
 const baselineOnly = process.argv.includes('--baseline-only');
-const allPoses = limbs ? [
+const allPoses = customProject || limbs ? [
   { name: 'planted-arms', seconds: 1, parameters: { weightShift: 0.7, bodyAngleX: 5, bodyAngleZ: -4, breath: 0.6,
     angleX: 12, armSwingL: 0.9, armSwingR: -0.7, elbowBendL: 0.8, elbowBendR: 0.4 } },
 ] : [
@@ -63,7 +66,7 @@ function metrics(a, b) {
 
 async function main() {
   await mkdir(out, { recursive: true });
-  if (limbs) {
+  if (limbs && !customProject) {
     await mkdir(project, { recursive: true });
     await writeFile(resolve(project, 'rig.json'), JSON.stringify(limbRig(JSON.parse(await readFile(resolve(sampleProject, 'rig.json'), 'utf8')), 'twist')));
     await cp(resolve(sampleProject, 'built'), resolve(project, 'built'), { recursive: true });
@@ -72,7 +75,7 @@ async function main() {
   const metadata = JSON.parse(await readFile(resolve(project, 'built/layers.json'), 'utf8'));
   const sprites = JSON.parse(await readFile(resolve(project, 'built/sprites/sprites.json'), 'utf8'));
   const assets = {};
-  for (const name of ['layers.json', 'base.png', 'hairmask.png', ...Object.keys(metadata.layers).map(name => `${name}.png`),
+  for (const name of ['layers.json', 'base.png', ...(rig.cloth?.length ? ['base_cloth.png'] : []), 'hairmask.png', ...Object.keys(metadata.layers).map(name => `${name}.png`),
     'sprites/sprites.json', ...Object.keys(sprites.layers).map(name => `sprites/${name}.png`)]) {
     const mime = name.endsWith('.png') ? 'image/png' : 'application/json';
     assets[name] = `data:${mime};base64,${(await readFile(resolve(project, 'built', name))).toString('base64')}`;

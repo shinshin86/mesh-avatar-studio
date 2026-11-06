@@ -1,4 +1,7 @@
 pub mod arms;
+pub mod cloth;
+pub mod cloth_grid;
+pub mod cloth_pendulum;
 pub mod expression;
 pub mod grid;
 pub mod kana;

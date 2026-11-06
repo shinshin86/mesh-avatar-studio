@@ -5,7 +5,12 @@ use mesh_avatar_core::{
     Avatar, AvatarOptions,
 };
 use mesh_avatar_wgpu::{headless_device, wgpu, Fit, Renderer, ViewOptions};
-use std::{collections::BTreeMap, env, fs, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    env, fs,
+    io::{self, Write},
+    path::PathBuf,
+};
 
 struct Args {
     avatar: PathBuf,
@@ -20,9 +25,12 @@ struct Args {
     seed: u32,
     no_sprites: bool,
     expression: Option<String>,
+    frames: usize,
+    fps: f64,
+    raw: bool,
 }
 fn usage() -> &'static str {
-    "Usage: mesh-avatar-render <avatar> [--pose params.json] [--seconds N] [--size WxH] -o out.png\nOptions: --fit contain|cover --pad-top N --pad-side N --samples 1|4 --seed N --no-sprites --expression NAME"
+    "Usage: mesh-avatar-render <avatar> [--pose params.json] [--seconds N] [--size WxH] -o out.png\nOptions: --fit contain|cover --pad-top N --pad-side N --samples 1|4 --seed N --no-sprites --expression NAME\nVideo: --raw --frames N --fps N -o - streams straight RGBA8 frames to stdout; pipe to a video encoder."
 }
 fn parse() -> Result<Option<Args>> {
     let mut args = env::args().skip(1);
@@ -46,8 +54,15 @@ fn parse() -> Result<Option<Args>> {
         seed: 0,
         no_sprites: false,
         expression: None,
+        frames: 1,
+        fps: 30.0,
+        raw: false,
     };
     while let Some(flag) = args.next() {
+        if flag == "--raw" {
+            out.raw = true;
+            continue;
+        }
         if flag == "--no-sprites" {
             out.no_sprites = true;
             continue;
@@ -75,6 +90,8 @@ fn parse() -> Result<Option<Args>> {
             "--samples" => out.samples = value.parse()?,
             "--seed" => out.seed = value.parse()?,
             "--expression" => out.expression = Some(value),
+            "--frames" => out.frames = value.parse()?,
+            "--fps" => out.fps = value.parse()?,
             _ => bail!("unknown option: {flag}\n{}", usage()),
         }
     }
@@ -83,6 +100,11 @@ fn parse() -> Result<Option<Args>> {
         out.seconds.is_finite() && out.seconds >= 0.0,
         "seconds must be finite and non-negative"
     );
+    ensure!(
+        out.frames > 0 && out.fps.is_finite() && out.fps > 0.0,
+        "frames and fps must be positive"
+    );
+    ensure!(out.frames == 1 || out.raw, "multiple frames require --raw");
     Ok(Some(out))
 }
 fn run(args: Args) -> Result<()> {
@@ -134,6 +156,28 @@ fn run(args: Args) -> Result<()> {
         args.samples,
         avatar.textures(),
     )?;
+    if args.raw {
+        let mut writer: Box<dyn Write> = if args.output.as_os_str() == "-" {
+            Box::new(io::stdout().lock())
+        } else {
+            if let Some(parent) = args.output.parent().filter(|p| !p.as_os_str().is_empty()) {
+                fs::create_dir_all(parent)?;
+            }
+            Box::new(fs::File::create(&args.output)?)
+        };
+        let mut simulated = 0;
+        for index in 0..args.frames {
+            // Keep simulation at 60 Hz, independent of the output frame rate.
+            let target = (index as f64 * 60.0 / args.fps).round() as usize;
+            while simulated < target {
+                frame = avatar.tick(1.0 / 60.0);
+                simulated += 1;
+            }
+            writer.write_all(&renderer.render_rgba(&frame, args.size, &view)?)?;
+        }
+        writer.flush()?;
+        return Ok(());
+    }
     let rgba = renderer.render_rgba(&frame, args.size, &view)?;
     if let Some(parent) = args.output.parent().filter(|p| !p.as_os_str().is_empty()) {
         fs::create_dir_all(parent)?;

@@ -12,6 +12,15 @@ Rust 运行时可以加载与 JavaScript 运行时相同的 `.mavatar` 文件和
 包括足部固定、躯干姿态稳定、骨盆扭转以及手臂跟随。
 关节位置和调节字段见[rig字段说明](../docs/rig-fields.md#optional-planted-legs)。省略这些字段时保留原有变形。
 
+可选衣物（`rig.cloth`）使用 `base_cloth.png` 和独立的 `cloth_<name>.png` 图层。
+支持父子衣物、前后绘制顺序、弯曲接缝、分层、源图比例和风，并采用与JavaScript相同的耦合摆动模拟。
+`mesh.clothCell` 控制绘制网格密度，详见[可选衣物](../docs/rig-fields.md#optional-garments)。没有衣物的虚拟形象保留原有渲染。
+
+调用 `Avatar::set_cloth_tuning`，传入 `Some("skirt")` 和 `ClothTuningUpdate` 可调整单件衣物；`None` 表示全部。
+C接口为 `mesh_avatar_set_cloth_tuning(handle, name, values, count)`，使用 `MaParameter` 数组，NULL名称表示全部衣物。
+两者均先验证整个更新，再应用；未提供的字段保持不变。未知名称、字段或非法值会返回错误且不改变当前调节值。
+调节不会修改rig；`set_sway_gain` 也控制衣物的响应。
+
 ## 准备工作
 
 - Rust 1.88 或更高版本，以及 Cargo。
@@ -251,9 +260,14 @@ node native/conformance/compare-pixels.mjs
 PNG及报告保存在Git忽略的 `native/target/pixel-comparison*/`。macOS上可用 `--metal` 选择Chromium的Metal后端，用 `--dpr=2` 在HiDPI下按相同物理尺寸比较。
 如需有意更新嵌入的动作定义，请执行 `node --experimental-strip-types native/conformance/sync-motion-data.mjs`。
 
+比较其他本地项目时，请传入 `--project projects/<name> --out projects/<name>/comparison`，将图像和报告保存在该项目中。
+
+离屏渲染器可以用 `--raw --frames 300 --fps 30 -o -` 将连续帧直接传给编码器。
+输出为 `--size` 指定尺寸的straight RGBA8，不带头部；模拟以60 Hz推进，`--seconds` 指定起始模拟时间。
+接收端编码器需使用相同尺寸和帧率，导出不透明格式前应将alpha通道合成到背景上。这样无需保存中间PNG；省略 `--raw` 时仍输出单张PNG。
+
 ## 限制
 
-- 尚不支持衣物（`rig.cloth`）图层及其摆动模拟。
 - 尚未验证 Windows 和 Linux 上的桌面行为。窗口透明、置顶和鼠标点击穿透取决于操作系统的合成器。
   如果无法使用透明绘制表面，程序会退出。
 - 原生菜单栏、状态栏图标和 Open Avatar 对话框仅支持 macOS。可执行文件在没有应用包的情况下嵌入了名称“Mesh Avatar”；
