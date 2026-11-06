@@ -70,6 +70,8 @@ await dumpDeformation({ rig, engine, grids, images, sprites, buildGrid, destinat
 await dumpMotion({ rig, engine, destination });
 const { dumpLimbs } = await import('./limbs.mjs');
 await dumpLimbs({ rig, destination });
+const { dumpCloth } = await import('./cloth.mjs');
+await dumpCloth({ rig, destination });
 const { dumpAvatar } = await import('./avatar.mjs');
 await dumpAvatar({ rig, metadata, sprites, images, destination });
 hooks.deregister();

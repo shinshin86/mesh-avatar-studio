@@ -4,6 +4,7 @@ import { PNG } from 'pngjs';
 import { seededRandom } from '../../tools/motion-scenarios.mjs';
 import { capture } from './capture-renderer.mjs';
 import { limbRig } from './limb-rigs.mjs';
+import { clothRig } from './cloth-rigs.mjs';
 
 const actions = [
   [0, 'setAutoIdle', true], [0, 'setAutoMotion', true], [60, 'play', 'nod'], [120, 'setSpeaking', true],
@@ -45,6 +46,24 @@ export async function dumpAvatar({ rig, metadata, sprites, images, destination }
     image.data[3] = 3; // This distant pixel must not expand the opaque bounds.
     const empty = new PNG({ width: image.width, height: image.height }); empty.data.fill(0);
     images = { ...images, 'overlays/accessory.png': image, 'overlays/empty.png': empty };
+    const clothMetadata = structuredClone(metadata);
+    const clothConfig = clothRig(rig, 'legs');
+    images['base_cloth.png'] = PNG.sync.read(PNG.sync.write(images['base.png']));
+    const clothTextures = ['base_cloth.png'];
+    for (const c of clothConfig.cloth) {
+      const xs = c.outline.map(p => p[0]), ys = c.outline.map(p => p[1]);
+      const rect = [Math.min(...xs), Math.min(...ys), Math.max(...xs)-Math.min(...xs), Math.max(...ys)-Math.min(...ys)];
+      const texture = new PNG({ width: rect[2], height: rect[3] });
+      for (let y = 0; y < rect[3]; y++) for (let x = 0; x < rect[2]; x++) {
+        const alpha = x < 3 || y < 3 ? 128 : 255;
+        texture.data.set([c.behind ? 40 : 220, 100, 180, alpha], (y*rect[2]+x)*4);
+        if (!c.behind) images['base_cloth.png'].data[((rect[1]+y)*rig.image.width+rect[0]+x)*4+3] = 0;
+      }
+      const name = `cloth_${c.name}`; clothMetadata.layers[name] = rect;
+      images[`${name}.png`] = texture; clothTextures.push(`${name}.png`);
+    }
+    await mkdir(new URL('cloth/', destination), { recursive: true });
+    for (const name of clothTextures) await writeFile(new URL(`cloth/${name}`, destination), PNG.sync.write(images[name]));
     await mkdir(new URL('overlays/', destination), { recursive: true });
     await writeFile(new URL('overlays/accessory.png', destination), PNG.sync.write(image));
     await writeFile(new URL('overlays/empty.png', destination), PNG.sync.write(empty));
@@ -73,21 +92,21 @@ export async function dumpAvatar({ rig, metadata, sprites, images, destination }
     } };
     globalThis.cancelAnimationFrame = () => {};
     const variants = [];
-    for (const [name, hasSprites, preserveMouthForm, hasOverlays] of [['drawn', true, false, false], ['painted', false, true, false], ['overlays', true, false, true], ['limbs', true, false, true]]) {
+    for (const [name, hasSprites, preserveMouthForm, hasOverlays] of [['drawn', true, false, false], ['painted', false, true, false], ['overlays', true, false, true], ['limbs', true, false, true], ['cloth', true, false, true]]) {
       Math.random = seededRandom(173);
       globalThis.fetch = async name => {
-        const value = name === 'layers.json' ? metadata : name === 'sprites/sprites.json' && hasSprites ? sprites
+        const value = name === 'layers.json' ? metadata : name === 'cloth-layers.json' ? clothMetadata : name === 'sprites/sprites.json' && hasSprites ? sprites
           : name === 'overlays/overlays.json' && hasOverlays ? overlays : undefined;
         return { ok: value !== undefined, status: value === undefined ? 404 : 200, json: async () => value };
       };
       // Use a distinct JSON asset URL so the real runtime's shared cache cannot carry a sprite
       // sheet into the variant without one. PNGs remain shared and are decoded once.
       const assets = Object.fromEntries(Object.keys(images).map(name => [name, name]));
-      assets['layers.json'] = 'layers.json'; assets['sprites/sprites.json'] = hasSprites ? 'sprites/sprites.json' : 'absent-sprites.json';
+      assets['layers.json'] = name === 'cloth' ? 'cloth-layers.json' : 'layers.json'; assets['sprites/sprites.json'] = hasSprites ? 'sprites/sprites.json' : 'absent-sprites.json';
       assets['overlays/overlays.json'] = hasOverlays ? 'overlays/overlays.json' : 'absent-overlays.json';
-      const rigOverride = name === 'limbs' ? limbRig(rig, 'twist') : undefined;
+      const rigOverride = name === 'cloth' ? clothConfig : name === 'limbs' ? limbRig(rig, 'twist') : undefined;
       const avatar = await createMeshAvatarImpl({}, { rig: rigOverride ?? rig, assets, manual: true, preserveMouthForm });
-      const overlayGrids = capture.renderer.layers.filter(layer => layer.name.startsWith('overlay_')).map(layer => ({
+      const overlayGrids = capture.renderer.layers.filter(layer => layer.name.startsWith('overlay_') || name === 'cloth' && (layer.name === 'base' || layer.name.startsWith('cloth_'))).map(layer => ({
         name: layer.name, mesh: Object.fromEntries(Object.entries(layer.mesh).map(([key, value]) => [key, ArrayBuffer.isView(value) ? Array.from(value) : value])),
       }));
       const sequenceActions = hasOverlays ? [...actions,
@@ -101,6 +120,8 @@ export async function dumpAvatar({ rig, metadata, sprites, images, destination }
         [90, 'setParameters', { weightShift: 0.6, bodyAngleX: 5, armSwingL: -0.5, armSwingR: 0.9, elbowBendR: 0.8 }],
         [120, 'setParameters', {}],
       );
+      if (name === 'cloth') sequenceActions.push([45, 'setClothTuning', null, { responseGain: 2, tierGain: 3, highModeDamping: 0.48 }],
+        [150, 'setClothTuning', 'tail', { stiffness: 0.7, damping: 1.4, wind: 0.3 }], [200, 'setSwayGain', 0], [250, 'setSwayGain', 1.5]);
       const events = []; avatar.onMotion(id => events.push(id));
       const samples = [], frames = rigOverride ? 360 : 1200;
       for (let frame = 0; frame < frames; frame++) {
@@ -120,6 +141,7 @@ export async function dumpAvatar({ rig, metadata, sprites, images, destination }
       const file = `avatar-${name}.json`;
       await writeFile(new URL(file, destination), JSON.stringify({ version: 1, hasSprites, preserveMouthForm,
         ...(rigOverride ? { rigOverride, frames } : {}),
+        ...(name === 'cloth' ? { clothTextures, metadataOverride: clothMetadata } : {}),
         overlays: hasOverlays ? overlays : null, overlayGrids, actions: sequenceActions, samples }) + '\n');
       variants.push(file); avatar.destroy();
     }

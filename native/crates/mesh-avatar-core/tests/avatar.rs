@@ -81,6 +81,10 @@ struct Sequence {
     samples: Vec<Sample>,
     #[serde(default, rename = "rigOverride")]
     rig_override: Option<mesh_avatar_core::rig::Rig>,
+    #[serde(default, rename = "metadataOverride")]
+    metadata_override: Option<mesh_avatar_core::format::LayerMetadata>,
+    #[serde(default, rename = "clothTextures")]
+    cloth_textures: Vec<String>,
     #[serde(default = "sequence_frames")]
     frames: usize,
 }
@@ -160,6 +164,12 @@ fn action(avatar: &mut Avatar, event: &Value) {
         "holdMouth" => avatar.hold_mouth(Vowel::parse(arg.as_str().unwrap()).unwrap()),
         "stopLipSync" => avatar.stop_lip_sync(),
         "setSwayGain" => avatar.set_sway_gain(arg.as_f64().unwrap()),
+        "setClothTuning" => avatar
+            .set_cloth_tuning(
+                arg.as_str(),
+                &serde_json::from_value(event[3].clone()).unwrap(),
+            )
+            .unwrap(),
         _ => panic!("unknown action"),
     }
 }
@@ -179,6 +189,20 @@ fn full_avatar_tick_draw_list_and_uniforms_match_real_javascript_tick_path() {
         let mut package = package();
         if let Some(rig) = &expected.rig_override {
             package.rig = rig.clone();
+        }
+        if let Some(metadata) = &expected.metadata_override {
+            package.layers = metadata.clone();
+        }
+        for name in &expected.cloth_textures {
+            let bytes = fs::read(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../target/conformance/cloth")
+                    .join(name),
+            )
+            .unwrap();
+            package
+                .textures
+                .insert(name.clone(), Texture::decode(&bytes).unwrap());
         }
         if !expected.has_sprites {
             package.sprites = None;
@@ -253,10 +277,9 @@ fn full_avatar_tick_draw_list_and_uniforms_match_real_javascript_tick_path() {
                 for (&a, &b) in actual.positions.iter().zip(&expected.positions) {
                     compare(a as f64, b as f64, 1e-3, &mut max_positions);
                 }
-                let grid = &grids
-                    .grids
+                let grid = &overlay_grids
                     .iter()
-                    .chain(overlay_grids)
+                    .chain(&grids.grids)
                     .find(|g| g.name == actual.name)
                     .unwrap()
                     .mesh;

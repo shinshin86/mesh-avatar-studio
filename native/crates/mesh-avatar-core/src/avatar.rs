@@ -1,5 +1,6 @@
 use crate::{
     engine::{
+        cloth::ClothPhysics,
         expression::{ExpressionOverlay, ExpressionSettings},
         grid::{build_grid, Grid},
         kana::Vowel,
@@ -128,6 +129,7 @@ pub struct Avatar {
     package: AvatarPackage,
     motion: Motion,
     physics: Physics,
+    cloth: ClothPhysics,
     body_dynamics: crate::engine::legs::BodyDynamics,
     expression: ExpressionOverlay,
     options: AvatarOptions,
@@ -194,10 +196,15 @@ impl Avatar {
             r.image.width,
             r.image.height,
         ]);
+        let base_name = if r.cloth.is_empty() {
+            "base"
+        } else {
+            "base_cloth"
+        };
         let base = weighted(
             &engine,
             "base",
-            mesh(&package, "base", base_rect, r.mesh.base_cell, true)?,
+            mesh(&package, base_name, base_rect, r.mesh.base_cell, true)?,
             Some(&package.textures["hairmask.png"]),
         );
         let mut eyes = vec![];
@@ -276,10 +283,25 @@ impl Avatar {
             None
         };
         let physics = Physics::new(r);
+        let mut cloth = ClothPhysics::new(&engine, r)?;
+        for c in &r.cloth {
+            let name = format!("cloth_{}", c.name);
+            cloth.attach(
+                &c.name,
+                mesh(
+                    &package,
+                    &name,
+                    package.layers.layers[&name],
+                    r.mesh.cloth_cell.unwrap_or(8),
+                    false,
+                )?,
+            )?;
+        }
         Ok(Self {
             package,
             motion,
             physics,
+            cloth,
             body_dynamics: Default::default(),
             expression,
             options,
@@ -365,6 +387,15 @@ impl Avatar {
     }
     pub fn set_sway_gain(&mut self, gain: f64) {
         self.physics.gain = if gain.is_nan() { 0.0 } else { gain.max(0.0) };
+        self.cloth.gain = self.physics.gain;
+    }
+    /// Adjust one garment, or every garment with `None`, without editing the rig.
+    pub fn set_cloth_tuning(
+        &mut self,
+        name: Option<&str>,
+        tuning: &crate::rig::ClothTuningUpdate,
+    ) -> Result<()> {
+        self.cloth.set_tuning(name, tuning)
     }
     pub fn set_talk_gain(&mut self, gain: f64) {
         self.motion.talk_gain = if gain.is_nan() { 0.0 } else { gain.max(0.0) };
@@ -502,19 +533,45 @@ impl Avatar {
                     .map(|v| v as f32);
             }
         }
+        self.cloth.step(&engine, &p, dt, phys);
+        self.cloth.deform();
         for (chain, (_, mesh)) in self.physics.chains.iter().zip(&mut self.tassels) {
             chain
                 .deform_grid(mesh)
                 .expect("physics initialized tassel joints");
         }
-        let mut layers = vec![draw_layer(
+        let cloth_layers = |behind| {
+            self.cloth
+                .garments
+                .iter()
+                .filter(move |g| g.behind == behind)
+                .flat_map(|g| {
+                    g.meshes.iter().map(move |m| {
+                        draw_layer(
+                            &format!("cloth_{}", g.name),
+                            format!("cloth_{}.png", g.name),
+                            &m.mesh,
+                            1.0,
+                            false,
+                            None,
+                        )
+                    })
+                })
+        };
+        let mut layers: Vec<_> = cloth_layers(true).collect();
+        layers.push(draw_layer(
             "base",
-            "base.png".into(),
+            if self.package.rig.cloth.is_empty() {
+                "base.png"
+            } else {
+                "base_cloth.png"
+            }
+            .into(),
             &self.base.mesh,
             1.0,
             true,
             None,
-        )];
+        ));
         for eye in &self.eyes {
             layers.push(draw_layer(
                 &eye.base.name,
@@ -539,6 +596,7 @@ impl Avatar {
                 }
             }
         }
+        layers.extend(cloth_layers(false));
         for item in self.overlays.items.iter().filter(|item| item.visible) {
             layers.push(draw_layer(
                 &format!("overlay_{}", item.name),

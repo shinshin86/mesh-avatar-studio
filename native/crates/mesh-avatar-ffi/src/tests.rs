@@ -486,3 +486,69 @@ fn panics_are_contained_per_handle_and_errors_are_thread_local() {
     assert_eq!(mesh_avatar_destroy(h), MA_OK);
     assert_eq!(mesh_avatar_destroy(other), MA_OK);
 }
+
+#[test]
+fn cloth_tuning_checks_handle_strings_values_and_names() {
+    let h = open();
+    unsafe {
+        assert_eq!(
+            mesh_avatar_set_cloth_tuning(
+                0,
+                ptr::without_provenance(1),
+                ptr::without_provenance(1),
+                1
+            ),
+            MA_INVALID_HANDLE
+        );
+        assert_eq!(
+            mesh_avatar_set_cloth_tuning(h, ptr::null(), ptr::null(), 0),
+            MA_OK
+        );
+        assert_eq!(
+            mesh_avatar_set_cloth_tuning(h, c"missing".as_ptr(), ptr::null(), 0),
+            MA_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            mesh_avatar_set_cloth_tuning(h, ptr::null(), ptr::null(), 1),
+            MA_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            mesh_avatar_set_cloth_tuning(h, ptr::null(), ptr::without_provenance(1), 129),
+            MA_INVALID_ARGUMENT
+        );
+        for (name, value) in [
+            (c"wind", 0.3),
+            (c"follow", 0.5),
+            (c"cohesion", 8.0),
+            (c"tierGain", 3.0),
+            (c"highModeDamping", 0.48),
+        ] {
+            let item = MaParameter {
+                name: name.as_ptr(),
+                value,
+            };
+            assert_eq!(
+                mesh_avatar_set_cloth_tuning(h, ptr::null(), &item, 1),
+                MA_OK
+            );
+        }
+        for (name, value) in [
+            (c"wind", -1.0),
+            (c"follow", 1.1),
+            (c"cohesion", 1.5),
+            (c"swing", 0.0),
+            (c"damping", f64::NAN),
+            (c"unknown", 1.0),
+        ] {
+            let item = MaParameter {
+                name: name.as_ptr(),
+                value,
+            };
+            assert_eq!(
+                mesh_avatar_set_cloth_tuning(h, ptr::null(), &item, 1),
+                MA_INVALID_ARGUMENT
+            );
+        }
+    }
+    assert_eq!(mesh_avatar_destroy(h), MA_OK);
+}

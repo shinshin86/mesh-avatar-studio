@@ -12,6 +12,15 @@ Rust 版のランタイムは、JavaScript 版と同じ `.mavatar` ファイル�
 足の接地、胴体の姿勢補正、骨盤のねじれ、胴体に追従する腕の動きを含みます。
 関節の配置と調整項目は[rigのフィールド](../docs/rig-fields.md#optional-planted-legs)を参照してください。これらのフィールドを省略すると、従来の変形を維持します。
 
+任意の衣服（`rig.cloth`）は `base_cloth.png` と個別の `cloth_<name>.png` レイヤーを使います。
+親子の衣服、前後の描画順、曲がった縫い目、段、画像の縮尺、風に対応し、JavaScript版と同じ連結振り子で動きます。
+`mesh.clothCell` で描画メッシュの密度を指定できます。詳細は[衣服の設定](../docs/rig-fields.md#optional-garments)を参照してください。衣服のないアバターは従来どおり描画します。
+
+`Avatar::set_cloth_tuning` に `Some("skirt")` と `ClothTuningUpdate` を渡すと、指定した衣服を調整できます。`None` はすべての衣服が対象です。
+Cでは `mesh_avatar_set_cloth_tuning(handle, name, values, count)` に `MaParameter` の配列を渡し、すべてを対象にするときは名前をNULLにします。
+どちらも更新全体を検証してから適用し、省略した項目は維持します。存在しない名前・項目や不正な値はエラーとなり、調整値は変わりません。
+元のrigは変更しません。`set_sway_gain` は衣服の揺れにも適用されます。
+
 ## 必要なもの
 
 - Rust 1.88 以降と Cargo。
@@ -260,9 +269,14 @@ PNGとレポートはGit管理外の `native/target/pixel-comparison*/` に保�
 macOSでは `--metal` でChromiumのMetalバックエンドを選べ、`--dpr=2` でHiDPIの物理サイズを揃えて比較できます。
 埋め込むモーションの定義を意図して更新するときは、`node --experimental-strip-types native/conformance/sync-motion-data.mjs` を実行してください。
 
+別のローカルプロジェクトを比較するときは、`--project projects/<name> --out projects/<name>/comparison` を指定し、画像とレポートをそのプロジェクト内に保存してください。
+
+オフスクリーンレンダラーは `--raw --frames 300 --fps 30 -o -` で連続フレームをエンコーダーへ直接渡せます。
+出力は `--size` で指定したサイズの straight RGBA8 で、ヘッダーは付きません。シミュレーションは60 Hzで進み、`--seconds` で開始時点までの時間を指定できます。
+受け取るエンコーダーのサイズとフレームレートを揃え、不透明な形式に書き出すときは背景色と合成してください。中間PNGの保存は不要です。`--raw` を省略すると、従来どおりPNGを1枚出力します。
+
 ## 制限事項
 
-- 衣服（`rig.cloth`）のレイヤーと振り子シミュレーションには対応していません。
 - Windows と Linux のデスクトップでの動作は確認していません。ウィンドウの透明化、最前面表示、クリック透過は OS のコンポジタに依存します。
   透明な描画面を使えない環境では、アプリは終了します。
 - メニューバー、ステータスバーのアイコン、Open Avatar ダイアログは macOS 専用です。実行ファイルには、アプリバンドルなしで「Mesh Avatar」という名前を埋め込んでいます。

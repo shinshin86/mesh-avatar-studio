@@ -249,6 +249,66 @@ pub unsafe extern "C" fn mesh_avatar_set_parameters(
         })
     })
 }
+/// Update cloth tuning atomically. NULL name targets all garments; otherwise name must exist.
+/// Accepts responseGain, tierGain, highModeDamping, swing, stiffness, damping, follow,
+/// cohesion, wind and max. Missing fields retain current values; duplicates use the last.
+/// At most 128 entries. NULL values with count=0 is an empty update. Changes appear on tick.
+/// # Safety
+/// name, when non-NULL, and each entry name must be readable UTF-8 C strings.
+/// values must be readable/aligned for count entries. Inputs are copied during this call.
+#[no_mangle]
+pub unsafe extern "C" fn mesh_avatar_set_cloth_tuning(
+    handle: MaHandle,
+    name: *const c_char,
+    values: *const MaParameter,
+    count: usize,
+) -> MaStatus {
+    boundary(|| {
+        state::with_entry(handle, |entry| {
+            if count > 128 {
+                return Err(Error::new(
+                    MA_INVALID_ARGUMENT,
+                    "invalid cloth tuning count",
+                ));
+            }
+            // SAFETY: Caller provides readable strings and parameter entries.
+            let name = if name.is_null() {
+                None
+            } else {
+                Some(unsafe { input_str(name) }?)
+            };
+            let values = unsafe { input_slice(values, count) }?;
+            let mut tuning = mesh_avatar_core::rig::ClothTuningUpdate::default();
+            for item in values {
+                let key = unsafe { input_str(item.name) }?;
+                let field = match key {
+                    "responseGain" => &mut tuning.response_gain,
+                    "tierGain" => &mut tuning.tier_gain,
+                    "highModeDamping" => &mut tuning.high_mode_damping,
+                    "swing" => &mut tuning.swing,
+                    "stiffness" => &mut tuning.stiffness,
+                    "damping" => &mut tuning.damping,
+                    "follow" => &mut tuning.follow,
+                    "cohesion" => &mut tuning.cohesion,
+                    "wind" => &mut tuning.wind,
+                    "max" => &mut tuning.max,
+                    _ => {
+                        return Err(Error::new(
+                            MA_INVALID_ARGUMENT,
+                            "unknown cloth tuning field",
+                        ))
+                    }
+                };
+                *field = Some(item.value);
+            }
+            entry
+                .avatar
+                .set_cloth_tuning(name, &tuning)
+                .map_err(|e| Error::new(MA_INVALID_ARGUMENT, format!("{e:#}")))
+        })
+    })
+}
+
 /// Select a live expression: neutral, smile, shy, surprise, halfLidded, angry, sad or wink.
 /// # Safety
 /// name must be a readable UTF-8 NUL-terminated string.

@@ -237,6 +237,20 @@ MaStatus mesh_avatar_set_parameters(MaHandle handle,
                                     double weight);
 
 /**
+ * Update cloth tuning atomically. NULL name targets all garments; otherwise name must exist.
+ * Accepts responseGain, tierGain, highModeDamping, swing, stiffness, damping, follow,
+ * cohesion, wind and max. Missing fields retain current values; duplicates use the last.
+ * At most 128 entries. NULL values with count=0 is an empty update. Changes appear on tick.
+ * # Safety
+ * name, when non-NULL, and each entry name must be readable UTF-8 C strings.
+ * values must be readable/aligned for count entries. Inputs are copied during this call.
+ */
+MaStatus mesh_avatar_set_cloth_tuning(MaHandle handle,
+                                      const char *name,
+                                      const MaParameter *values,
+                                      size_t count);
+
+/**
  * Select a live expression: neutral, smile, shy, surprise, halfLidded, angry, sad or wink.
  * # Safety
  * name must be a readable UTF-8 NUL-terminated string.
