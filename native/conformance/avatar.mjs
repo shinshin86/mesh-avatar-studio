@@ -3,6 +3,7 @@ import { registerHooks } from 'node:module';
 import { PNG } from 'pngjs';
 import { seededRandom } from '../../tools/motion-scenarios.mjs';
 import { capture } from './capture-renderer.mjs';
+import { limbRig } from './limb-rigs.mjs';
 
 const actions = [
   [0, 'setAutoIdle', true], [0, 'setAutoMotion', true], [60, 'play', 'nod'], [120, 'setSpeaking', true],
@@ -72,7 +73,7 @@ export async function dumpAvatar({ rig, metadata, sprites, images, destination }
     } };
     globalThis.cancelAnimationFrame = () => {};
     const variants = [];
-    for (const [name, hasSprites, preserveMouthForm, hasOverlays] of [['drawn', true, false, false], ['painted', false, true, false], ['overlays', true, false, true]]) {
+    for (const [name, hasSprites, preserveMouthForm, hasOverlays] of [['drawn', true, false, false], ['painted', false, true, false], ['overlays', true, false, true], ['limbs', true, false, true]]) {
       Math.random = seededRandom(173);
       globalThis.fetch = async name => {
         const value = name === 'layers.json' ? metadata : name === 'sprites/sprites.json' && hasSprites ? sprites
@@ -84,7 +85,8 @@ export async function dumpAvatar({ rig, metadata, sprites, images, destination }
       const assets = Object.fromEntries(Object.keys(images).map(name => [name, name]));
       assets['layers.json'] = 'layers.json'; assets['sprites/sprites.json'] = hasSprites ? 'sprites/sprites.json' : 'absent-sprites.json';
       assets['overlays/overlays.json'] = hasOverlays ? 'overlays/overlays.json' : 'absent-overlays.json';
-      const avatar = await createMeshAvatarImpl({}, { rig, assets, manual: true, preserveMouthForm });
+      const rigOverride = name === 'limbs' ? limbRig(rig, 'twist') : undefined;
+      const avatar = await createMeshAvatarImpl({}, { rig: rigOverride ?? rig, assets, manual: true, preserveMouthForm });
       const overlayGrids = capture.renderer.layers.filter(layer => layer.name.startsWith('overlay_')).map(layer => ({
         name: layer.name, mesh: Object.fromEntries(Object.entries(layer.mesh).map(([key, value]) => [key, ArrayBuffer.isView(value) ? Array.from(value) : value])),
       }));
@@ -94,8 +96,13 @@ export async function dumpAvatar({ rig, metadata, sprites, images, destination }
         [360, 'setOverlays', ['a-pin']], [600, 'setOverlays', ['z-glasses', 'a-pin']],
         [900, 'setOverlays', []], [1020, 'setOverlays', ['z-glasses']], [1199, 'setOverlays', []],
       ] : actions;
+      if (rigOverride) sequenceActions.push(
+        [30, 'setParameters', { weightShift: -0.7, armSwingL: 0.8, armSwingR: -0.5, elbowBendL: 0.4 }],
+        [90, 'setParameters', { weightShift: 0.6, bodyAngleX: 5, armSwingL: -0.5, armSwingR: 0.9, elbowBendR: 0.8 }],
+        [120, 'setParameters', {}],
+      );
       const events = []; avatar.onMotion(id => events.push(id));
-      const samples = [], frames = 1200;
+      const samples = [], frames = rigOverride ? 360 : 1200;
       for (let frame = 0; frame < frames; frame++) {
         for (const [at, method, ...args] of sequenceActions) if (frame === at) avatar[method](...args);
         const voice = 0.5 + Math.sin(frame * 0.73) * 0.45; avatar.setVoiceLevel(voice);
@@ -112,6 +119,7 @@ export async function dumpAvatar({ rig, metadata, sprites, images, destination }
       }
       const file = `avatar-${name}.json`;
       await writeFile(new URL(file, destination), JSON.stringify({ version: 1, hasSprites, preserveMouthForm,
+        ...(rigOverride ? { rigOverride, frames } : {}),
         overlays: hasOverlays ? overlays : null, overlayGrids, actions: sequenceActions, samples }) + '\n');
       variants.push(file); avatar.destroy();
     }

@@ -1,6 +1,11 @@
 //! CPU weights and deformation, following engine/rig.js.
+use super::{
+    arms::{self, ArmFrame, ArmWeights},
+    legs::{BodyDynamics, LegEngine, LegFrame, LegWeights},
+};
 use crate::rig::{Accessory, Ellipse, Eye, Point, Rig};
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct ParameterDefinition {
@@ -165,6 +170,10 @@ pub struct BaseWeights {
     pub chest: f64,
     pub breath: f64,
     pub shoulder: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub legs: Option<LegWeights>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arms: Option<[ArmWeights; 2]>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -221,11 +230,45 @@ impl HandFrame {
 
 pub struct RigEngine<'a> {
     pub rig: &'a Rig,
+    legs: Option<RefCell<LegEngine<'a>>>,
+    arm_cache: RefCell<Option<ArmCache>>,
+}
+
+#[derive(Clone, Copy)]
+struct ArmCache {
+    key: [f64; 11],
+    version: u64,
+    frame: [ArmFrame; 2],
 }
 
 impl<'a> RigEngine<'a> {
     pub fn new(rig: &'a Rig) -> Self {
-        Self { rig }
+        Self::with_body_dynamics(rig, BodyDynamics::default())
+    }
+    pub fn with_body_dynamics(rig: &'a Rig, dynamics: BodyDynamics) -> Self {
+        Self {
+            rig,
+            legs: rig
+                .legs
+                .as_ref()
+                .map(|legs| RefCell::new(LegEngine::new(legs, &rig.body, &rig.head, dynamics))),
+            arm_cache: RefCell::new(None),
+        }
+    }
+    pub fn body_dynamics(&self) -> BodyDynamics {
+        self.legs
+            .as_ref()
+            .map_or_else(BodyDynamics::default, |legs| legs.borrow().dynamics)
+    }
+    pub fn step_body(&self, params: &Parameters, dt: f64) {
+        if let Some(legs) = &self.legs {
+            legs.borrow_mut().step(params, dt);
+        }
+    }
+    pub fn leg_frame(&self, params: &Parameters) -> Option<LegFrame> {
+        self.legs
+            .as_ref()
+            .map(|legs| legs.borrow_mut().frame(params))
     }
     pub fn head_weight(&self, _x: f64, y: f64) -> f64 {
         let b = self.rig.head.weight_band;
@@ -287,6 +330,11 @@ impl<'a> RigEngine<'a> {
             chest: g(&r.body.chest),
             breath: 1.0 - sstep(r.body.breath_band[0], r.body.breath_band[1], y),
             shoulder: r.body.shoulders.iter().map(g).sum(),
+            legs: self.legs.as_ref().map(|legs| legs.borrow().weights(x, y)),
+            arms: r
+                .arms
+                .as_ref()
+                .map(|arms| arms::weights(arms, &r.body, x, y)),
         }
     }
 
@@ -316,14 +364,44 @@ impl<'a> RigEngine<'a> {
         breath_w: f64,
         shoulder: f64,
     ) {
+        self.apply_body_weighted(p, rest_y, params, [chest, breath_w, shoulder], None);
+    }
+
+    fn apply_body_weighted(
+        &self,
+        p: &mut Point,
+        rest_y: f64,
+        params: &Parameters,
+        weights: [f64; 3],
+        leg_weights: Option<&LegWeights>,
+    ) {
+        let [chest, breath_w, shoulder] = weights;
         let body = &self.rig.body;
+        if let Some(legs) = &self.legs {
+            let mut legs = legs.borrow_mut();
+            let w = leg_weights
+                .copied()
+                .unwrap_or_else(|| legs.weights(p[0], rest_y));
+            legs.apply(p, p[0], rest_y, &w, params);
+        }
+        let planted = *p;
         p[1] -= params.breath * (5.0 * breath_w + 4.0 * shoulder);
         p[0] += (p[0] - body.chest.cx) * 0.012 * params.breath * chest;
-        p[0] += params.body_angle_x / 10.0 * (7.0 + 9.0 * chest);
+        if self.legs.is_none() {
+            p[0] += params.body_angle_x / 10.0
+                * body.hip.as_ref().map_or(7.0 + 9.0 * chest, |hip| {
+                    hip.shift * (1.0 - sstep(hip.band[0], hip.band[1], rest_y))
+                });
+        }
         let a = -params.body_angle_z / 10.0
             * body.max_roll
             * (1.0 - sstep(body.roll_band[0], body.roll_band[1], rest_y));
         *p = rotate(*p, [body.pivot_x, body.pivot_y], a.cos(), a.sin());
+        if let Some(legs) = &self.legs {
+            let pin = legs.borrow().pin(rest_y);
+            p[0] = planted[0] + (p[0] - planted[0]) * pin;
+            p[1] = planted[1] + (p[1] - planted[1]) * pin;
+        }
     }
 
     pub fn deform_base(
@@ -335,6 +413,13 @@ impl<'a> RigEngine<'a> {
         phys: &PhysicsOffsets,
     ) -> Point {
         let mut p = [x, y];
+        if self
+            .legs
+            .as_ref()
+            .is_some_and(|legs| legs.borrow().pin(y) == 0.0)
+        {
+            return p;
+        }
         for &(i, wi, t) in &w.strands {
             let Some(o) = phys.strands.get(i) else {
                 continue;
@@ -364,7 +449,57 @@ impl<'a> RigEngine<'a> {
         p[1] += (y - f.eye_a.cy) * -0.06 * ay.abs() * w.eye_a
             + (y - f.eye_b.cy) * -0.06 * ay.abs() * w.eye_b;
         self.apply_head(&mut p, w.head, params, w.turn);
-        self.apply_body(&mut p, y, params, w.chest, w.breath, w.shoulder);
+        self.apply_body_weighted(
+            &mut p,
+            y,
+            params,
+            [w.chest, w.breath, w.shoulder],
+            w.legs.as_ref(),
+        );
+        if let Some((cfg, weights)) = self.rig.arms.as_ref().zip(w.arms.as_ref()) {
+            if weights.iter().any(|w| w.arm > 0.0) {
+                let key = [
+                    params.angle_x,
+                    params.angle_y,
+                    params.angle_z,
+                    params.body_angle_x,
+                    params.body_angle_z,
+                    params.breath,
+                    params.arm_swing_l,
+                    params.arm_swing_r,
+                    params.elbow_bend_l,
+                    params.elbow_bend_r,
+                    params.weight_shift,
+                ];
+                let version = self.body_dynamics().version;
+                let cached = *self.arm_cache.borrow();
+                let frame =
+                    if let Some(cached) = cached.filter(|c| c.key == key && c.version == version) {
+                        cached.frame
+                    } else {
+                        let frame = arms::frame(cfg, params, |point| {
+                            let a = self.base_weights(point[0], point[1], 0.0);
+                            let mut q = point;
+                            self.apply_head(&mut q, a.head, params, a.turn);
+                            self.apply_body_weighted(
+                                &mut q,
+                                point[1],
+                                params,
+                                [a.chest, a.breath, a.shoulder],
+                                a.legs.as_ref(),
+                            );
+                            q
+                        });
+                        *self.arm_cache.borrow_mut() = Some(ArmCache {
+                            key,
+                            version,
+                            frame,
+                        });
+                        frame
+                    };
+                arms::apply(&mut p, weights, &frame);
+            }
+        }
         p
     }
 

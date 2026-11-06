@@ -68,6 +68,8 @@ console.log(`Wrote ${grids.length} layer/sprite grids and ${cases.length} edge c
 images['hairmask.png'] = PNG.sync.read(await readFile(new URL('built/hairmask.png', sample)));
 await dumpDeformation({ rig, engine, grids, images, sprites, buildGrid, destination });
 await dumpMotion({ rig, engine, destination });
+const { dumpLimbs } = await import('./limbs.mjs');
+await dumpLimbs({ rig, destination });
 const { dumpAvatar } = await import('./avatar.mjs');
 await dumpAvatar({ rig, metadata, sprites, images, destination });
 hooks.deregister();

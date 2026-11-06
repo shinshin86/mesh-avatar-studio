@@ -6,7 +6,7 @@ use super::{
     random::{RandomSource, SeededRandom},
     rig::{sstep, Parameters, PARAMS},
 };
-use crate::rig::Point;
+use crate::rig::{Point, Rig};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -97,6 +97,31 @@ pub struct Motion {
     breath_period: f64,
     talk_nod: f64,
     rng: Box<dyn RandomSource>,
+    planted: bool,
+    arm_rig: Option<ArmMotion>,
+    arm_follow: f64,
+    arm_velocity: f64,
+}
+
+struct ArmMotion {
+    swing: f64,
+    inward: f64,
+    body_roll: f64,
+    leg_tilt: f64,
+}
+
+/// Held five-second transfer with a quintic transition, matching the JS motion.
+pub fn weight_transfer(t: f64) -> f64 {
+    let duration = 0.9;
+    let phase = (t + duration / 2.0) % 5.0;
+    let start = if phase < 2.5 { -0.7 } else { 0.7 };
+    let local = phase % 2.5;
+    if local >= duration {
+        return -start;
+    }
+    let u = local / duration;
+    let s = u * u * u * (10.0 + u * (-15.0 + 6.0 * u));
+    start + (-start - start) * s
 }
 
 fn noise(t: f64, seed: f64) -> f64 {
@@ -232,7 +257,26 @@ impl Motion {
             breath_period: 3.8,
             talk_nod: 0.0,
             rng,
+            planted: false,
+            arm_rig: None,
+            arm_follow: 0.0,
+            arm_velocity: 0.0,
         }
+    }
+    /// Enable optional body motion while preserving the caller's random sequence.
+    pub fn configure_rig(&mut self, rig: &Rig) {
+        self.planted = rig.legs.is_some();
+        self.arm_rig = rig.arms.as_ref().map(|arms| ArmMotion {
+            swing: arms.swing * std::f64::consts::PI / 180.0,
+            inward: arms.inward,
+            body_roll: rig.body.max_roll,
+            leg_tilt: rig
+                .legs
+                .as_ref()
+                .map_or(0.0, |legs| legs.tilt * (1.0 - legs.spine)),
+        });
+        self.arm_follow = 0.0;
+        self.arm_velocity = 0.0;
     }
     pub fn set_expression(&mut self, name: &str) {
         self.expr = if data().expressions.contains_key(name) {
@@ -500,10 +544,14 @@ impl Motion {
                 target.angle_x = fbm(t * 0.18, 1.0) * 10.0 + self.gaze.x * 11.0;
                 target.angle_y = fbm(t * 0.15, 2.0) * 6.0 - 1.0 + self.gaze.y * 7.0;
                 target.angle_z = fbm(t * 0.12, 3.0) * 10.0;
-                target.body_angle_x = fbm(t * 0.1, 4.0) * 5.0;
-                target.body_angle_z = fbm(t * 0.09, 5.0) * 4.0;
-                // Match the JS path without a leg rig; do not consume extra randomness.
-                target.weight_shift = 0.7 * (t * std::f64::consts::PI * 2.0 / 5.0).sin();
+                let body_gain = if self.planted { 0.35 } else { 1.0 };
+                target.body_angle_x = fbm(t * 0.1, 4.0) * 5.0 * body_gain;
+                target.body_angle_z = fbm(t * 0.09, 5.0) * 4.0 * body_gain;
+                target.weight_shift = if self.planted {
+                    weight_transfer(t)
+                } else {
+                    0.7 * (t * std::f64::consts::PI * 2.0 / 5.0).sin()
+                };
                 target.arm_angle = fbm(t * 0.14, 6.0) * 5.0;
                 target.hand_angle = fbm(t * 0.21, 7.0) * 5.0;
                 if t > self.gaze.next {
@@ -605,6 +653,31 @@ impl Motion {
         }
         if self.mode != Mode::Manual {
             target.angle_y += target.breath * 1.6;
+        }
+        if let Some(arms) = self.arm_rig.as_ref().filter(|_| self.mode != Mode::Manual) {
+            let tilt =
+                -target.body_angle_z / 10.0 * arms.body_roll + arms.leg_tilt * target.weight_shift;
+            let time = dt.clamp(0.0, 0.05);
+            let count = (time * 240.0).ceil() as usize;
+            for _ in 0..count {
+                let h = time / count as f64;
+                self.arm_velocity +=
+                    (100.0 * (-tilt * 0.65 - self.arm_follow) - 18.0 * self.arm_velocity) * h;
+                self.arm_follow += self.arm_velocity * h;
+            }
+            for (sign, swing, bend) in [
+                (1.0, "armSwingL", "elbowBendL"),
+                (-1.0, "armSwingR", "elbowBendR"),
+            ] {
+                let relative = sign * self.arm_follow;
+                let limit = arms.swing * if relative < 0.0 { arms.inward } else { 1.0 };
+                let value = if limit > 0.0 { relative / limit } else { 0.0 };
+                target.set(
+                    swing,
+                    (value + (target.breath - 0.5) * 0.06).clamp(-1.0, 1.0),
+                );
+                target.set(bend, target.breath * 0.025);
+            }
         }
         let expr_target = expression_target(&self.expr);
         let k = 1.0 - (-dt * 9.0).exp();

@@ -10,6 +10,11 @@ The Rust runtime loads the same `.mavatar` files and built project folders as th
 JavaScript runtime. It includes a transparent desktop avatar, a PNG renderer and Rust/C embedding APIs.
 The primary desktop target is macOS with Metal.
 
+Optional planted legs (`rig.legs`) and hanging arms (`rig.arms`) use the JavaScript
+deformation and motion model, including planted feet, torso stabilization, pelvis
+twist and arm follow. See the [rig fields](../docs/rig-fields.md#optional-planted-legs)
+for joint placement and tuning. Omitting these fields preserves legacy deformation.
+
 ## Prerequisites
 
 - Rust 1.88 or newer, with Cargo.
@@ -333,10 +338,7 @@ run `node --experimental-strip-types native/conformance/sync-motion-data.mjs`.
 
 ## Limitations
 
-- Leg and hanging-arm deformation (`rig.legs` / `rig.arms`) is not supported.
-  The `weightShift`, `armSwingL/R` and `elbowBendL/R` parameters are accepted,
-  but do not affect geometry. Automatic motion matches the JavaScript path
-  without leg/arm rigs: weight shift follows a smoothed sine, and arm parameters stay at zero.
+- Cloth (`rig.cloth`), including garment layers and pendulum simulation, is not supported.
 - Windows and Linux desktop behavior has not been verified. Window transparency,
   always-on-top behavior and cursor click-through depend on the OS compositor.
   The app exits if a transparent surface is unavailable.

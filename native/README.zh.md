@@ -8,6 +8,10 @@
 Rust 运行时可以加载与 JavaScript 运行时相同的 `.mavatar` 文件和已构建的项目文件夹。
 其中包含透明的桌面虚拟形象程序、PNG渲染器和Rust/C嵌入API。桌面端的主要目标平台是使用 Metal 的 macOS。
 
+可选的接地双腿（`rig.legs`）和下垂手臂（`rig.arms`）采用与JavaScript版相同的变形和动作模型，
+包括足部固定、躯干姿态稳定、骨盆扭转以及手臂跟随。
+关节位置和调节字段见[rig字段说明](../docs/rig-fields.md#optional-planted-legs)。省略这些字段时保留原有变形。
+
 ## 准备工作
 
 - Rust 1.88 或更高版本，以及 Cargo。
@@ -249,9 +253,7 @@ PNG及报告保存在Git忽略的 `native/target/pixel-comparison*/`。macOS上�
 
 ## 限制
 
-- 尚不支持腿部和下垂手臂的变形（`rig.legs` / `rig.arms`）。
-  可以设置 `weightShift`、`armSwingL/R` 和 `elbowBendL/R`，但它们不会影响网格形状。
-  自动动作与没有腿部或手臂rig的JavaScript版本一致：重心转移使用平滑后的正弦波，手臂参数保持为0。
+- 尚不支持衣物（`rig.cloth`）图层及其摆动模拟。
 - 尚未验证 Windows 和 Linux 上的桌面行为。窗口透明、置顶和鼠标点击穿透取决于操作系统的合成器。
   如果无法使用透明绘制表面，程序会退出。
 - 原生菜单栏、状态栏图标和 Open Avatar 对话框仅支持 macOS。可执行文件在没有应用包的情况下嵌入了名称“Mesh Avatar”；
