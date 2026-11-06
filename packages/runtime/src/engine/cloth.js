@@ -48,8 +48,14 @@ export function createCloth(engine, rig) {
       rest[i + 1] = top[k][1] + (bot[k][1] - top[k][1]) * v;
     }
     if (grid.custom) rest.set(grid.rest);
+    // The legacy one-pixel length floor creates a stiff artificial pendulum for
+    // collapsed/subpixel columns. Carry these columns with the waist instead.
+    const pinned = Array.from({ length: cols }, (_, k) => {
+      const top = k * 2, bottom = ((rows - 1) * cols + k) * 2;
+      return !grid.custom && Math.hypot(rest[bottom] - rest[top], rest[bottom + 1] - rest[top + 1]) <= 1;
+    });
     return {
-      grid, pendulums: /** @type {ReturnType<typeof pendulumSystem>[]} */ ([]), systemKey: null,
+      grid, pinned, pendulums: /** @type {ReturnType<typeof pendulumSystem>[]} */ ([]), systemKey: null,
       c, gravity: 9.80665 / (c.scale === undefined ? metersPerPixel : c.scale / 1000),
       tuning: Object.fromEntries(Object.entries({ ...CLOTH_DEFAULTS, ...CLOTH_OPTIONAL_DEFAULTS }).map(([key, value]) => [key, c[key] ?? value])),
       cols, rows, rest, top: grid.custom ? grid.top : top, weights: (grid.custom ? grid.top : top).map(([x, y]) => baseWeights(x, y, 0)),
@@ -65,6 +71,7 @@ export function createCloth(engine, rig) {
   // Grid coordinates of a point: the cell and its bilinear (s, t). Points outside the grid get
   // the nearest cell, extrapolated, so ruffles past the waist or hem line still follow it.
   function locate(g, x, y) {
+    const bounded = g.grid.custom || g.pinned.some(Boolean);
     let best = null;
     for (let r = 0; r < g.rows - 1; r++) for (let k = 0; k < g.cols - 1; k++) {
       const q = [(r * g.cols + k) * 2, (r * g.cols + k + 1) * 2, ((r + 1) * g.cols + k + 1) * 2, ((r + 1) * g.cols + k) * 2];
@@ -81,7 +88,7 @@ export function createCloth(engine, rig) {
         t -= (sx * fy - sy * fx) / det;
       }
       let miss = Math.max(0, -s, s - 1) + Math.max(0, -t, t - 1);
-      if (g.grid.custom) {
+      if (bounded) {
         const u = Math.max(0, Math.min(1, s)), v = Math.max(0, Math.min(1, t));
         const px = ax * (1 - u) * (1 - v) + bx * u * (1 - v) + cx * u * v + dx * (1 - u) * v;
         const py = ay * (1 - u) * (1 - v) + by * u * (1 - v) + cy * u * v + dy * (1 - u) * v;
@@ -89,9 +96,9 @@ export function createCloth(engine, rig) {
       }
       if (!best || miss < best.miss) best = { q, s, t, miss };
     }
-    best.s = Math.min(g.grid.custom ? 1 : 4, Math.max(g.grid.custom ? 0 : -3, best.s));
-    best.t = Math.min(g.grid.custom ? 1 : 4, Math.max(g.grid.custom ? 0 : -3, best.t));
-    if (g.grid.custom) {
+    best.s = Math.min(bounded ? 1 : 4, Math.max(bounded ? 0 : -3, best.s));
+    best.t = Math.min(bounded ? 1 : 4, Math.max(bounded ? 0 : -3, best.t));
+    if (bounded) {
       const point = [0, 0]; place(g.rest, best, point);
       best.offset = [x - point[0], y - point[1]];
     }
@@ -222,6 +229,7 @@ export function createCloth(engine, rig) {
           // One coherent breeze for the whole sheet, never a travelling wave.
           const breeze = (Math.sin(t * 1.1) * 0.6 + Math.sin(t * 2.3) * 0.4) * max * wind;
           for (let k = 0; k < cols; k++) {
+            if (g.pinned[k]) continue;
             const i = k * 2, bottom = ((rows - 1) * cols + k) * 2;
             const length = Math.max(1, Math.hypot(rest[bottom] - rest[i], rest[bottom + 1] - rest[i + 1]));
             // Source y points down: upward pivot acceleration adds apparent
@@ -258,12 +266,20 @@ export function createCloth(engine, rig) {
         // Smooth the column angles and their velocities, rather than delayed rows.
         for (let pass = 0; elapsed > 0 && pass < cohesion; pass++) for (const values of [angle, angularVelocity, lowerAngle, lowerAngularVelocity]) {
           const previous = values.slice();
-          for (let k = 0; k < cols; k++) values[k] = previous[k] * 0.5
+          for (let k = 0; k < cols; k++) values[k] = g.pinned[k] ? 0 : previous[k] * 0.5
             + (previous[Math.max(0, k - 1)] + previous[Math.min(cols - 1, k + 1)]) * 0.25;
         }
         const render = (destination, anchors, renderGain) => {
           for (let k = 0; k < cols; k++) {
           const top = k * 2, bottom = ((rows - 1) * cols + k) * 2;
+          if (g.pinned[k]) {
+            for (let r = 0; r < rows; r++) {
+              const i = (r * cols + k) * 2;
+              destination[i] = rest[i] + anchors[top] - rest[top];
+              destination[i + 1] = rest[i + 1] + anchors[top + 1] - rest[top + 1];
+            }
+            continue;
+          }
           const length = Math.max(1, Math.hypot(rest[bottom] - rest[top], rest[bottom + 1] - rest[top + 1]));
           const vertical = max * 0.1 * Math.tanh(bounce[k] * renderGain / (max * 0.1));
           const limit = 2 * Math.asin(Math.min(0.95, (max - Math.abs(vertical)) / (2 * length)));

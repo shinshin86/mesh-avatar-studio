@@ -56,6 +56,37 @@ test('no-wind cloth converges to rest and is deterministic through motion and re
   expect(Math.max(...a.garments[0].out.map((v, i) => Math.abs(v - a.garments[0].rest[i])))).toBeLessThan(0.5);
 });
 
+test.each([0, 0.3, 1, 2].flatMap(length => [false, true].map(partial => [length, partial] as const)))(
+  'cloth columns of %d px (partial=%s) stay finite through long forced motion', (length, partial) => {
+    const root = garment(); root.hem = partial ? [[0, length], [100, 100]] : root.waist.map(([x, y]) => [x, y + length]);
+    const child: Cloth = { ...garment(), name: 'tail', parent: 'skirt', waist: [[20, 0], [80, 0]], hem: [[20, 100], [80, 100]] };
+    const s = simulation({ wind: 0.2, stiffness: 0.7, swing: 1.2, damping: 1.4, cohesion: 3 }, [root, child]);
+    expect(validateRig(s.rig)).toEqual([]);
+    const rest = new Float32Array([-20, -10, 50, 60, 120, 110]), mesh = { rest, pos: new Float32Array(rest.length) };
+    s.cloth.attach('skirt', mesh);
+    s.cloth.step({ shift: 0 }, 0, {}); s.cloth.deform();
+    if (length <= 1) expect(Array.from(mesh.pos)).toEqual(Array.from(rest));
+    for (let f = 0; f < 1800; f++) {
+      if (f === 300) s.cloth.setTuning(null, { responseGain: 2, tierGain: 3, cohesion: 0 });
+      if (f === 600) s.cloth.setTuning('skirt', { swing: 0.9, wind: 0.3 });
+      s.cloth.gain = f < 400 ? 1 : f < 600 ? 0 : 2;
+      const dt = f % 200 === 40 ? 0 : f % 200 === 80 ? -0.1 : f % 200 === 120 ? 0.08 : 1 / 60;
+      const shift = 8 * Math.sin(f * 0.073), lift = 3 * Math.cos(f * 0.037);
+      s.cloth.step({ shift, lift, rotation: 0.04 * Math.sin(f * 0.053) }, dt, {}); s.cloth.deform();
+      for (const g of s.garments) for (const values of [g.out, g.physicalOut, g.target, g.angle, g.angularVelocity,
+        g.lowerAngle, g.lowerAngularVelocity, g.bounce, g.bounceVelocity]) expect(Array.from(values).every(Number.isFinite), `frame ${f}`).toBe(true);
+      expect(Array.from(mesh.pos).every(Number.isFinite)).toBe(true);
+      const g = s.garments[0];
+      for (let k = 0; k < (length > 1 ? 0 : partial ? 1 : g.cols); k++) {
+        expect([g.angle[k], g.angularVelocity[k], g.lowerAngle[k], g.lowerAngularVelocity[k], g.bounce[k], g.bounceVelocity[k]]).toEqual([0, 0, 0, 0, 0, 0]);
+        for (let r = 0; r < g.rows; r++) {
+          const i = (r * g.cols + k) * 2;
+          expect(g.out[i]).toBeCloseTo(g.target[i], 10); expect(g.out[i + 1]).toBeCloseTo(g.target[i + 1], 10);
+        }
+      }
+    }
+});
+
 test('grid offsets stay within max, including amplified sway', () => {
   for (const gain of [0, 0.5, 1, 3]) {
     const a = simulation({ max: 12, wind: 2 }); a.cloth.gain = gain;

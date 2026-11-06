@@ -13,7 +13,7 @@ const plain = value => JSON.parse(JSON.stringify(value, (_key, v) => ArrayBuffer
 export async function dumpCloth({ rig: source, destination }) {
   const sequences = [], originalRandom = Math.random;
   try {
-    for (const variant of ['legacy', 'custom', 'tiers', 'seams', 'zero', 'empty', 'legs']) {
+    for (const variant of ['legacy', 'custom', 'tiers', 'seams', 'zero', 'empty', 'legs', 'subpixel', 'one-pixel', 'two-pixel', 'mixed', 'zero-parent']) {
       const rig = clothRig(source, variant); const engine = createRig(rig);
       Math.random = seededRandom(173);
       const { Physics } = createPhysics(engine, rig), physics = new Physics();
@@ -30,9 +30,8 @@ export async function dumpCloth({ rig: source, destination }) {
       const actions = [[20, null, { responseGain: 2, tierGain: 3, highModeDamping: 0.48 }],
         [100, 'skirt', { stiffness: 0.7, swing: 1.2, damping: 1.4, follow: 0.7, wind: 0.2, cohesion: 0, max: 30 }],
         [200, null, { responseGain: 0.8, tierGain: 1.2, highModeDamping: 1.5 }]];
-      // A zero-length legacy strip is valid at rest; forcing it over time can
-      // destabilize the reference's short-link solver, so check its initial state.
-      const samples = [], frames = variant === 'zero' ? 1 : 360;
+      const longTrace = ['zero', 'subpixel', 'one-pixel', 'two-pixel', 'mixed', 'zero-parent'].includes(variant);
+      const samples = [], frames = longTrace ? 1800 : 360;
       for (let frame = 0; frame < frames; frame++) {
         if (variant !== 'empty') for (const [at, name, tune] of actions) if (frame === at) cloth.setTuning(name, tune);
         const dt = frame === 40 ? 0 : frame === 80 ? -0.1 : frame === 120 ? 0.08 : 1/60;
@@ -40,12 +39,17 @@ export async function dumpCloth({ rig: source, destination }) {
         const p = motion.update(Math.max(0, dt)); const phys = physics.step(p, Math.max(0, dt));
         cloth.step(p, dt, phys);
         cloth.deform();
+        for (const g of garments) for (const values of [g.out, g.physicalOut, g.target, g.angle, g.angularVelocity,
+          g.lowerAngle, g.lowerAngularVelocity, g.bounce, g.bounceVelocity]) {
+          if (!values.every(Number.isFinite)) throw new Error(`${variant}: non-finite cloth state at frame ${frame}`);
+        }
+        for (const { mesh } of meshes) if (!mesh.pos.every(Number.isFinite)) throw new Error(`${variant}: non-finite cloth mesh at frame ${frame}`);
         samples.push({ frame, dt, parameters: { ...p }, gain: cloth.gain, time: cloth.time,
           garments: garments.map(g => plain({ out: g.out, physicalOut: g.physicalOut, target: g.target,
             angle: g.angle, angularVelocity: g.angularVelocity, lowerAngle: g.lowerAngle, lowerAngularVelocity: g.lowerAngularVelocity,
             bounce: g.bounce, bounceVelocity: g.bounceVelocity, pendulums: g.pendulums })), positions: meshes.map(m => Array.from(m.mesh.pos)) });
       }
-      sequences.push({ variant, rig, actions: variant === 'empty' ? [] : actions, initial, meshes: meshes.map(m => ({name:m.name,mesh:plain(m.mesh)})), samples, nextRandom: Math.random() });
+      sequences.push({ variant, rig, ...(longTrace ? { longTrace: true } : {}), actions: variant === 'empty' ? [] : actions, initial, meshes: meshes.map(m => ({name:m.name,mesh:plain(m.mesh)})), samples, nextRandom: Math.random() });
     }
   } finally { Math.random = originalRandom; }
   const validation = [];
