@@ -94,7 +94,11 @@ fn cloth_grids_physics_skinning_and_seeded_motion_match_javascript() {
             let mesh: Grid = serde_json::from_value(m["mesh"].clone()).unwrap();
             cloth.attach(m["name"].as_str().unwrap(), mesh).unwrap();
         }
-        for sample in sequence["samples"].as_array().unwrap() {
+        let samples = sequence["samples"].as_array().unwrap();
+        if sequence["longTrace"] == true {
+            assert_eq!(samples.len(), 1800);
+        }
+        for sample in samples {
             let frame = sample["frame"].as_u64().unwrap();
             let dt = sample["dt"].as_f64().unwrap();
             for a in sequence["actions"].as_array().unwrap() {
@@ -120,6 +124,53 @@ fn cloth_grids_physics_skinning_and_seeded_motion_match_javascript() {
             cloth.deform();
             compare(&json!(cloth.time), &sample["time"], &mut max, "time");
             for (i, g) in cloth.garments.iter().enumerate() {
+                for values in [
+                    &g.out,
+                    &g.physical_out,
+                    &g.target,
+                    &g.angle,
+                    &g.angular_velocity,
+                    &g.lower_angle,
+                    &g.lower_angular_velocity,
+                    &g.bounce,
+                    &g.bounce_velocity,
+                ] {
+                    assert!(
+                        values.iter().all(|v| v.is_finite()),
+                        "{} frame {frame}",
+                        sequence["variant"]
+                    );
+                }
+                assert!(g.meshes[0].mesh.pos.iter().all(|v| v.is_finite()));
+                if !g.grid.custom {
+                    for k in 0..g.grid.cols {
+                        let top = k * 2;
+                        let bottom = ((g.grid.rows - 1) * g.grid.cols + k) * 2;
+                        if (g.rest[bottom] - g.rest[top])
+                            .hypot(g.rest[bottom + 1] - g.rest[top + 1])
+                            > 1.0
+                        {
+                            continue;
+                        }
+                        assert_eq!(
+                            [
+                                g.angle[k],
+                                g.angular_velocity[k],
+                                g.lower_angle[k],
+                                g.lower_angular_velocity[k],
+                                g.bounce[k],
+                                g.bounce_velocity[k]
+                            ],
+                            [0.0; 6]
+                        );
+                        for r in 0..g.grid.rows {
+                            for axis in 0..2 {
+                                let i = (r * g.grid.cols + k) * 2 + axis;
+                                assert!((g.out[i] - g.target[i]).abs() < 1e-10);
+                            }
+                        }
+                    }
+                }
                 let actual = json!({"out":g.out,"physicalOut":g.physical_out,"target":g.target,"angle":g.angle,"angularVelocity":g.angular_velocity,
                     "lowerAngle":g.lower_angle,"lowerAngularVelocity":g.lower_angular_velocity,"bounce":g.bounce,"bounceVelocity":g.bounce_velocity,"pendulums":g.pendulums});
                 compare(

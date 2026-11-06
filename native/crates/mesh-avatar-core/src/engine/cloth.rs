@@ -27,6 +27,7 @@ fn place(p: &[f64], loc: &Location) -> Point {
     out
 }
 fn locate(g: &Garment, x: f64, y: f64) -> Location {
+    let bounded = g.grid.custom || g.pinned.iter().any(|p| *p);
     let mut best = None;
     let mut best_miss = f64::INFINITY;
     for r in 0..g.grid.rows - 1 {
@@ -75,7 +76,7 @@ fn locate(g: &Garment, x: f64, y: f64) -> Location {
                 t -= (sx * fy - sy * fx) / det;
             }
             let mut miss = 0.0_f64.max(-s).max(s - 1.0) + 0.0_f64.max(-t).max(t - 1.0);
-            if g.grid.custom {
+            if bounded {
                 let (u, v) = (s.clamp(0.0, 1.0), t.clamp(0.0, 1.0));
                 let px = ax * (1.0 - u) * (1.0 - v)
                     + bx * u * (1.0 - v)
@@ -99,14 +100,10 @@ fn locate(g: &Garment, x: f64, y: f64) -> Location {
         }
     }
     let mut best = best.expect("validated cloth grid has cells");
-    let (min, max) = if g.grid.custom {
-        (0.0, 1.0)
-    } else {
-        (-3.0, 4.0)
-    };
+    let (min, max) = if bounded { (0.0, 1.0) } else { (-3.0, 4.0) };
     best.s = best.s.clamp(min, max);
     best.t = best.t.clamp(min, max);
-    if g.grid.custom {
+    if bounded {
         let p = place(&g.rest, &best);
         best.offset = [x - p[0], y - p[1]];
     }
@@ -134,6 +131,7 @@ pub struct Garment {
     pub bounce: Vec<f64>,
     pub bounce_velocity: Vec<f64>,
     pub meshes: Vec<ClothMesh>,
+    pinned: Vec<bool>,
     top: Vec<Point>,
     weights: Vec<BaseWeights>,
     previous: Option<Vec<f64>>,
@@ -182,6 +180,16 @@ impl ClothPhysics {
                     }
                 }
             }
+            // The legacy one-pixel floor is an artificial short pendulum. Carry
+            // collapsed/subpixel columns with their waist instead of integrating it.
+            let pinned = (0..cols)
+                .map(|k| {
+                    let top = k * 2;
+                    let bottom = ((rows - 1) * cols + k) * 2;
+                    !grid.custom
+                        && (rest[bottom] - rest[top]).hypot(rest[bottom + 1] - rest[top + 1]) <= 1.0
+                })
+                .collect();
             let parent = c
                 .parent
                 .as_ref()
@@ -206,6 +214,7 @@ impl ClothPhysics {
                 behind: c.behind,
                 gravity: 9.80665 / c.scale.map_or(meters_per_pixel, |s| s / 1000.0),
                 tuning: c.tuning.clone(),
+                pinned,
                 grid,
                 top,
                 weights,
@@ -416,6 +425,9 @@ impl ClothPhysics {
                 let t = self.time + (n + 1) as f64 * h;
                 let breeze = ((t * 1.1).sin() * 0.6 + (t * 2.3).sin() * 0.4) * tune.max * tune.wind;
                 for k in 0..cols {
+                    if g.pinned[k] {
+                        continue;
+                    }
                     let i = k * 2;
                     let bottom = ((rows - 1) * cols + k) * 2;
                     let length = (g.rest[bottom] - g.rest[i])
@@ -467,9 +479,14 @@ impl ClothPhysics {
                     ] {
                         let previous = values.clone();
                         for k in 0..cols {
-                            values[k] = previous[k] * 0.5
-                                + (previous[k.saturating_sub(1)] + previous[(k + 1).min(cols - 1)])
-                                    * 0.25;
+                            values[k] = if g.pinned[k] {
+                                0.0
+                            } else {
+                                previous[k] * 0.5
+                                    + (previous[k.saturating_sub(1)]
+                                        + previous[(k + 1).min(cols - 1)])
+                                        * 0.25
+                            };
                         }
                     }
                 }
@@ -551,6 +568,14 @@ fn render_legacy(g: &Garment, anchors: &[f64], gain: f64) -> Vec<f64> {
     for k in 0..cols {
         let top = k * 2;
         let bottom = ((rows - 1) * cols + k) * 2;
+        if g.pinned[k] {
+            for r in 0..rows {
+                let i = (r * cols + k) * 2;
+                out[i] = g.rest[i] + anchors[top] - g.rest[top];
+                out[i + 1] = g.rest[i + 1] + anchors[top + 1] - g.rest[top + 1];
+            }
+            continue;
+        }
         let length = (g.rest[bottom] - g.rest[top])
             .hypot(g.rest[bottom + 1] - g.rest[top + 1])
             .max(1.0);
