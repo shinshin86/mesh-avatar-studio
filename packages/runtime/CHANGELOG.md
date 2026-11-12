@@ -1,5 +1,11 @@
 # mesh-avatar
 
+## 0.8.0
+
+### Minor Changes
+
+- 73d6531: Add an optional `{ parameters: false }` option to `setExpression` that switches drawn expression sprites without changing numeric parameters.
+
 ## 0.7.2
 
 ### Patch Changes
