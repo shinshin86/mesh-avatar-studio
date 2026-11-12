@@ -11,7 +11,7 @@ import { CameraCapture, MicrophoneCapture, type CameraState, type MicState, type
 import { liveText } from './i18n';
 import { MicrophoneControls } from './MicrophoneControls';
 import { Icon } from '../editor/Icon';
-import { createLiveSender, receiveExpression, receiveLightingPreset, sendLighting, sendOverlays, watchDuplicateLivePages } from './relay';
+import { createLiveSender, randomSender, sendLiveExpression, receiveExpression, receiveLightingPreset, sendLighting, sendOverlays, watchDuplicateLivePages } from './relay';
 import { EXPRESSION_TOKEN_PATH, LIGHTING_PRESET_PATH } from './expression-protocol';
 
 export function LiveApp() {
@@ -26,6 +26,7 @@ export function LiveApp() {
   const presetsRef = useRef(presets); presetsRef.current = presets;
   const [duplicatePage, setDuplicatePage] = useState(false);
   const [expression, setExpression] = useState<LiveExpression>('neutral');
+  const [sender] = useState(randomSender);
   const expressionRef = useRef(expression); expressionRef.current = expression;
   const [remote, setRemote] = useState<{ url: string; token: string } | null>(null), [remoteCopied, setRemoteCopied] = useState<'url' | 'token' | null>(null);
   const [options, setOptions] = useState<TrackingOptions>({ mirror: true, sensitivity: 1, smoothing: 0.35 });
@@ -62,7 +63,7 @@ export function LiveApp() {
       view?.updateIfStalled(now);
       setBackgroundStatus(camera.current?.backgroundStatus(document.visibilityState === 'hidden' || !!view?.paintPaused(now), now) ?? null);
     };
-    const send = createLiveSender(settings.project);
+    const send = createLiveSender(settings.project, sender);
     setViewState('loading'); setSupport(null); supportRef.current = null;
     void createAvatarView(canvas.current!, settings, (avatar, now, dt) => {
       const control = controls.current, sampled = pose.current.sample(now, dt, { ...control.options, armsTracking: supportRef.current?.arms ?? false });
@@ -76,7 +77,7 @@ export function LiveApp() {
       if (controls.current.cameraState === 'running' || controls.current.micState === 'micOn' || avatar.getExpression().active) send(avatar.getParameters(), now);
     }).then(value => { if (cancelled) value.destroy(); else { view = value; avatarRef.current = value.avatar; value.avatar.setLighting(lightRef.current); value.avatar.setExpression(expressionRef.current); value.avatar.setOverlays(overlaysRef.current); setAvailableOverlays(value.overlays); supportRef.current = value.support; setSupport(value.support); setViewState('ready'); } }).catch(() => { if (!cancelled) setViewState('projectError'); });
     return () => { cancelled = true; clock.terminate(); view?.destroy(); avatarRef.current = null; };
-  }, [settings.project, settings.fit]);
+  }, [settings.project, settings.fit, sender]);
   useEffect(() => {
     saveLighting(settings.project, settings.lighting);
     avatarRef.current?.setLighting(settings.lighting);
@@ -98,7 +99,13 @@ export function LiveApp() {
   }, [settings.project, settings.overlays]);
   const toggleOverlay = (name: string) => setSettings(current => ({ ...current,
     overlays: current.overlays.includes(name) ? current.overlays.filter(item => item !== name) : [...current.overlays, name] }));
-  useEffect(() => { avatarRef.current?.setExpression(expression); }, [expression]);
+  useEffect(() => {
+    avatarRef.current?.setExpression(expression);
+    sendLiveExpression(settings.project, expression, sender);
+    // Reannounce for late-opening or reloaded browser sources, including while hidden.
+    const timer = setInterval(() => sendLiveExpression(settings.project, expression, sender), 250);
+    return () => clearInterval(timer);
+  }, [expression, settings.project, sender]);
   useEffect(() => watchDuplicateLivePages(settings.project, setDuplicatePage), [settings.project]);
   useEffect(() => receiveExpression(settings.project, setExpression), [settings.project]);
   // Empty slots are ignored, so a shortcut for an unsaved preset changes nothing.

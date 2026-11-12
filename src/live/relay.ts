@@ -1,6 +1,6 @@
 import { LIGHTING_EVENT, lightingWire, lightingMessage, lightingValue } from '../lighting/protocol';
 import type { LightingSettings } from 'mesh-avatar';
-import { LIVE_EVENT, liveMessage } from './protocol';
+import { LIVE_EVENT, liveMessage, LIVE_EXPRESSION_EVENT, liveExpressionMessage } from './protocol';
 import { EXPRESSION_EVENT, LIGHTING_PRESET_EVENT, expressionMessage, lightingPresetMessage, type RemoteExpression } from './expression-protocol';
 import { OVERLAYS_EVENT, overlaysMessage } from './overlay-protocol';
 
@@ -11,6 +11,14 @@ export function createLiveSender(project: string, sender = randomSender()) {
     const message = liveMessage({ project, params, t: now, sender });
     if (message) { import.meta.hot.send(LIVE_EVENT, message); sent = now; }
   };
+}
+export function sendLiveExpression(project: string, expression: RemoteExpression, sender: string) {
+  const message = liveExpressionMessage({ project, expression, sender });
+  if (message) import.meta.hot?.send(LIVE_EXPRESSION_EVENT, message);
+}
+export function receiveLiveExpression(callback: (data: unknown) => void) {
+  import.meta.hot?.on(LIVE_EXPRESSION_EVENT, callback);
+  return () => import.meta.hot?.off(LIVE_EXPRESSION_EVENT, callback);
 }
 export function receiveLiveParameters(callback: (data: unknown) => void) {
   import.meta.hot?.on(LIVE_EVENT, callback);

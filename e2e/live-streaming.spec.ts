@@ -69,10 +69,10 @@ test('stream has actual alpha, exact green, no controls and no external requests
 test('relay changes only the matching stream and eases back after updates stop', async ({ context, page }) => {
   const outside = await guardNetwork(context);
   await ready(page, '/stream.html?idle=0');
-  const sender = await context.newPage(); await ready(sender, '/live.html');
+  const sender = await context.newPage(); await ready(sender, '/stream.html?idle=0');
   const send = async (project: string, angleX: number) => sender.evaluate(async ({ project, angleX }) => {
     const path = '/src/live/relay.ts'; const { createLiveSender } = await import(path);
-    createLiveSender(project)({ angleX, angleZ: angleX / 2, mouthOpen: 0.8 }, performance.now());
+    createLiveSender(project, 'aaaaaaaa')({ angleX, angleZ: angleX / 2, mouthOpen: 0.8 }, performance.now());
   }, { project, angleX });
   const canvas = page.locator('#avatar');
   await send('another-project', 30);
@@ -409,4 +409,37 @@ test('optional body and arm tracking maps mirrored joints, calibrates and releas
     await expect(page.getByTestId('body-missing')).toContainText('腿部 · 手臂');
     expect(errors).toEqual([]); expect(outside).toEqual([]);
   } finally { await rm(project, { recursive: true, force: true }); }
+});
+
+
+test('live expression sprites reach late and reloaded streams and expire after Live closes', async ({ context, page }, testInfo) => {
+  const outside = await guardNetwork(context);
+  await ready(page, '/live.html');
+  const stream = await context.newPage(); await ready(stream, '/stream.html?idle=0');
+  const canvas = stream.locator('#avatar');
+  await expect(canvas).toHaveAttribute('data-expression', 'neutral');
+  await canvas.screenshot({ path: testInfo.outputPath('expression-neutral.png') });
+  await page.locator('body').press('4');
+  await expect(canvas).toHaveAttribute('data-expression', 'surprise');
+  await expect(canvas).toHaveAttribute('data-live', 'active');
+  await canvas.screenshot({ path: testInfo.outputPath('expression-surprise.png') });
+  await stream.reload(); await expect(canvas).toHaveAttribute('data-state', 'ready');
+  await expect(canvas).toHaveAttribute('data-expression', 'surprise');
+  // External switches use the same Live state and stream delivery path as buttons and keys.
+  const section = page.getByTestId('expression-section'); await section.locator('summary').click();
+  const token = await section.getByRole('textbox', { name: /Token/ }).inputValue();
+  const url = await section.getByRole('textbox', { name: 'Request URL' }).inputValue();
+  const response = await page.request.post(url, { headers: { 'X-Studio-Token': token }, data: { expression: 'sad' } });
+  expect(response.ok()).toBe(true);
+  await expect(canvas).toHaveAttribute('data-expression', 'sad');
+  await canvas.screenshot({ path: testInfo.outputPath('expression-sad.png') });
+  const late = await context.newPage(); await ready(late, '/stream.html?idle=0');
+  await expect(late.locator('#avatar')).toHaveAttribute('data-expression', 'sad');
+  await page.locator('body').press('6');
+  await expect(canvas).toHaveAttribute('data-expression', 'angry');
+  await canvas.screenshot({ path: testInfo.outputPath('expression-angry.png') });
+  await page.close();
+  await expect(canvas).toHaveAttribute('data-expression', 'neutral');
+  await expect(late.locator('#avatar')).toHaveAttribute('data-expression', 'neutral');
+  expect(outside).toEqual([]);
 });

@@ -1,7 +1,7 @@
 import { createAvatarView, neutralParameters } from './avatar-view';
 import { viewSettings } from './settings';
 import { LivePose } from './protocol';
-import { receiveLighting, receiveLiveParameters, receiveOverlays } from './relay';
+import { receiveLighting, receiveLiveParameters, receiveLiveExpression, receiveOverlays } from './relay';
 import './stream.css';
 
 const settings = viewSettings(location.search);
@@ -12,7 +12,11 @@ let avatarInstance: import('mesh-avatar').MeshAvatar | undefined;
 const unsubscribeLighting = receiveLighting(settings.project, value => { settings.lighting = value; avatarInstance?.setLighting(value); });
 const unsubscribeOverlays = receiveOverlays(settings.project, value => { settings.overlays = value; avatarInstance?.setOverlays(value); });
 const unsubscribe = receiveLiveParameters(data => pose.receive(data, performance.now()));
+const unsubscribeExpression = receiveLiveExpression(data => pose.receiveExpression(data, performance.now()));
 void createAvatarView(canvas, settings, (avatar, now, dt) => {
+  const expression = pose.sampleExpression(now);
+  avatar.setExpression(expression, { parameters: false });
+  canvas.dataset.expression = expression;
   const sampled = pose.sample(now, dt);
   canvas.dataset.live = sampled.active ? 'active' : 'idle';
   avatar.setAutoIdle(settings.idle && !sampled.active); avatar.setAutoMotion(settings.idle && !sampled.active);
@@ -27,7 +31,7 @@ void createAvatarView(canvas, settings, (avatar, now, dt) => {
   if (settings.lighting) view.avatar.setLighting(settings.lighting);
   // An update relayed while the avatar was loading wins over the URL.
   if (settings.overlays) view.avatar.setOverlays(settings.overlays);
-  const destroy = () => { unsubscribe(); unsubscribeLighting(); unsubscribeOverlays(); avatarInstance = undefined; view.destroy(); };
+  const destroy = () => { unsubscribe(); unsubscribeExpression(); unsubscribeLighting(); unsubscribeOverlays(); avatarInstance = undefined; view.destroy(); };
   window.addEventListener('pagehide', destroy, { once: true });
   import.meta.hot?.dispose(destroy);
-}).catch(() => { unsubscribe(); unsubscribeLighting(); unsubscribeOverlays(); canvas.dataset.state = 'error'; });
+}).catch(() => { unsubscribe(); unsubscribeExpression(); unsubscribeLighting(); unsubscribeOverlays(); canvas.dataset.state = 'error'; });

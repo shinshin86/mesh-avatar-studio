@@ -133,3 +133,9 @@ An entry for `neutral` has no effect and is ignored.
 The runtime is MIT licensed; see [LICENSE](./LICENSE). The browser bundle includes [fflate](https://github.com/101arrowz/fflate), with its MIT notice retained in the bundle.
 
 Avatar artwork has its own license. Miko images and other sample artwork are **not included** in this npm package, and the runtime license does not grant rights to that artwork.
+
+When replaying parameters that already include an expression, use
+`avatar.setExpression('sad', { parameters: false })` to select drawn eye and mouth
+sprites without applying the expression to the numbers again. Omit the option
+(or set `parameters: true`) for the usual numeric overlay. Switching this option
+keeps expression smoothing running; enabling numeric effects uses the current mix.

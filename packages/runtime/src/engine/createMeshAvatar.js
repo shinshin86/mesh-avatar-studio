@@ -185,6 +185,7 @@ export async function createMeshAvatarImpl(canvas, options) {
 
   let parameters = {}, parameterWeight = 1, parameterWeights = {}, lastParameters = {};
   const expression = new ExpressionOverlay(options.expressions === undefined ? undefined : parseExpressionSettings(options.expressions));
+  let expressionParameters = true;
   const tmp = [0, 0];
   function updateParameters(dt) {
     const P = { ...motion.update(dt) };
@@ -198,7 +199,8 @@ export async function createMeshAvatarImpl(canvas, options) {
       if (!options.preserveMouthForm || parameters.mouthForm === undefined) P.mouthForm = motion.P.mouthForm;
     }
     // Live expressions sit above tracking and lip sync; neutral leaves the parameters untouched.
-    const out = expression.apply(P, dt);
+    const expressed = expression.apply(P, dt);
+    const out = expressionParameters ? expressed : P;
     lastParameters = out;
     return out;
   }
@@ -282,7 +284,8 @@ export async function createMeshAvatarImpl(canvas, options) {
     /** AITuber OnAir emotion tag: happy / sad / angry / surprised / relaxed / neutral (or null). */
     setEmotion(tag, opts) { motion.setEmotion(tag, opts); },
     /** Live expression layered over tracking (see OVERLAY_EXPRESSIONS); 'neutral' clears it. */
-    setExpression(name) { expression.set(name); },
+    // parameters:false selects drawn expression sprites without changing numeric parameters.
+    setExpression(name, { parameters = true } = {}) { expression.set(name); expressionParameters = parameters; },
     /** Show the named overlay layers (built/overlays/overlays.json) and hide the others. */
     setOverlays(names) { overlays?.set(names); },
     getExpression() { return { name: expression.name, active: expression.active }; },

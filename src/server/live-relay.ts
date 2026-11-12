@@ -1,6 +1,6 @@
 import { LIGHTING_EVENT, lightingMessage } from '../lighting/protocol';
 import type { Plugin, WebSocketClient } from 'vite';
-import { LIVE_EVENT, liveMessage } from '../live/protocol';
+import { LIVE_EVENT, liveMessage, LIVE_EXPRESSION_EVENT, liveExpressionMessage } from '../live/protocol';
 import { resolve } from 'node:path';
 import { EXPRESSION_EVENT, LIGHTING_PRESET_EVENT } from '../live/expression-protocol';
 import { expressionRemote } from './expression-remote';
@@ -25,6 +25,13 @@ export function liveRelay(root: string): Plugin {
         if (!message || now - (lastOverlays.get(client.socket) ?? -Infinity) < 1000 / 60) return;
         lastOverlays.set(client.socket, now);
         server.ws.send(OVERLAYS_EVENT, message);
+      });
+      const lastExpression = new WeakMap<WebSocketClient['socket'], number>();
+      server.ws.on(LIVE_EXPRESSION_EVENT, (data, client) => {
+        const message = liveExpressionMessage(data), now = performance.now();
+        if (!message || now - (lastExpression.get(client.socket) ?? -Infinity) < 1000 / 60) return;
+        lastExpression.set(client.socket, now);
+        server.ws.send(LIVE_EXPRESSION_EVENT, message);
       });
       const lastSent = new WeakMap<WebSocketClient['socket'], number>();
       server.ws.on(LIVE_EVENT, (data, client) => {

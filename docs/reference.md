@@ -437,3 +437,8 @@ npm run e2e
 ```
 
 `docs/screenshots/` stores local visual verification evidence and is excluded from version control.
+
+When replaying final parameters from another avatar, call
+`avatar.setExpression(name, { parameters: false })` to select its drawn expression
+eye and mouth sprites without applying the numeric expression overlay again.
+Omitting the option retains the usual expression behavior.
