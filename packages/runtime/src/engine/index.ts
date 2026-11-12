@@ -34,7 +34,8 @@ export interface MeshAvatar {
   setLipSync(settings: LipSyncSettings): void;
   setSpeaking(on: boolean): void;
   setEmotion(tag: string | null, options?: { playMotion?: boolean }): void;
-  setExpression(name: LiveExpression): void;
+  /** parameters:false selects drawn expression sprites only, leaving numeric parameters unchanged. */
+  setExpression(name: LiveExpression, options?: { parameters?: boolean }): void;
   /** Show the named overlay layers from built/overlays/overlays.json and hide the rest; unknown names are ignored. */
   setOverlays(names: string[]): void;
   getExpression(): { name: LiveExpression; active: boolean };
