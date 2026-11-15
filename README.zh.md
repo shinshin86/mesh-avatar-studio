@@ -75,6 +75,12 @@ npm run create -- --random
 npm run create -- --random --prompt "银色短发，校服"
 ```
 
+#### 从手机向云端 Agent 发出请求
+
+把一张插画发送给拥有自己云端电脑的 Agent（例如 Dot、Muse 或 Grok Bot），让它创建虚拟形象。
+如果服务支持，还能让它制作可从手机打开的展示页面。
+可复制的请求和确认情况见[云端 Agent 使用指南](docs/cloud-agents.zh.md)。
+
 ### 2. 打开项目并检查
 
 启动编辑器（`npm run dev`），选择**打开项目**，从列表中挑选你的项目。点击项目旁的铅笔按钮可以重命名项目，`projects/` 下的文件夹也会一起改名。如果虚拟形象带有眼镜等叠加层（`built/overlays/`），可以在预览的**叠加层**中切换显示。在预览里使用**姿态测试**转头、倾斜头部、闭眼。在**嘴型测试**里选择口型样式，输入假名文本试试效果。打开**高级设置**调整动作幅度、大小和闭合度，或预览本地音频文件。
@@ -148,6 +154,7 @@ npm run create -- --random --prompt "银色短发，校服"
 ## 更多
 
 - [Agent 指南](docs/agent-guide.zh.md)：助手逐步执行的操作流程
+- [云端 Agent 使用指南](docs/cloud-agents.zh.md)：从手机请求创建虚拟形象，并在网页中查看
 - [参考文档](docs/reference.md)：项目结构、手动重建图层、所有编辑器控件、测试
 - [绑定字段说明](docs/rig-fields.md)：`rig.json` 中每个值的意义
 - [虚拟形象格式](docs/format.md)：文件夹和 `.mavatar` 结构、元数据和校验

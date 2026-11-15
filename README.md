@@ -100,6 +100,12 @@ npm run create -- --random
 npm run create -- --random --prompt "silver short hair, school uniform"
 ```
 
+#### From your phone with a cloud agent
+
+Send one illustration to an agent with its own cloud computer, such as Dot, Muse or Grok Bot,
+and ask it to create an avatar and, where supported, a page you can open on your phone.
+See [Create an avatar with a cloud agent](docs/cloud-agents.md) for a message to copy and what has been tried.
+
 ### 2. Open the project and check it
 
 Start the editor (`npm run dev`), choose **Open project** and pick your project from the list.
@@ -239,6 +245,7 @@ locally before opening a PR; CI runs the other checks and does not install Playw
 ## More
 
 - [Agent guide](docs/agent-guide.md): the step-by-step procedure agents follow
+- [Cloud agents](docs/cloud-agents.md): create an avatar from your phone and view it on a page
 - [Reference](docs/reference.md): projects, building layers by hand, all editor controls, tests
 - [Rig fields](docs/rig-fields.md): what every value in `rig.json` means
 - [Avatar format](docs/format.md): folder and `.mavatar` layouts, metadata and validation
