@@ -5,6 +5,12 @@ function result(yaw = 0, shapes: Record<string, number> = {}): FaceResult {
   const a = yaw * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
   return { faceLandmarks: [[]], facialTransformationMatrixes: [{ data: [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1] }], faceBlendshapes: [{ categories: Object.entries(shapes).map(([categoryName, score]) => ({ categoryName, score })) }] };
 }
+function looking(elevation: number): FaceResult {
+  const input = result(), a = elevation * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  // The third column is the face's forward vector: +Y means looking up.
+  input.facialTransformationMatrixes[0].data = [1, 0, 0, 0, 0, c, -s, 0, 0, s, c, 0, 0, 0, 0, 1];
+  return input;
+}
 test('matrix rotation maps to degrees, neutral calibration and clamped engine limits', () => {
   const face = readFace(result(25))!;
   expect(face.yaw).toBeCloseTo(25);
@@ -20,6 +26,27 @@ test('matrix rotation maps to degrees, neutral calibration and clamped engine li
   input.facialTransformationMatrixes[0].data = [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
   expect(readFace(input)!.roll).toBeCloseTo(30);
   input.facialTransformationMatrixes[0].data[0] = NaN; expect(readFace(input)).toBeNull();
+});
+test.each([{ direction: 'up', elevation: 15 }, { direction: 'down', elevation: -15 }])(
+  'face forward vector tilted $direction maps to the matching engine pitch', ({ elevation }) => {
+    const face = readFace(looking(elevation))!;
+    expect(face.pitch).toBeCloseTo(-elevation);
+    for (const mirror of [false, true]) {
+      const mapped = mapFace(face, null, { ...options, mirror });
+      expect(mapped.angleY).toBeCloseTo(elevation);
+      if (elevation > 0) expect(mapped.angleY).toBeGreaterThan(0);
+      else expect(mapped.angleY).toBeLessThan(0);
+    }
+  },
+);
+test('pitch keeps the calibrated neutral, sensitivity and engine limits', () => {
+  const neutral = readFace(looking(10))!;
+  expect(mapFace(neutral, neutral, options).angleY).toBeCloseTo(0);
+  expect(mapFace(readFace(looking(20))!, neutral, options).angleY).toBeCloseTo(10);
+  expect(mapFace(readFace(looking(0))!, neutral, options).angleY).toBeCloseTo(-10);
+  expect(mapFace(readFace(looking(20))!, neutral, { ...options, sensitivity: 1.5 }).angleY).toBeCloseTo(15);
+  expect(mapFace(readFace(looking(40))!, neutral, { ...options, sensitivity: 2 }).angleY).toBe(30);
+  expect(mapFace(readFace(looking(-40))!, neutral, { ...options, sensitivity: 2 }).angleY).toBe(-30);
 });
 test('mirror flips horizontal pose and gaze, swaps eyes, and blink closes fully', () => {
   const face = readFace(result(20, { eyeBlinkLeft: 0.9, eyeLookOutRight: 0.8 }))!;
