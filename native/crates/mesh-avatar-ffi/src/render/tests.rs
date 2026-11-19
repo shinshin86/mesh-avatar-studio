@@ -286,3 +286,17 @@ fn cover_msaa_destroyed_avatars_and_renderer_panics_are_contained() {
     assert!(bytes.iter().all(|&v| v == 88));
     assert_eq!(mesh_avatar_renderer_destroy(r2), MA_OK);
 }
+
+#[test]
+fn android_texture_limit_follows_gpu() {
+    for size in [4096, 8192, 16384] {
+        let supported = wgpu::Limits {
+            max_texture_dimension_2d: size,
+            min_uniform_buffer_offset_alignment: 512,
+            ..wgpu::Limits::downlevel_webgl2_defaults()
+        };
+        let requested = android_render_limits(supported.clone());
+        assert!(requested.check_limits(&supported));
+        assert_eq!(requested.max_texture_dimension_2d, size);
+    }
+}

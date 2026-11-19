@@ -94,6 +94,15 @@ fn validate_target(size: [u32; 2], view: &ViewOptions, limits: &wgpu::Limits) ->
     }
     Ok(length)
 }
+// The avatar uses vertex and fragment shaders. Request a downlevel graphics baseline
+// with this adapter's texture limits and buffer alignments.
+#[cfg(any(target_os = "android", test))]
+fn android_render_limits(supported: wgpu::Limits) -> wgpu::Limits {
+    wgpu::Limits::downlevel_webgl2_defaults()
+        .using_resolution(supported.clone())
+        .using_alignment(supported)
+}
+
 fn render_error(error: impl std::fmt::Display) -> Error {
     Error::new(MA_RENDER_ERROR, format!("GPU render error: {error}"))
 }
@@ -162,6 +171,8 @@ pub unsafe extern "C" fn mesh_avatar_renderer_create(
             let (device, queue) =
                 pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
                     label: Some("mesh avatar C renderer"),
+                    #[cfg(target_os = "android")]
+                    required_limits: android_render_limits(adapter.limits()),
                     ..Default::default()
                 }))
                 .map_err(render_error)?;
