@@ -109,6 +109,10 @@ export interface Rig {
   head: Ellipse & {
     shiftX: number; shiftY: number; pivotX: number; pivotY: number;
     maxRoll: number; weightBand: Band; turnBand: Band;
+    /** Optional polygon around head, hair and neck, px: head influence fades outside it. */
+    weightOutline?: [number, number][];
+    /** Fade width outside weightOutline, px (default 16). */
+    weightFeather?: number;
   };
   body: {
     pivotX: number; pivotY: number; maxRoll: number;
