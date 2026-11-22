@@ -60,3 +60,18 @@ test('head.weightOutline fades head influence outside the outline and keeps it i
   expect(createRig(rig).headWeight(1047, 400)).toBe(0);
   expect(createRig(rig).headWeight(1040, 400)).toBeGreaterThan(0);
 });
+
+test('a non-positive or missing head.weightFeather falls back to the default instead of NaN', () => {
+  const rig = parseRig(fixture);
+  rig.head.weightOutline = [[200, 0], [1030, 0], [1030, 800], [200, 800]];
+  const reference = createRig(rig);
+  for (const feather of [0, -3, NaN]) {
+    rig.head.weightFeather = feather;
+    const guarded = createRig(rig);
+    for (const [x, y] of [[615, 400], [1030, 0], [1040, 400], [1150, 400]]) {
+      expect(Number.isFinite(guarded.headWeight(x, y))).toBe(true);
+      expect(guarded.headWeight(x, y)).toBe(reference.headWeight(x, y));
+      expect(guarded.turnWeight(x, y)).toBe(reference.turnWeight(x, y));
+    }
+  }
+});

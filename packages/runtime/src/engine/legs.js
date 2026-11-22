@@ -1,3 +1,5 @@
+import { createHeadSideFade } from './head-outline.js';
+
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -21,7 +23,7 @@ const transform = (p, m) => [m[0] * p[0] + m[1] * p[1] + m[4], m[2] * p[0] + m[3
 /** Optional planted, two-bone legs. All coordinates are in source pixels. */
 export const LEG_DEFAULTS = Object.freeze({ spine: 0.7, bob: 2, twist: 0 });
 
-/** @param {{pivotX:number, pivotY:number, weightBand:number[]}|null} [head] */
+/** @param {{pivotX:number, pivotY:number, weightBand:number[], weightOutline?:number[][], weightFeather?:number}|null} [head] */
 export function createLegs(legs, body, head = null) {
   if (!legs) return null;
   const bones = [legs.left, legs.right].map((leg, i) => {
@@ -34,6 +36,8 @@ export function createLegs(legs, body, head = null) {
     const cross = dx * (leg.knee[1] - leg.hip[1]) - dy * (leg.knee[0] - leg.hip[0]);
     return { ...leg, u, v, depth, lateral: cross / Math.hypot(dx, dy), side: Math.sign(cross) || (i ? 1 : -1) };
   });
+  // Outside an optional head.weightOutline, a raised hand is body, not head: no head counter-correction.
+  const headSide = createHeadSideFade(head);
   const hasTwist = (legs.twist ?? 0) > 0, maxYaw = (legs.twist ?? 0) * Math.PI / 180;
   const pelvisRadius = Math.max(1, ...bones.map(b => Math.abs(b.hip[0] - legs.pelvis[0]) * 1.35));
   const shoulderRadius = Math.max(body.chest.rx, ...body.shoulders.map(s => Math.abs(s.cx - body.chest.cx) + s.rx));
@@ -137,7 +141,7 @@ export function createLegs(legs, body, head = null) {
       shin: smooth(b.knee[1] - 45, b.knee[1] + 45, y),
       pin: 1 - smooth(b.ankle[1] - 55, b.ankle[1], y),
     }));
-    return { right, perBone };
+    return headSide ? { right, perBone, headSide: headSide(x, y) } : { right, perBone };
   }
   function apply(p, _x, y, w, P) {
     const F = frame(P);
@@ -159,8 +163,9 @@ export function createLegs(legs, body, head = null) {
       return result;
     };
     const counter = bodyPoint(p);
+    const side = w.headSide ?? 1;
     if (head) {
-      const weight = 1 - smooth(...head.weightBand, y);
+      const weight = (1 - smooth(...head.weightBand, y)) * side;
       const center = bodyPoint([head.pivotX, head.pivotY]);
       const correction = -legs.tilt * (1 - rejection) * F.trunk.head * weight;
       const q = rotate(counter, center, correction);
@@ -172,7 +177,9 @@ export function createLegs(legs, body, head = null) {
       const angle = F.twist.shoulder + (F.twist.pelvis - F.twist.shoulder) * blend;
       const center = body.chest.cx + (legs.pelvis[0] - body.chest.cx) * blend;
       const radius = shoulderRadius + (pelvisRadius - shoulderRadius) * blend;
-      const headRejection = head ? smooth(...head.weightBand, y) : 1;
+      // side === 1 keeps the legacy expression bit for bit.
+      const headRejection = !head ? 1 : side === 1 ? smooth(...head.weightBand, y)
+        : 1 - (1 - smooth(...head.weightBand, y)) * side;
       counter[0] += yawOffset(_x, center, radius, angle) * headRejection;
     }
     let dx = 0, dy = 0;

@@ -237,3 +237,29 @@ test('yaw angular acceleration drives a stationary-waist pendulum through projec
   // Projection is symmetric in source depth; it creates one coherent drive, not column phase offsets.
   expect(garments[0].angle[0]).toBeCloseTo(garments[0].angle[4],4);
 });
+
+test('head.weightOutline removes the head counter-correction from points outside it and keeps it inside', () => {
+  const body = structuredClone(fixture.body); body.chest.cy = legs.pelvis[1] - 150;
+  const head = { ...fixture.head, pivotX: 512, pivotY: 350, weightBand: [300, 360] as [number, number] };
+  const tuned = { ...legs, shift: 20, tilt: 0.06, bend: 10, spine: 0.7, bob: 2, twist: 6 };
+  const outline: [number, number][] = [[400, 0], [620, 0], [620, 400], [400, 400]];
+  const plain = createLegs(tuned, body, head)!;
+  const outlined = createLegs(tuned, body, { ...head, weightOutline: outline, weightFeather: 20 })!;
+  // a head whose band ends above the image: every point is pure body
+  const bodyOnly = createLegs(tuned, body, { ...head, weightBand: [-200, -100] as [number, number] })!;
+  const models = [plain, outlined, bodyOnly];
+  const at = (m: typeof plain, x: number, y: number, P: object) => { const q = [x, y]; m.apply(q, x, y, m.weights(x, y), P); return q; };
+  let moved = 0;
+  for (let f = 0; f < 240; f++) {
+    const P = { weightShift: 0.7 * Math.sin((f + 1) / 60 * Math.PI * 2 / 5), bodyAngleX: 0 };
+    for (const m of models) m.step(P, 1 / 60);
+    for (const [x, y] of [[512, 200], [450, 330], [600, 380]]) expect(at(outlined, x, y, P)).toEqual(at(plain, x, y, P));
+    for (const [x, y] of [[900, 200], [800, 330]]) {
+      const got = at(outlined, x, y, P), want = at(bodyOnly, x, y, P);
+      got.forEach((v, i) => expect(v).toBeCloseTo(want[i], 9));
+      moved = Math.max(moved, Math.hypot(...at(plain, x, y, P).map((v, i) => v - want[i])));
+    }
+  }
+  // without the outline the same points did receive head correction
+  expect(moved).toBeGreaterThan(0.1);
+});
