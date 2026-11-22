@@ -1,5 +1,15 @@
 # mesh-avatar
 
+## 0.9.0
+
+### Minor Changes
+
+- 486a860: Add optional `rig.head.weightOutline` (a polygon around the head, hair and neck) and `rig.head.weightFeather` (px, default 16). Outside the outline the head's roll and turn influence fades to zero over the feather, so a hand raised beside the head stays with the body when the head tilts or turns. Avatars without the outline deform exactly as before.
+
+### Patch Changes
+
+- 9b7a172: Apply `rig.head.weightOutline` to the legs' head counter-correction too, so on avatars with legs a raised hand outside the outline no longer keeps part of the head's motion. A missing or non-positive `rig.head.weightFeather` now falls back to the default 16 px instead of producing `NaN` weights.
+
 ## 0.8.0
 
 ### Minor Changes
