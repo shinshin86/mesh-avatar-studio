@@ -32,6 +32,8 @@ the engine mapping. Do not copy the example illustration's coordinates into a ne
 | `head.maxRoll` | Roll magnitude at a ±30° head pose, radians; start near `0.15`. |
 | `head.weightBand` | Y range, px, where head influence fades from full to zero; below chin to collarbone. |
 | `head.turnBand` | Y range, px, where face-turn displacement fades; below chin into upper chest. |
+| `head.weightOutline` | Optional polygon, px, around the head, hair and neck; outside it head roll and turn influence fades to zero over `head.weightFeather`. Use it when a hand or arm is raised beside the head, so it stays with the body instead of tilting with the head. Omit it to keep the full-width bands. |
+| `head.weightFeather` | Optional fade width outside `head.weightOutline`, px; default `16`. |
 | `body.pivotX` | Body roll pivot x, px; middle of the lower torso. |
 | `body.pivotY` | Body roll pivot y, px; near the bottom of the image. |
 | `body.maxRoll` | Body rotation at a ±10° body pose, radians; start near `0.035`. |

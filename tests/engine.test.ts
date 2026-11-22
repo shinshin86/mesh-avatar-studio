@@ -37,3 +37,26 @@ test('missing optional parts and variable strand lengths stay finite', () => {
   expect(out.every(Number.isFinite)).toBe(true);
   expect(physics.chains).toHaveLength(0);
 });
+
+test('head.weightOutline fades head influence outside the outline and keeps it inside', () => {
+  const plain = createRig(parseRig(fixture));
+  const rig = parseRig(fixture);
+  // a box around the head and neck: a hand raised beside it at x 1150 stays with the body
+  rig.head.weightOutline = [[200, 0], [1030, 0], [1030, 800], [200, 800]];
+  rig.head.weightFeather = 20;
+  const outlined = createRig(rig);
+  for (const [x, y] of [[615, 400], [300, 700], [1000, 100]]) {
+    expect(outlined.headWeight(x, y)).toBe(plain.headWeight(x, y));
+    expect(outlined.turnWeight(x, y)).toBe(plain.turnWeight(x, y));
+  }
+  expect(plain.headWeight(1150, 400)).toBe(1);
+  expect(outlined.headWeight(1150, 400)).toBe(0);
+  expect(outlined.turnWeight(1150, 400)).toBe(0);
+  const edge = outlined.headWeight(1040, 400);
+  expect(edge).toBeGreaterThan(0);
+  expect(edge).toBeLessThan(1);
+  // the default feather is 16 px
+  delete rig.head.weightFeather;
+  expect(createRig(rig).headWeight(1047, 400)).toBe(0);
+  expect(createRig(rig).headWeight(1040, 400)).toBeGreaterThan(0);
+});

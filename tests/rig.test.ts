@@ -63,3 +63,17 @@ test('accepts an optional positive iris travel and rejects other values', () => 
     expect(validateRig(rig).join()).toContain('rig.view.irisTravel');
   }
 });
+
+test('accepts an optional head weight outline and feather and rejects malformed ones', () => {
+  const rig = parseRig(fixture);
+  rig.head.weightOutline = [[200, 0], [1030, 0], [1030, 800], [200, 800]];
+  rig.head.weightFeather = 14;
+  expect(validateRig(rig)).toEqual([]);
+  rig.head.weightOutline = [[200, 0], [1030, 0]];
+  expect(validateRig(rig).join()).toContain('rig.head.weightOutline');
+  rig.head.weightOutline = [[200, 0], [1030, 0], [1030, 800], [200, 800]];
+  for (const bad of [0, -3, NaN]) {
+    rig.head.weightFeather = bad;
+    expect(validateRig(rig).join()).toContain('rig.head.weightFeather');
+  }
+});

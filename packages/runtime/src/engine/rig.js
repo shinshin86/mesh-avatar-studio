@@ -107,10 +107,27 @@ export function createRig(rig) {
 
   const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-  function headWeight(x, y) { return 1 - sstep(...HEAD.weightBand, y); }
+  // Optional head.weightOutline (polygon, px) around the head, hair and neck: outside it the head
+  // influence fades to zero over head.weightFeather px (default 16), so a hand raised beside the
+  // head stays with the body instead of rolling and turning with the head. Without it the head
+  // influence spans the full width, as before.
+  const OUTLINE = HEAD.weightOutline, FEATHER = HEAD.weightFeather ?? 16;
+  function outsideBy(x, y) {
+    let inside = false, best = Infinity;
+    for (let i = 0, j = OUTLINE.length - 1; i < OUTLINE.length; j = i++) {
+      const [ax, ay] = OUTLINE[j], [bx, by] = OUTLINE[i];
+      if ((ay > y) !== (by > y) && x < ax + ((y - ay) * (bx - ax)) / (by - ay)) inside = !inside;
+      const vx = bx - ax, vy = by - ay;
+      const u = Math.min(1, Math.max(0, ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy || 1)));
+      best = Math.min(best, Math.hypot(x - ax - vx * u, y - ay - vy * u));
+    }
+    return inside ? 0 : best;
+  }
+  const sideFade = OUTLINE ? (x, y) => 1 - sstep(0, FEATHER, outsideBy(x, y)) : () => 1;
+  function headWeight(x, y) { return (1 - sstep(...HEAD.weightBand, y)) * sideFade(x, y); }
   // The turn bump already fades out towards its rim, so it only needs a gentle cut-off
   // (stacking both fades is what sheared the neck).
-  function turnWeight(x, y) { return 1 - sstep(...HEAD.turnBand, y); }
+  function turnWeight(x, y) { return (1 - sstep(...HEAD.turnBand, y)) * sideFade(x, y); }
 
   // Hair strands: rest polylines root -> tip (4 nodes each), traced from the drawing.
   // Each one is a small spring chain in physics.js; vertices follow the strands near them.
